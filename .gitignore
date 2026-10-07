@@ -22,3 +22,13 @@ tmp-*-profile/
 # Submodules / unrelated local dirs
 ccricket-data/
 
+# Android TWA & Native Build Artifacts
+*.keystore
+*.jks
+build/
+app-release-*
+*.aab
+*.apk
+.bubblewrap/
+android-project/
+

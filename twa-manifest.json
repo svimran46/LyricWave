@@ -1,0 +1,54 @@
+{
+  "packageId": "app.lyricwave.twa",
+  "host": "lyricwave.pages.dev",
+  "name": "LyricWave — Synced Lyrics Companion",
+  "launcherName": "LyricWave",
+  "themeColor": "#0a0c10",
+  "themeColorDark": "#0a0c10",
+  "navigationColor": "#0a0c10",
+  "navigationColorDark": "#0a0c10",
+  "navigationDividerColor": "#00000000",
+  "navigationDividerColorDark": "#00000000",
+  "backgroundColor": "#0a0c10",
+  "enableNotifications": false,
+  "startUrl": "/?source=twa",
+  "iconUrl": "https://lyricwave.pages.dev/icons/icon-512.png",
+  "maskableIconUrl": "https://lyricwave.pages.dev/icons/icon-512.png",
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [
+    {
+      "name": "Identify Music",
+      "shortName": "Listen",
+      "url": "https://lyricwave.pages.dev/?tab=mic",
+      "chosenIconUrl": "https://lyricwave.pages.dev/icons/icon-192.png"
+    },
+    {
+      "name": "Top Charts",
+      "shortName": "Charts",
+      "url": "https://lyricwave.pages.dev/?tab=charts",
+      "chosenIconUrl": "https://lyricwave.pages.dev/icons/icon-192.png"
+    }
+  ],
+  "webManifestUrl": "https://lyricwave.pages.dev/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {
+    "locationDelegation": {
+      "enabled": false
+    },
+    "playBilling": {
+      "enabled": false
+    }
+  },
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "android"
+  },
+  "generatorApp": "bubblewrap-cli"
+}

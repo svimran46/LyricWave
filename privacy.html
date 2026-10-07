@@ -1,268 +1,155 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="pixel">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Privacy & Data Security — LyricWave</title>
-  <meta name="description" content="Understand what data LyricWave accesses, how it is processed in memory, and control your data with Delete My Data and Logout options.">
-  
-  <meta name="theme-color" content="#0a0c10">
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
-
-  <!-- Web Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
-  
+  <title>Privacy Policy — LyricWave</title>
+  <link rel="icon" type="image/svg+xml" href="./icons/icon.svg">
   <style>
-    .privacy-container {
+    :root {
+      --bg: #0a0c10;
+      --surface: #12151c;
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #f0f3f6;
+      --text-muted: #8b949e;
+      --accent: #22c55e;
+      --radius: 12px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      margin: 0;
+      padding: 2rem 1.25rem 4rem;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      max-width: 760px;
       width: 100%;
-      max-width: 640px;
-      margin: 1.5rem auto;
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
     }
-    .privacy-card {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      padding: 1.75rem;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
-      display: flex;
-      flex-direction: column;
-      gap: 1.35rem;
+    .header {
+      margin-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
     }
-    .privacy-section {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-    .privacy-section h3 {
-      font-size: 1.05rem;
-      color: var(--text-primary);
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    .privacy-section p, .privacy-section li {
-      font-size: 0.88rem;
-      color: var(--text-secondary);
-      line-height: 1.55;
-    }
-    .privacy-section ul {
-      padding-left: 1.25rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
-    }
-    .action-badge-row {
-      display: flex;
-      gap: 0.75rem;
-      flex-wrap: wrap;
-      margin-top: 0.5rem;
-    }
-    .btn-danger-outline {
-      background: rgba(239, 68, 68, 0.12);
-      border: 1px solid rgba(239, 68, 68, 0.4);
-      color: #f87171;
-      padding: 0.45rem 1rem;
-      border-radius: var(--radius-full);
-      font-size: 0.82rem;
-      font-weight: 600;
-      cursor: pointer;
+    .back-link {
       display: inline-flex;
       align-items: center;
       gap: 0.4rem;
-      transition: all var(--transition-fast);
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
     }
-    .btn-danger-outline:hover {
-      background: rgba(239, 68, 68, 0.25);
-      border-color: #ef4444;
-      color: #ffffff;
+    h1 {
+      font-size: 2rem;
+      margin: 0.5rem 0 0.25rem;
+      letter-spacing: -0.02em;
     }
-    .privacy-callout {
-      background: rgba(56, 189, 248, 0.08);
-      border: 1px solid rgba(56, 189, 248, 0.25);
-      border-radius: var(--radius-sm);
-      padding: 0.85rem 1rem;
-      font-size: 0.82rem;
-      color: #bae6fd;
+    .date-tag {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+    h2 {
+      font-size: 1.25rem;
+      margin-top: 0;
+      margin-bottom: 0.75rem;
+      color: var(--text);
+    }
+    p, li {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+    ul {
+      padding-left: 1.4rem;
+      margin-bottom: 0;
+    }
+    li {
+      margin-bottom: 0.5rem;
+    }
+    strong {
+      color: var(--text);
+    }
+    .contact-card {
+      border-left: 3px solid var(--accent);
     }
   </style>
 </head>
 <body>
+  <div class="container">
+    <div class="header">
+      <a href="/" class="back-link">← Return to LyricWave</a>
+      <h1>Privacy Policy</h1>
+      <span class="date-tag">Last updated: October 8, 2026 • Effective immediately</span>
+    </div>
 
-  <div class="privacy-container">
+    <section>
+      <h2>1. Overview</h2>
+      <p>
+        LyricWave ("we", "our", or "the app") provides real-time synchronized lyrics, acoustic music recognition, trending charts, and music news. This Privacy Policy discloses our data practices, in strict compliance with Google Play Developer Policies and global privacy regulations.
+      </p>
+    </section>
 
-    <header class="brand">
-      <div class="brand-header-row">
-        <div class="brand-left">
-          <div class="brand-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            </svg>
-          </div>
-          <div>
-            <h1 class="brand-title">Privacy & Security</h1>
-            <p class="brand-subtitle">LyricWave Transparent Data Architecture</p>
-          </div>
-        </div>
+    <section>
+      <h2>2. Microphone Audio & Acoustic Recognition</h2>
+      <p>
+        LyricWave accesses your device's microphone <strong>only when you explicitly initiate acoustic recognition</strong> (tapping "Tap to Listen" or the microphone orb).
+      </p>
+      <ul>
+        <li><strong>Transient Audio Sampling:</strong> The microphone records a short audio sample (typically 5 to 10 seconds) exclusively to identify the currently playing music.</li>
+        <li><strong>Third-Party Processors:</strong> To identify tracks, the transient audio sample is securely transmitted via HTTPS to our acoustic recognition providers: <strong>ACRCloud</strong> (<a href="https://www.acrcloud.com/privacy" target="_blank" rel="noopener" style="color:var(--accent);">Privacy Policy</a>) and/or <strong>AudD</strong> (<a href="https://audd.io/privacy" target="_blank" rel="noopener" style="color:var(--accent);">Privacy Policy</a>).</li>
+        <li><strong>No Audio Storage:</strong> LyricWave does not record continuously in the background. Audio samples are processed in-memory and are never stored on LyricWave servers or sold to data brokers.</li>
+      </ul>
+    </section>
 
-        <a href="./index.html" class="btn btn-sm btn-ghost" style="text-decoration:none;">
-          ← Back to App
-        </a>
-      </div>
-    </header>
+    <section>
+      <h2>3. Third-Party Music Connections (Spotify & Last.fm)</h2>
+      <ul>
+        <li><strong>Spotify Integration:</strong> Connects via official Spotify OAuth 2.0 PKCE. LyricWave requests permissions only to read currently playing tracks (`user-read-currently-playing`, `user-read-playback-state`). Access tokens are stored locally on your device in your browser's private session storage. Tokens are never transmitted to our servers and can be revoked at any time via your Spotify Account Dashboard.</li>
+        <li><strong>Last.fm Integration:</strong> Polls your public Last.fm scrobble profile using your chosen username. We store only your username locally on your device to persist your session.</li>
+      </ul>
+    </section>
 
-    <!-- Notification Banner -->
-    <div id="privacyAlert" class="hidden" role="alert"></div>
+    <section>
+      <h2>4. Local On-Device Storage</h2>
+      <p>
+        LyricWave uses your device's `localStorage` solely to enhance your user experience:
+      </p>
+      <ul>
+        <li>Theme preferences (Aurora, Neon, Adaptive, Vinyl, Paper)</li>
+        <li>Lyrics display settings (font scale, sync latency offset, word-by-word reveal)</li>
+        <li>Recently identified track titles and timestamps (up to 10 tracks, stored solely on your device and clearable with one tap)</li>
+      </ul>
+    </section>
 
-    <main class="privacy-card">
+    <section>
+      <h2>5. Analytics & Diagnostics</h2>
+      <p>
+        LyricWave operates without third-party tracking pixels, biometric trackers, or cross-app advertising SDKs. Core edge delivery performance and anonymous request counts are monitored solely via Cloudflare's privacy-first infrastructure.
+      </p>
+    </section>
 
-      <div class="privacy-section">
-        <h3>🔒 Our Core Privacy Commitment</h3>
-        <p>
-          LyricWave is built with a zero-retention, client-first architecture. We do not track your personal identity, build advertising profiles, or sell any information.
-        </p>
-      </div>
-
-      <div class="privacy-section">
-        <h3>🎙️ 1. Microphone Recognition (Audio)</h3>
-        <ul>
-          <li><strong>What is captured:</strong> A temporary, 5-to-10 second compressed audio snippet recorded strictly after you tap <em>"Listen"</em>.</li>
-          <li><strong>Where it goes:</strong> Sent to our serverless Cloudflare Pages endpoint (<code>/api/recognize</code>) which routes the sample to our configured recognition provider (AudD or ACRCloud) to match against catalog databases.</li>
-          <li><strong>Storage policy:</strong> Audio data is processed in-memory and <strong>never saved to disk or logged</strong>. Once recognized, the recording buffer is discarded.</li>
-          <li><strong>Hardware release:</strong> All microphone tracks are explicitly closed immediately upon recording completion so your browser/system microphone indicator turns off.</li>
-        </ul>
-      </div>
-
-
-      <div class="privacy-section">
-        <h3>🔍 2. Manual Song Search</h3>
-        <ul>
-          <li><strong>What is sent:</strong> Your text query (e.g. song title or artist).</li>
-          <li><strong>Where it goes:</strong> Directly to LRCLIB (open-source lyrics community database) and Apple iTunes Search API to fetch artwork and durations.</li>
-          <li><strong>No authentication:</strong> No login or personal information is transmitted.</li>
-        </ul>
-      </div>
-
-      <div class="privacy-section">
-        <h3>📻 3. Last.fm Scrobble Tracking</h3>
-        <ul>
-          <li><strong>What is sent:</strong> Your public Last.fm username only.</li>
-          <li><strong>No password:</strong> LyricWave never asks for, receives, or stores your Last.fm password.</li>
-          <li><strong>Where it goes:</strong> Directly queries the public Last.fm API (<code>user.getrecenttracks</code>) to detect your active scrobble.</li>
-        </ul>
-      </div>
-
-      <div class="privacy-section">
-        <h3>🟢 4. Spotify Live Tracking (OAuth PKCE)</h3>
-        <ul>
-          <li><strong>Authentication:</strong> Secure OAuth 2.0 with Proof Key for Code Exchange (PKCE).</li>
-          <li><strong>Tokens:</strong> Access and refresh tokens are stored strictly in your device's browser <code>localStorage</code> and never sent to our servers.</li>
-          <li><strong>Permissions:</strong> Read-only access to track identity (<code>user-read-currently-playing</code>), playback time and play/pause state (<code>user-read-playback-state</code>), and profile avatar/display name (<code>user-read-private</code>).</li>
-        </ul>
-      </div>
-
-      <div class="privacy-section">
-        <h3>💾 5. Local Storage on Your Device</h3>
-        <p>LyricWave stores preferences locally on your browser for convenience:</p>
-        <ul>
-          <li>Visual theme, lyrics font scale, and word-by-word reveal mode.</li>
-          <li>Last selected input source and per-source calibration offsets.</li>
-          <li>LRCLIB cached lyric files (to prevent redundant network requests).</li>
-          <li>Last.fm username and Spotify PKCE tokens (if authenticated).</li>
-        </ul>
-      </div>
-
-      <div class="privacy-callout">
-        <strong>Data Retention Guarantee:</strong> None of your music sessions or microphone recordings are stored on our servers. You have complete control over all data saved in your browser.
-      </div>
-
-      <!-- User Data Controls -->
-      <div class="privacy-section" style="border-top: 1px solid var(--border-subtle); padding-top: 1.25rem;">
-        <h3>🛡️ Your Data & Privacy Controls</h3>
-        <p>Take immediate action on any locally stored data or connected sessions:</p>
-        
-        <div class="action-badge-row">
-          <button id="btnDeleteData" class="btn-danger-outline" type="button">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            </svg>
-            <span>Delete All My Data</span>
-          </button>
-
-          <button id="btnLogoutAll" class="btn btn-sm btn-ghost" type="button" style="border: 1px solid var(--border-subtle);">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-              <polyline points="16 17 21 12 16 7"></polyline>
-              <line x1="21" y1="12" x2="9" y2="12"></line>
-            </svg>
-            <span>Logout (Spotify & Last.fm)</span>
-          </button>
-        </div>
-      </div>
-
-    </main>
-
+    <section class="contact-card">
+      <h2>6. Contact & Data Rights</h2>
+      <p>
+        You have the right to clear all local data at any time via the "Reset to Defaults" button in the app Settings or by clearing your browser/app storage.
+      </p>
+      <p>
+        For inquiries regarding this privacy policy or data processing practices, please contact:
+        <br>
+        <strong>Email:</strong> support@lyricwave.pages.dev
+      </p>
+    </section>
   </div>
-
-  <script type="module">
-    import { logout } from './auth.js';
-
-    const btnDeleteData = document.getElementById('btnDeleteData');
-    const btnLogoutAll = document.getElementById('btnLogoutAll');
-    const privacyAlert = document.getElementById('privacyAlert');
-
-    // Show temporary alert banner
-    function showBanner(msg, type = 'info') {
-      privacyAlert.className = `alert alert-${type}`;
-      privacyAlert.innerHTML = `
-        <div class="alert-content">
-          <span>${msg}</span>
-        </div>
-      `;
-      privacyAlert.classList.remove('hidden');
-      setTimeout(() => privacyAlert.classList.add('hidden'), 5000);
-    }
-
-    // Delete all local data & caches
-    btnDeleteData.addEventListener('click', async () => {
-      const confirmed = window.confirm(
-        'Are you sure you want to delete all LyricWave data? This will clear all cached lyrics, calibration offsets, preferences, and connected accounts.'
-      );
-      if (!confirmed) return;
-
-      try {
-        // Clear local storage
-        localStorage.clear();
-
-        // Clear service worker caches if available
-        if ('caches' in window) {
-          const keys = await caches.keys();
-          await Promise.all(keys.map(k => caches.delete(k)));
-        }
-
-        showBanner('✓ All local data, cached lyrics, and credentials have been permanently deleted.', 'info');
-        setTimeout(() => {
-          window.location.href = './index.html';
-        }, 1200);
-      } catch (err) {
-        showBanner('Failed to clear some cache data: ' + err.message, 'danger');
-      }
-    });
-
-    // Logout all accounts
-    btnLogoutAll.addEventListener('click', () => {
-      logout();
-      localStorage.removeItem('lyricwave_lastfm_user');
-      showBanner('✓ Logged out of Spotify and cleared Last.fm username.', 'info');
-    });
-  </script>
 </body>
 </html>
