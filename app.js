@@ -33,6 +33,7 @@ const sourceTabs = document.querySelectorAll('.source-tab');
 const tabPanels = {
   mic: document.getElementById('panelMic'),
   search: document.getElementById('panelSearch'),
+  charts: document.getElementById('panelCharts'),
   connect: document.getElementById('panelConnect'),
   lastfm: document.getElementById('panelLastfm'),
   spotify: document.getElementById('panelSpotify')
@@ -113,6 +114,13 @@ const btnAcceptMicConsent = document.getElementById('btnAcceptMicConsent');
 const searchInput = document.getElementById('searchInput');
 const btnClearSearch = document.getElementById('btnClearSearch');
 const searchResults = document.getElementById('searchResults');
+
+// DOM Elements: Charts Panel
+const panelCharts = document.getElementById('panelCharts');
+const chartsListContainer = document.getElementById('chartsListContainer');
+const btnRefreshCharts = document.getElementById('btnRefreshCharts');
+const chartsUpdatedTag = document.getElementById('chartsUpdatedTag');
+const genrePills = document.querySelectorAll('.genre-pill');
 
 // DOM Elements: Last.fm Input
 const lastfmUserInput = document.getElementById('lastfmUserInput');
@@ -988,6 +996,184 @@ function renderSearchResults(tracks) {
 }
 
 // =====================================================================
+// Genius-Themed Charts Section (Top Trending Songs)
+// =====================================================================
+
+let currentChartGenre = 'all';
+let cachedChartData = null;
+let isFetchingCharts = false;
+
+async function loadCharts(genre = 'all', forceRefresh = false) {
+  if (!chartsListContainer) return;
+  if (isFetchingCharts) return;
+
+  currentChartGenre = genre;
+
+  // Visual loading feedback
+  if (btnRefreshCharts) {
+    btnRefreshCharts.classList.add('loading');
+  }
+
+  chartsListContainer.innerHTML = `
+    <div class="charts-loading-state">
+      <div class="spinner" style="margin: 0 auto 0.75rem auto;"></div>
+      <p>Loading hot chart songs...</p>
+    </div>
+  `;
+
+  try {
+    isFetchingCharts = true;
+    const query = new URLSearchParams({
+      limit: '25',
+      genre: genre
+    });
+    if (forceRefresh) {
+      query.set('t', Date.now().toString());
+    }
+
+    const res = await fetch(`/api/charts?${query.toString()}`);
+    if (!res.ok) {
+      throw new Error(`Failed to load charts (HTTP ${res.status})`);
+    }
+
+    const data = await res.json();
+    cachedChartData = data;
+
+    if (chartsUpdatedTag && data.updated) {
+      try {
+        const d = new Date(data.updated);
+        chartsUpdatedTag.textContent = `Updated ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      } catch {
+        chartsUpdatedTag.textContent = 'Live Today';
+      }
+    }
+
+    renderCharts(data.songs || []);
+  } catch (err) {
+    console.warn('Charts load error:', err);
+    chartsListContainer.innerHTML = `
+      <div class="charts-empty-state">
+        <p style="margin-bottom:0.6rem;">⚠️ Unable to load charts right now.</p>
+        <button id="btnRetryCharts" class="btn btn-sm btn-ghost" type="button" style="border:1px solid var(--border);">
+          ↻ Try Again
+        </button>
+      </div>
+    `;
+    const btnRetry = document.getElementById('btnRetryCharts');
+    if (btnRetry) {
+      btnRetry.addEventListener('click', () => loadCharts(genre, true));
+    }
+  } finally {
+    isFetchingCharts = false;
+    if (btnRefreshCharts) {
+      btnRefreshCharts.classList.remove('loading');
+    }
+  }
+}
+
+function renderCharts(songs) {
+  if (!chartsListContainer) return;
+
+  if (!songs || songs.length === 0) {
+    chartsListContainer.innerHTML = `
+      <div class="charts-empty-state">
+        <p>No tracks found for this genre. Check back shortly!</p>
+      </div>
+    `;
+    return;
+  }
+
+  chartsListContainer.innerHTML = '';
+  const fragment = document.createDocumentFragment();
+
+  songs.forEach((song, idx) => {
+    const card = document.createElement('div');
+    const rank = song.rank || (idx + 1);
+    card.className = `chart-song-card rank-${rank <= 3 ? rank : 'other'}`;
+    card.setAttribute('role', 'button');
+    card.setAttribute('tabindex', '0');
+    card.setAttribute('aria-label', `Play #${rank}: ${song.title} by ${song.artist}`);
+
+    const cleanArt = sanitizeUrl(song.albumArt);
+    const artHtml = cleanArt
+      ? `<img class="chart-song-art" src="${cleanArt}" alt="${escapeHtml(song.title)}" loading="lazy" onerror="this.style.display='none'">`
+      : `<div class="chart-song-art" style="display:flex;align-items:center;justify-content:center;font-size:1.1rem;opacity:0.6;">🎵</div>`;
+
+    card.innerHTML = `
+      <div class="chart-rank-number">#${rank}</div>
+      ${artHtml}
+      <div class="chart-song-meta">
+        <div class="chart-song-title" title="${escapeHtml(song.title)}">${escapeHtml(song.title)}</div>
+        <div class="chart-song-artist" title="${escapeHtml(song.artist)}">${escapeHtml(song.artist)}</div>
+        <div class="chart-song-tag-row">
+          <span class="chart-genre-tag">${escapeHtml(song.genre || 'Hot')}</span>
+          ${rank <= 5 ? '<span class="chart-fire-tag">🔥 Trending</span>' : ''}
+        </div>
+      </div>
+      <div class="chart-song-action">
+        <button class="btn-chart-play" type="button" aria-label="Play synced lyrics for ${escapeHtml(song.title)}">
+          <span>▶ Play</span>
+        </button>
+      </div>
+    `;
+
+    const startChartPlayback = () => {
+      // Connect searchSource & select this track to launch unified synced lyrics
+      engine.connectSource(searchSource);
+      searchSource.selectTrack({
+        id: song.id || `chart_${song.appleId || idx}`,
+        title: song.title,
+        artist: song.artist,
+        album: song.album || '',
+        albumArt: song.albumArt || '',
+        durationMs: 200000, // standard nominal duration, auto-calibrated when lyrics or LRCLIB data loads
+        source: 'chart'
+      }, true);
+      showAlert(`Loading synced lyrics for #${rank}: "${song.title}"...`, 'info');
+    };
+
+    card.addEventListener('click', startChartPlayback);
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        startChartPlayback();
+      }
+    });
+
+    const playBtn = card.querySelector('.btn-chart-play');
+    if (playBtn) {
+      playBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        startChartPlayback();
+      });
+    }
+
+    fragment.appendChild(card);
+  });
+
+  chartsListContainer.appendChild(fragment);
+}
+
+// Genre filter pills click listener
+if (genrePills && genrePills.length > 0) {
+  genrePills.forEach((pill) => {
+    pill.addEventListener('click', () => {
+      genrePills.forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      const genre = pill.dataset.genre || 'all';
+      loadCharts(genre);
+    });
+  });
+}
+
+// Refresh button listener
+if (btnRefreshCharts) {
+  btnRefreshCharts.addEventListener('click', () => {
+    loadCharts(currentChartGenre, true);
+  });
+}
+
+// =====================================================================
 // Input Source 3: Last.fm Live Scrobble (Approximate Mode)
 // =====================================================================
 
@@ -1200,6 +1386,13 @@ sourceTabs.forEach((tab) => {
       engine.connectSource(searchSource);
       engine.loadOffsetForSource('search');
       updateOffsetUI();
+    } else if (targetTab === 'charts') {
+      engine.connectSource(searchSource);
+      engine.loadOffsetForSource('search');
+      updateOffsetUI();
+      if (!cachedChartData) {
+        loadCharts(currentChartGenre);
+      }
     } else if (targetTab === 'mic') {
       engine.connectSource(null);
       engine.loadOffsetForSource('mic');
@@ -2279,6 +2472,14 @@ async function init() {
       } catch (err) {
         console.warn('Deep query search failed:', err);
       }
+    }
+  }
+
+  // 9. Restore previously selected tab if saved (e.g. charts, search, mic)
+  if (!deepQuery && activeTab) {
+    const tabToRestore = document.querySelector(`.source-tab[data-tab="${activeTab}"]`);
+    if (tabToRestore && activeTab !== 'mic') {
+      tabToRestore.click();
     }
   }
 }

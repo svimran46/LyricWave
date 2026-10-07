@@ -1054,7 +1054,291 @@ body {
   color: var(--text-muted);
 }
 
+/* =====================================================================
+   Genius-Themed Charts Section (LyricWave Aesthetic)
+   ===================================================================== */
+.badge-hot-tag {
+  background: linear-gradient(135deg, #ff0055, #ff5500);
+  color: #ffffff;
+  font-size: 0.58rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.1rem 0.35rem;
+  border-radius: var(--radius-full);
+  margin-left: 0.2rem;
+}
+
+.charts-hero-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.charts-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.charts-supertitle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.charts-fire-badge {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #ff3366;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.charts-updated-tag {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.charts-main-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 0.25rem;
+  letter-spacing: -0.02em;
+}
+
+.charts-subtitle {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.btn-refresh-charts {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.4rem 0.75rem;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.btn-refresh-charts:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--border-highlight);
+  color: var(--accent);
+}
+
+.btn-refresh-charts.loading svg {
+  animation: spin 800ms linear infinite;
+}
+
+/* Category Filter Pills */
+.charts-genre-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  scrollbar-width: none;
+}
+
+.charts-genre-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.genre-pill {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--radius-full);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.genre-pill:hover {
+  color: var(--text);
+  border-color: var(--border-highlight);
+}
+
+.genre-pill.active {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--spotify-green-glow);
+}
+
+/* Charts Song List */
+.charts-list-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.charts-loading-state,
+.charts-empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+/* Chart Track Card */
+.chart-song-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.65rem 0.85rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+  overflow: hidden;
+}
+
+.chart-song-card:hover {
+  background: var(--bg-elevated);
+  border-color: var(--border-highlight);
+  transform: translateX(3px);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3);
+}
+
+/* Genius-style bold ranking numbers */
+.chart-rank-number {
+  font-size: 1.15rem;
+  font-weight: 900;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  color: var(--text-muted);
+  width: 28px;
+  text-align: center;
+  flex-shrink: 0;
+  transition: color var(--transition-fast);
+}
+
+.chart-song-card:hover .chart-rank-number {
+  color: var(--accent);
+}
+
+/* Top 3 Medals */
+.chart-song-card.rank-1 .chart-rank-number {
+  color: #fbbf24; /* Gold */
+  font-size: 1.35rem;
+}
+
+.chart-song-card.rank-2 .chart-rank-number {
+  color: #94a3b8; /* Silver */
+  font-size: 1.25rem;
+}
+
+.chart-song-card.rank-3 .chart-rank-number {
+  color: #d97706; /* Bronze */
+  font-size: 1.2rem;
+}
+
+.chart-song-art {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  background: #181b22;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.chart-song-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.chart-song-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 0.15rem;
+}
+
+.chart-song-artist {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 0.2rem;
+}
+
+.chart-song-tag-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.chart-genre-tag {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-full);
+}
+
+.chart-fire-tag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #f43f5e;
+}
+
+.chart-song-action {
+  flex-shrink: 0;
+}
+
+.btn-chart-play {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all var(--transition-fast);
+}
+
+.chart-song-card:hover .btn-chart-play {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--spotify-green-glow);
+}
+
 /* 3. Last.fm Setup Section */
+
 .lastfm-card {
   display: flex;
   flex-direction: column;

@@ -98,6 +98,15 @@
           <span class="tab-label">Search</span>
         </button>
 
+        <button id="tabCharts" class="source-tab" role="tab" aria-selected="false" data-tab="charts">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;" aria-hidden="true">
+            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+            <polyline points="17 6 23 6 23 12"/>
+          </svg>
+          <span class="tab-label">Charts</span>
+          <span class="badge-hot-tag">Hot</span>
+        </button>
+
         <button id="tabConnect" class="source-tab" role="tab" aria-selected="false" data-tab="connect">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;" aria-hidden="true">
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
@@ -106,6 +115,7 @@
           <span class="tab-label">Connect</span>
         </button>
       </nav>
+
 
       <!-- Compact Switcher for "Now Playing" state -->
       <div id="compactSourceBar" class="compact-source-bar hidden">
@@ -279,8 +289,54 @@
         </div>
       </section>
 
-      <!-- 3. Connect Panel: Internal Segmented Switcher for Connected Accounts (Last.fm & Spotify) -->
+      <!-- 3. Charts Panel: Genius-Inspired Trending Music Section -->
+      <section id="panelCharts" class="tab-panel hidden" aria-label="Top Charts">
+        <div class="charts-hero-card">
+          <div class="charts-header-row">
+            <div>
+              <div class="charts-supertitle">
+                <span class="charts-fire-badge">🔥 TOP TRENDING</span>
+                <span class="charts-updated-tag" id="chartsUpdatedTag">Live Today</span>
+              </div>
+              <h2 class="charts-main-title">LyricWave Charts</h2>
+              <p class="charts-subtitle">
+                The most played songs right now. Tap any track to immediately launch synced lyrics in our visualizer.
+              </p>
+            </div>
+            
+            <button id="btnRefreshCharts" class="btn-refresh-charts" type="button" aria-label="Refresh Charts" title="Refresh Trending Charts">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+              <span>Refresh</span>
+            </button>
+          </div>
+
+          <!-- Genre Filter Pills (Genius Category Tabs) -->
+          <div class="charts-genre-bar" role="tablist" aria-label="Chart Genres">
+            <button class="genre-pill active" type="button" data-genre="all">All Genres</button>
+            <button class="genre-pill" type="button" data-genre="pop">Pop</button>
+            <button class="genre-pill" type="button" data-genre="hip-hop">Hip-Hop/Rap</button>
+            <button class="genre-pill" type="button" data-genre="r&b">R&B</button>
+            <button class="genre-pill" type="button" data-genre="country">Country</button>
+            <button class="genre-pill" type="button" data-genre="latin">Latin</button>
+          </div>
+        </div>
+
+        <!-- Charts Song Ranking List Container -->
+        <div id="chartsListContainer" class="charts-list-wrap">
+          <div class="charts-loading-state">
+            <div class="spinner" style="margin: 0 auto 0.75rem auto;"></div>
+            <p>Loading hot chart songs...</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. Connect Panel: Internal Segmented Switcher for Connected Accounts (Last.fm & Spotify) -->
       <section id="panelConnect" class="tab-panel hidden" aria-label="Connected Accounts">
+
         <div class="connect-segmented-nav" role="tablist" aria-label="Connected services">
           <button id="btnSubLastfm" class="connect-sub-tab active" type="button" role="tab" aria-selected="true" data-subtab="lastfm">
             <span>Last.fm (All Players)</span>
