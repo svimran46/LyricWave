@@ -1008,13 +1008,14 @@ function updateReelLine(lineIndex) {
   const currentLine = lines[lineIndex];
   const nextLineTime = lines[lineIndex + 1]?.timeMs || 0;
 
-  // Pulse animation on line box
+  // Subtle pulse animation on line box
+  reelLineBox.classList.remove('line-pulse');
+  // Trigger reflow to restart animation reliably
+  void reelLineBox.offsetWidth;
   reelLineBox.classList.add('line-pulse');
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      reelLineBox.classList.remove('line-pulse');
-    });
-  });
+  setTimeout(() => {
+    reelLineBox.classList.remove('line-pulse');
+  }, 220);
 
   reelPrevLine.textContent = lines[lineIndex - 1]?.text || '';
   reelNextLine.textContent = lines[lineIndex + 1]?.text || '';

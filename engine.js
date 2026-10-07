@@ -52,6 +52,17 @@ export class UnifiedSyncEngine {
 
     // Current source connection
     this.currentSource = null;
+
+    // Resync clock when returning to foreground tab
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && this.isPlaying && this.track) {
+          this.anchorPositionSec = this.getPositionSeconds();
+          this.anchorLocalTime = performance.now();
+          if (!this.rafId) this.start();
+        }
+      });
+    }
   }
 
   /**
@@ -88,7 +99,7 @@ export class UnifiedSyncEngine {
   }
 
   start() {
-    if (!this.rafId) {
+    if (!this.rafId && typeof requestAnimationFrame === 'function') {
       this.loop = this.loop.bind(this);
       this.rafId = requestAnimationFrame(this.loop);
     }
@@ -96,7 +107,9 @@ export class UnifiedSyncEngine {
 
   stop() {
     if (this.rafId) {
-      cancelAnimationFrame(this.rafId);
+      if (typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(this.rafId);
+      }
       this.rafId = null;
     }
     if (this.currentSource && typeof this.currentSource.stop === 'function') {
@@ -125,6 +138,9 @@ export class UnifiedSyncEngine {
     this.anchorLocalTime = now;
     this.driftSec = 0;
     this.activeLineIndex = -1;
+
+    // Ensure the animation & sync loop is running
+    this.start();
 
     if (isNew) {
       if (normalized.source) {
@@ -226,6 +242,7 @@ export class UnifiedSyncEngine {
     if (!this.track || this.isPlaying) return;
     this.isPlaying = true;
     this.anchorLocalTime = performance.now();
+    this.start();
     if (this.currentSource && typeof this.currentSource.play === 'function') {
       try { this.currentSource.play(); } catch {}
     }
