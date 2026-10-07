@@ -49,11 +49,33 @@ export class MicSource {
     this.recordStartTime = 0;   // performance.now() when recording started
     this.uploadStartTime = 0;   // performance.now() when upload started
 
+    // Auto-retry once on no match
+    this.retryAttempt = 0;
+
     // Auto Re-listen every 2 minutes (120,000ms)
     this.autoRelistenEnabled = false;
     this.autoRelistenTimer = null;
     this.autoRelistenIntervalMs = 2 * 60 * 1000;
+    // Recognition provider override ('acrcloud', 'audd', etc.)
+    this.provider = options.provider || (typeof localStorage !== 'undefined' ? localStorage.getItem('lyricwave_recognition_provider') : null) || null;
   }
+
+
+  /**
+   * Set and persist active recognition provider ('acrcloud', 'audd')
+   * @param {string} providerName
+   */
+  setProvider(providerName) {
+    this.provider = providerName || null;
+    if (typeof localStorage !== 'undefined') {
+      if (providerName) {
+        localStorage.setItem('lyricwave_recognition_provider', providerName);
+      } else {
+        localStorage.removeItem('lyricwave_recognition_provider');
+      }
+    }
+  }
+
 
   /**
    * Browser feature support check (Safari iOS, Chrome Android, Desktop)
@@ -244,20 +266,21 @@ export class MicSource {
       this.recordStartTime = performance.now();
       this.mediaRecorder.start(500); // 500ms chunk slices
 
-      // 10-second countdown
-      let remaining = 10;
-      this.onCountdown(remaining);
-      this.onStatusChange(`Listening to music in room (${remaining}s)...`, 'working');
+      // High-accuracy 5-second acoustic capture (gold standard for ACRCloud fingerprinting)
+      const TOTAL_SAMPLE_SECS = 5;
+      let remaining = TOTAL_SAMPLE_SECS;
+      this.onCountdown(remaining, TOTAL_SAMPLE_SECS);
+      this.onStatusChange(`Listening to room audio (${remaining}s)...`, 'working');
 
       this.countdownTimer = setInterval(() => {
         remaining--;
-        this.onCountdown(remaining);
+        this.onCountdown(remaining, TOTAL_SAMPLE_SECS);
         if (remaining > 0) {
-          this.onStatusChange(`Listening to music in room (${remaining}s)...`, 'working');
+          this.onStatusChange(`Listening to room audio (${remaining}s)...`, 'working');
         } else {
           clearInterval(this.countdownTimer);
           this.countdownTimer = null;
-          this.onStatusChange('Analyzing audio sample...', 'working');
+          this.onStatusChange('Analyzing audio fingerprint...', 'working');
           if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
             this.mediaRecorder.stop();
           }
@@ -281,10 +304,14 @@ export class MicSource {
 
     try {
       const formData = new FormData();
-      formData.append('sample', audioBlob, 'sample.bin');
+      const headers = {};
+      if (this.provider) {
+        headers['X-Recognition-Provider'] = this.provider;
+      }
 
       const response = await fetch('/api/recognize', {
         method: 'POST',
+        headers,
         body: formData
       });
 
@@ -337,6 +364,7 @@ export class MicSource {
         });
 
         this.currentTrack = track;
+        this.retryAttempt = 0;
         this.onStatusChange(`Identified: ${track.title} by ${track.artist}`, 'success');
         this.onTrackChange(track);
 
@@ -345,6 +373,21 @@ export class MicSource {
 
       } else {
         // No match found in ACRCloud database
+        // If this was first attempt (retryAttempt === 0), auto-retry once with a fresh snippet
+        if (this.retryAttempt === 0 && !this.isCancelled) {
+          this.retryAttempt = 1;
+          this.isListening = false;
+          this.onListeningStateChange(false);
+          this.onStatusChange('No match on initial pass. Listening again for clearer music...', 'working');
+          setTimeout(() => {
+            if (!this.isCancelled) {
+              this.start();
+            }
+          }, 350);
+          return;
+        }
+
+        this.retryAttempt = 0;
         this.isListening = false;
         this.onListeningStateChange(false);
         this.onError('No song match found. Make sure recognizable music is playing and try again.', 'no_match');

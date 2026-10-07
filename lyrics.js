@@ -12,6 +12,95 @@ const LRCLIB_SEARCH_URL = 'https://lrclib.net/api/search';
 const STORAGE_OFFSET_KEY = 'lyricwave_manual_offset_ms';
 const STORAGE_CACHE_PREFIX = 'lyricwave_lrc_';
 
+// 30 days expiry in milliseconds (30 * 24 * 60 * 60 * 1000)
+const IDB_CACHE_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000;
+const DB_NAME = 'LyricWaveDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'lyrics';
+
+/**
+ * Open or upgrade LyricWave IndexedDB instance
+ */
+function openLyricsDB() {
+  if (typeof indexedDB === 'undefined') return Promise.resolve(null);
+  return new Promise((resolve) => {
+    try {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      request.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME, { keyPath: 'key' });
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+/**
+ * Normalize artist and title into a robust cache key
+ */
+export function normalizeLyricCacheKey(artist, title) {
+  const normArtist = String(artist || '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+  const normTitle = cleanTrackTitle(String(title || ''))
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+  return `${normArtist}__${normTitle}`.trim();
+}
+
+/**
+ * Retrieve cached lyrics from IndexedDB (with 30-day expiry check)
+ */
+async function getIdbCachedLyrics(key) {
+  const db = await openLyricsDB();
+  if (!db) return null;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.get(key);
+      req.onsuccess = () => {
+        const entry = req.result;
+        if (entry && entry.cachedAt && (Date.now() - entry.cachedAt < IDB_CACHE_EXPIRY_MS)) {
+          resolve(entry.data);
+        } else {
+          // Expired or missing
+          resolve(null);
+        }
+      };
+      req.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+/**
+ * Save lyrics to IndexedDB with timestamp
+ */
+async function setIdbCachedLyrics(key, data) {
+  const db = await openLyricsDB();
+  if (!db) return;
+  try {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    store.put({
+      key,
+      data,
+      cachedAt: Date.now()
+    });
+  } catch {
+    // Fail silently on private browsing / storage quota restrictions
+  }
+}
+
 // In-memory runtime cache for rapid track switching
 const memoryCache = new Map();
 
@@ -21,11 +110,11 @@ const memoryCache = new Map();
 export function cleanTrackTitle(title) {
   if (!title) return '';
   return title
-    .replace(/\s*-\s*.*?(remaster(?:ed)?|deluxe|bonus|radio edit|live|mono|stereo|anniversary|edit|version).*$/i, '')
+    .replace(/\s*-\s*.*?(remaster(?:ed)?|deluxe|bonus|radio edit|live|mono|stereo|anniversary|edit|version|session(?:s)?).*$/i, '')
     .replace(/\s*\(feat\..*?\)/i, '')
     .replace(/\s*\(with.*?\)/i, '')
     .replace(/\s*\[feat\..*?\]/i, '')
-    .replace(/\s*\(.*?(remaster(?:ed)?|deluxe|bonus|anniversary).*?\)/i, '')
+    .replace(/\s*\(.*?(remaster(?:ed)?|deluxe|bonus|anniversary|session(?:s)?|live|edit|acoustic).*?\)/i, '')
     .trim();
 }
 
@@ -100,20 +189,38 @@ export async function fetchLyrics(track) {
     return { status: 'none', message: 'No track provided' };
   }
 
-  const cacheKey = `${track.id || track.title}__${track.artists}`.toLowerCase();
+  const primaryArtist = track.artists?.split(',')[0]?.trim() || track.artist || '';
+  const idbKey = normalizeLyricCacheKey(primaryArtist, track.title);
+  const cacheKey = `${track.id || track.title}__${track.artists || track.artist}`.toLowerCase();
 
   // 1. Check in-memory cache
   if (memoryCache.has(cacheKey)) {
     return memoryCache.get(cacheKey);
   }
+  if (memoryCache.has(idbKey)) {
+    return memoryCache.get(idbKey);
+  }
 
-  // 2. Check localStorage cache
+  // 2. Check IndexedDB 30-day cache
+  try {
+    const idbCached = await getIdbCachedLyrics(idbKey);
+    if (idbCached) {
+      memoryCache.set(cacheKey, idbCached);
+      memoryCache.set(idbKey, idbCached);
+      return idbCached;
+    }
+  } catch (err) {
+    console.warn('IndexedDB read error:', err);
+  }
+
+  // 3. Check localStorage cache fallback
   if (typeof localStorage !== 'undefined') {
     try {
       const cachedItem = localStorage.getItem(`${STORAGE_CACHE_PREFIX}${cacheKey}`);
       if (cachedItem) {
         const data = JSON.parse(cachedItem);
         memoryCache.set(cacheKey, data);
+        memoryCache.set(idbKey, data);
         return data;
       }
     } catch (err) {
@@ -121,58 +228,81 @@ export async function fetchLyrics(track) {
     }
   }
 
-  // 3. Fetch from LRCLIB
+  // 4. Fetch from LRCLIB
   const durationSec = Math.round((track.durationMs || 0) / 1000);
-  const primaryArtist = track.artists?.split(',')[0]?.trim() || '';
 
   let lyricResult = null;
 
   try {
-    // Attempt 1: Exact query via /api/get
-    const params = new URLSearchParams({
+    // Parallel fast-path: dispatch exact query, cleaned query, and search in parallel
+    // with an aggressive 3.5-second timeout so the UI never stalls
+    const cleanedTitle = cleanTrackTitle(track.title);
+    const fetchController = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const fetchTimer = fetchController ? setTimeout(() => fetchController.abort(), 3500) : null;
+    const fetchSignal = fetchController ? fetchController.signal : undefined;
+
+    const queries = [];
+
+    // Query 1: Exact query via /api/get
+    const exactParams = new URLSearchParams({
       track_name: track.title,
       artist_name: primaryArtist
     });
-    if (track.album) params.append('album_name', track.album);
-    if (durationSec > 0) params.append('duration', durationSec.toString());
+    if (track.album) exactParams.append('album_name', track.album);
+    if (durationSec > 0) exactParams.append('duration', durationSec.toString());
+    queries.push(
+      fetch(`${LRCLIB_GET_URL}?${exactParams.toString()}`, { signal: fetchSignal })
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null)
+    );
 
-    let isQuotaError = false;
-
-    let res = await fetch(`${LRCLIB_GET_URL}?${params.toString()}`);
-    if (res.status === 429) isQuotaError = true;
-    if (res.ok) {
-      lyricResult = await res.json();
-    }
-
-    // Attempt 2: Cleaned track title via /api/get if exact failed
-    const cleanedTitle = cleanTrackTitle(track.title);
-    if (!lyricResult && cleanedTitle !== track.title && !isQuotaError) {
+    // Query 2: Cleaned query via /api/get (if title differs)
+    if (cleanedTitle && cleanedTitle !== track.title) {
       const cleanParams = new URLSearchParams({
         track_name: cleanedTitle,
         artist_name: primaryArtist
       });
       if (durationSec > 0) cleanParams.append('duration', durationSec.toString());
-      res = await fetch(`${LRCLIB_GET_URL}?${cleanParams.toString()}`);
-      if (res.status === 429) isQuotaError = true;
-      if (res.ok) {
-        lyricResult = await res.json();
-      }
+      queries.push(
+        fetch(`${LRCLIB_GET_URL}?${cleanParams.toString()}`, { signal: fetchSignal })
+          .then(r => r.ok ? r.json() : null)
+          .catch(() => null)
+      );
     }
 
-    // Attempt 3: Search endpoint fallback via /api/search
-    if (!lyricResult && !isQuotaError) {
-      const searchParams = new URLSearchParams({
-        track_name: cleanedTitle || track.title,
-        artist_name: primaryArtist
-      });
-      res = await fetch(`${LRCLIB_SEARCH_URL}?${searchParams.toString()}`);
-      if (res.status === 429) isQuotaError = true;
-      if (res.ok) {
-        const searchResults = await res.json();
-        if (Array.isArray(searchResults) && searchResults.length > 0) {
-          // Prefer results that have syncedLyrics and close duration
-          const bestSynced = searchResults.find(r => r.syncedLyrics && Math.abs(r.duration - durationSec) < 8);
-          lyricResult = bestSynced || searchResults.find(r => r.syncedLyrics) || searchResults[0];
+    // Query 3: Search fallback via /api/search
+    const searchParams = new URLSearchParams({
+      track_name: cleanedTitle || track.title,
+      artist_name: primaryArtist
+    });
+    queries.push(
+      fetch(`${LRCLIB_SEARCH_URL}?${searchParams.toString()}`, { signal: fetchSignal })
+        .then(r => r.ok ? r.json() : null)
+        .then(results => {
+          if (Array.isArray(results) && results.length > 0) {
+            return results.find(r => r.syncedLyrics && Math.abs((r.duration || 0) - durationSec) < 10)
+              || results.find(r => r.syncedLyrics)
+              || results[0];
+          }
+          return null;
+        })
+        .catch(() => null)
+    );
+
+    const outcomes = await Promise.allSettled(queries);
+    if (fetchTimer) clearTimeout(fetchTimer);
+
+    let isQuotaError = false;
+    for (const outcome of outcomes) {
+      if (outcome.status === 'fulfilled' && outcome.value) {
+        const candidate = outcome.value;
+        if (candidate.status === 429) {
+          isQuotaError = true;
+        } else if (candidate.syncedLyrics) {
+          lyricResult = candidate;
+          break;
+        } else if (!lyricResult && (candidate.plainLyrics || candidate.instrumental)) {
+          lyricResult = candidate;
         }
       }
     }
@@ -247,8 +377,13 @@ export async function fetchLyrics(track) {
     };
   }
 
-  // 5. Store in memory and persistent cache
+  // 5. Store in memory, IndexedDB (30-day), and persistent localStorage cache
   memoryCache.set(cacheKey, processed);
+  memoryCache.set(idbKey, processed);
+
+  // Cache in IndexedDB (non-blocking)
+  setIdbCachedLyrics(idbKey, processed).catch(() => {});
+
   try {
     localStorage.setItem(`${STORAGE_CACHE_PREFIX}${cacheKey}`, JSON.stringify(processed));
   } catch (err) {

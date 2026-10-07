@@ -17,7 +17,13 @@ export async function searchTracks(query, limit = 8) {
     return [];
   }
 
-  const cleanQuery = query.trim();
+  // Validate and clamp search query length (prevent oversized or malformed payloads)
+  const cleanQuery = query.trim().slice(0, 100);
+  if (cleanQuery.length === 0) {
+    return [];
+  }
+
+  const clampedLimit = Math.max(1, Math.min(25, Number(limit) || 8));
   const results = [];
   const seenKeys = new Set();
 

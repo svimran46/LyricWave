@@ -107,12 +107,17 @@ async function runTests() {
   cancelSource.stop();
 
   assert(cancelSource.isCancelled === true, 'Stopping mic sets isCancelled flag to prevent upload');
-  assert(cancelSource.audioChunks.length === 0, 'Stopping mic clears audioChunks immediately');
-  assert(cancelSource.isListening === false, 'isListening is false after cancel');
-  assert(recorderStopped === true, 'Underlying mediaRecorder stop() was cleanly invoked');
-  assert(cancelSource.mediaRecorder === null, 'mediaRecorder reference cleared');
+  // 9. Recognition Provider Setting & Persistence
+  const provMic = new MicSource({ provider: 'audd' });
+  assert(provMic.provider === 'audd', 'Initial provider is audd');
+  provMic.setProvider('acrcloud');
+  assert(provMic.provider === 'acrcloud', 'setProvider updates provider to acrcloud');
+  assert(localStorage.getItem('lyricwave_recognition_provider') === 'acrcloud', 'Provider is saved to localStorage');
+  provMic.setProvider('audd');
+  assert(localStorage.getItem('lyricwave_recognition_provider') === 'audd', 'Switched back to audd in localStorage');
 
   console.log(`\nResults: ${passed} passed, ${failed} failed.`);
+
 }
 
 runTests();

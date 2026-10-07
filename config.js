@@ -37,5 +37,12 @@ export const CONFIG = {
    * Last.fm API Key (Optional override).
    * If not provided, LastFmSource falls back to the public demo key.
    */
-  LASTFM_API_KEY: ""
+  LASTFM_API_KEY: "",
+
+  /**
+   * Default Acoustic Recognition Provider ('acrcloud' or 'audd').
+   */
+  RECOGNITION_PROVIDER: "acrcloud"
 };
+
+

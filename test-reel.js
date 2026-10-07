@@ -91,6 +91,14 @@ reel.setTheme('neon');
 assert(reel.theme === 'neon', 'Theme switched to neon');
 reel.setTheme('minimal');
 assert(reel.theme === 'minimal', 'Theme switched to minimal');
+reel.setTheme('aurora');
+assert(reel.theme === 'aurora', 'Theme switched to aurora');
+reel.setTheme('vinyl');
+assert(reel.theme === 'vinyl', 'Theme switched to vinyl');
+reel.setTheme('paper');
+assert(reel.theme === 'paper', 'Theme switched to paper');
+reel.setTheme('adaptive');
+assert(reel.theme === 'adaptive', 'Theme switched to adaptive');
 
 // 4. Word Mode Toggle
 reel.setWordByWordMode(false);

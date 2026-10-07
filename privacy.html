@@ -133,12 +133,13 @@
       <div class="privacy-section">
         <h3>🎙️ 1. Microphone Recognition (Audio)</h3>
         <ul>
-          <li><strong>What is captured:</strong> A temporary, 10-second compressed audio recording initiated strictly after you tap <em>"Listen"</em>.</li>
-          <li><strong>Where it goes:</strong> Sent to our serverless Cloudflare Pages endpoint (<code>/api/recognize</code>) which generates an acoustic fingerprint for ACRCloud recognition.</li>
+          <li><strong>What is captured:</strong> A temporary, 5-to-10 second compressed audio snippet recorded strictly after you tap <em>"Listen"</em>.</li>
+          <li><strong>Where it goes:</strong> Sent to our serverless Cloudflare Pages endpoint (<code>/api/recognize</code>) which routes the sample to our configured recognition provider (AudD or ACRCloud) to match against catalog databases.</li>
           <li><strong>Storage policy:</strong> Audio data is processed in-memory and <strong>never saved to disk or logged</strong>. Once recognized, the recording buffer is discarded.</li>
           <li><strong>Hardware release:</strong> All microphone tracks are explicitly closed immediately upon recording completion so your browser/system microphone indicator turns off.</li>
         </ul>
       </div>
+
 
       <div class="privacy-section">
         <h3>🔍 2. Manual Song Search</h3>

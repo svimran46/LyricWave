@@ -77,27 +77,37 @@ No API key or password is required from end users:
 
 ---
 
-### 3. Audio Recognition Provider (ACRCloud + Cloudflare Pages Functions)
-The acoustic recognition endpoint lives at `functions/api/recognize.js` and uses the pluggable provider layer in `functions/api/providers/acrcloud.js`.
+### 3. Audio Recognition Provider (AudD & ACRCloud)
+The acoustic recognition endpoint lives at `functions/api/recognize.js` and uses a modular provider architecture in `functions/api/providers/`.
 
-#### Create an ACRCloud Account:
+By default, **AudD** (`audd.io`) is configured as the primary recognition engine. You can also switch between AudD and ACRCloud anytime in the **Settings dialog** or via the `X-Recognition-Provider` header.
+
+#### AudD Setup:
+1. AudD works out of the box using the public test token (`test`) for local development (up to 10 requests/day).
+2. For production, create an account at [dashboard.audd.io](https://dashboard.audd.io/) to get your personal API token.
+3. Add your token to `.env` or your Cloudflare Pages Environment Variables:
+   ```ini
+   RECOGNITION_PROVIDER=audd
+   AUDD_API_TOKEN=your_audd_api_token
+   ```
+
+#### ACRCloud Setup (Alternative Provider):
 1. Sign up at [ACRCloud](https://www.acrcloud.com/) and navigate to the Console.
 2. Under **Audio Recognition**, create an **Audio & Video Recognition** project with the **ACRCloud Music** bucket enabled.
-3. Note your project **Host**, **Access Key**, and **Access Secret**.
+3. Add your credentials to `.env`:
+   ```ini
+   ACR_HOST=identify-ap-southeast-1.acrcloud.com
+   ACR_ACCESS_KEY=your_acrcloud_access_key
+   ACR_ACCESS_SECRET=your_acrcloud_access_secret
+   ```
 
 #### Local Development:
-Copy `.env.example` to `.env` (already in `.gitignore`):
-```ini
-ACR_HOST=identify-ap-southeast-1.acrcloud.com
-ACR_ACCESS_KEY=your_acrcloud_access_key
-ACR_ACCESS_SECRET=your_acrcloud_access_secret
-```
-
 Run locally using Wrangler:
 ```bash
 npm install -g wrangler
 wrangler pages dev .
 ```
+
 Visit `http://127.0.0.1:8788/` or your assigned local port.
 
 ---

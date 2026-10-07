@@ -27,13 +27,31 @@ export class LastFmSource {
     this.trackStartTime = 0;
   }
 
+  /**
+   * Validate and format Last.fm username according to official Last.fm specifications:
+   * 2-32 characters, starts with a letter, contains only alphanumeric, hyphen, and underscore.
+   */
+  static isValidUsername(username) {
+    if (!username || typeof username !== 'string') return false;
+    const trimmed = username.trim();
+    return /^[a-zA-Z][a-zA-Z0-9_-]{1,31}$/.test(trimmed);
+  }
+
   setUsername(username) {
-    this.username = (username || '').trim();
-    if (this.username) {
-      try {
-        localStorage.setItem('lyricwave_lastfm_user', this.username);
-      } catch (e) {}
+    const trimmed = (username || '').trim();
+    if (!trimmed) {
+      this.username = '';
+      return;
     }
+
+    if (!LastFmSource.isValidUsername(trimmed)) {
+      throw new Error('Invalid Last.fm username format. Usernames must be 2-32 characters, start with a letter, and contain only letters, numbers, hyphens, or underscores.');
+    }
+
+    this.username = trimmed;
+    try {
+      localStorage.setItem('lyricwave_lastfm_user', this.username);
+    } catch (e) {}
   }
 
   getUsername() {

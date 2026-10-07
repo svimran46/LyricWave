@@ -24,6 +24,42 @@ export class ReelVisualizer {
     this.currentPositionMs = 0;
     this.isPlaying = false;
     this.lastRenderTime = performance.now();
+    this.lastDrawTime = 0;
+
+    // Visibility & Offscreen Tracking
+    this.isDocumentVisible = typeof document !== 'undefined' ? !document.hidden : true;
+    this.isStageVisible = true;
+
+    // Frame rate throttle: Cap to 30fps (~33.3ms) on mobile or low-power devices
+    const isMobileDevice = typeof window !== 'undefined' && (
+      (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) ||
+      (typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent))
+    );
+    const isLowPowerHardware = typeof navigator !== 'undefined' && (
+      (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) ||
+      (navigator.deviceMemory && navigator.deviceMemory <= 4)
+    );
+    this.isThrottled30fps = isMobileDevice || isLowPowerHardware;
+    this.minFrameIntervalMs = this.isThrottled30fps ? 33 : 0;
+
+    // Visibility change listener
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        this.isDocumentVisible = !document.hidden;
+      });
+    }
+
+    // IntersectionObserver to pause wave drawing when stage is off-screen
+    if (typeof IntersectionObserver !== 'undefined' && this.canvas) {
+      try {
+        const io = new IntersectionObserver((entries) => {
+          for (const entry of entries) {
+            this.isStageVisible = entry.isIntersecting;
+          }
+        }, { threshold: 0.05 });
+        io.observe(this.canvas);
+      } catch {}
+    }
 
     // Line & Word tracking
     this.activeLine = null;
@@ -158,6 +194,20 @@ export class ReelVisualizer {
    * Draw multi-layer sine waves flowing behind and beside the box
    */
   drawSineWaves(positionMs) {
+    if (!this.ctx) return;
+
+    // Pause canvas wave drawing if tab/window is hidden or stage is offscreen
+    if (!this.isDocumentVisible || !this.isStageVisible) {
+      return;
+    }
+
+    // Frame rate throttle: Cap to 30fps on mobile / low-power hardware
+    const now = performance.now();
+    if (this.minFrameIntervalMs > 0 && (now - this.lastDrawTime < this.minFrameIntervalMs)) {
+      return;
+    }
+    this.lastDrawTime = now;
+
     const ctx = this.ctx;
     const w = this.width;
     const h = this.height;
@@ -179,9 +229,114 @@ export class ReelVisualizer {
       this.drawPixelWaves(ctx, w, h, centerY, basePhase, pulse);
     } else if (this.theme === 'neon') {
       this.drawNeonWaves(ctx, w, h, centerY, basePhase, pulse);
+    } else if (this.theme === 'vinyl') {
+      this.drawVinylWaves(ctx, w, h, centerY, basePhase, pulse);
+    } else if (this.theme === 'paper') {
+      this.drawPaperWaves(ctx, w, h, centerY, basePhase, pulse);
     } else {
-      this.drawMinimalWaves(ctx, w, h, centerY, basePhase, pulse);
+      // aurora, adaptive, minimal
+      this.drawDynamicWaveTokens(ctx, w, h, centerY, basePhase, pulse);
     }
+  }
+
+  /**
+   * Reads a computed CSS variable token from the document root with fallback
+   */
+  getCssToken(name, fallback) {
+    if (typeof window === 'undefined' || !window.getComputedStyle) return fallback;
+    try {
+      const val = window.getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      return val || fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
+  /**
+   * Token-based waves for Aurora, Album Adaptive, and Minimal themes
+   */
+  drawDynamicWaveTokens(ctx, w, h, centerY, basePhase, pulse) {
+    const wave1Color = this.getCssToken('--wave-1', '#6366f1');
+    const wave2Color = this.getCssToken('--wave-2', '#c084fc');
+
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+
+    // Primary wave
+    ctx.strokeStyle = wave1Color;
+    ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    for (let x = 0; x <= w; x += 8) {
+      const angle = (x * 0.009) + basePhase;
+      const y = centerY + Math.sin(angle) * (26 * pulse) + Math.cos(angle * 1.5) * 6;
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Secondary wave
+    ctx.strokeStyle = wave2Color;
+    ctx.globalAlpha = 0.35;
+    ctx.beginPath();
+    for (let x = 0; x <= w; x += 8) {
+      const angle = (x * 0.013) - (basePhase * 0.85) + 1.2;
+      const y = centerY + Math.sin(angle) * (20 * pulse);
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+  }
+
+  /**
+   * Vinyl Theme Waves: Gentle warm analog grooves
+   */
+  drawVinylWaves(ctx, w, h, centerY, basePhase, pulse) {
+    ctx.lineWidth = 1.8;
+    ctx.lineCap = 'round';
+
+    ctx.strokeStyle = '#d97706';
+    ctx.globalAlpha = 0.45;
+    ctx.beginPath();
+    for (let x = 0; x <= w; x += 8) {
+      const angle = (x * 0.007) + (basePhase * 0.7);
+      const y = centerY + Math.sin(angle) * (18 * pulse);
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    ctx.strokeStyle = '#92400e';
+    ctx.globalAlpha = 0.25;
+    ctx.beginPath();
+    for (let x = 0; x <= w; x += 8) {
+      const angle = (x * 0.011) - (basePhase * 0.6) + 0.8;
+      const y = centerY + Math.sin(angle) * (12 * pulse);
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+  }
+
+  /**
+   * Paper Theme Waves: Crisp monochrome ink contour line
+   */
+  drawPaperWaves(ctx, w, h, centerY, basePhase, pulse) {
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
+
+    ctx.strokeStyle = '#2563eb';
+    ctx.globalAlpha = 0.35;
+    ctx.beginPath();
+    for (let x = 0; x <= w; x += 8) {
+      const angle = (x * 0.009) + basePhase;
+      const y = centerY + Math.sin(angle) * (20 * pulse);
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
   }
 
   /**

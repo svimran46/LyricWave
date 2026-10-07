@@ -14,5 +14,11 @@ Thumbs.db
 .DS_Store
 *.log
 
+# Test Artifacts & Local Profiles
+test-results/
+screenshots/
+tmp-*-profile/
+
 # Submodules / unrelated local dirs
 ccricket-data/
+

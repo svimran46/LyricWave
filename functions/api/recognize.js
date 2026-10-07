@@ -16,12 +16,12 @@
 
 import { getRecognitionProvider } from './providers/index.js';
 
-// Max allowed sample size: 3.5 MB (~15-20s uncompressed PCM or several minutes compressed)
-const MAX_SAMPLE_SIZE_BYTES = 3.5 * 1024 * 1024;
+// Max allowed sample size: strictly 1 MB (~1,048,576 bytes)
+const MAX_SAMPLE_SIZE_BYTES = 1 * 1024 * 1024;
 
-// Basic in-memory rate limiter for serverless instance (20 requests per minute per IP)
+// Per-IP rate limiter (10 recognition requests per minute per IP to protect upstream quota/cost)
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const MAX_REQUESTS_PER_WINDOW = 20;
+const MAX_REQUESTS_PER_WINDOW = 10;
 const ipRateMap = new Map();
 
 function isRateLimited(clientIp) {
@@ -129,6 +129,16 @@ export async function onRequestPost({ request, env }) {
     return jsonError('Too many recognition requests. Please wait a moment before trying again.', 429, corsHeaders);
   }
 
+  // Pre-check Content-Length header to immediately reject oversized payloads before reading into memory
+  const contentLengthHeader = request.headers.get('content-length');
+  if (contentLengthHeader) {
+    const declaredSize = parseInt(contentLengthHeader, 10);
+    if (!isNaN(declaredSize) && declaredSize > MAX_SAMPLE_SIZE_BYTES) {
+      const sizeMb = (declaredSize / (1024 * 1024)).toFixed(2);
+      return jsonError(`Payload too large (${sizeMb} MB). Maximum allowed size is 1 MB.`, 413, corsHeaders);
+    }
+  }
+
   // 2. Validate Content-Type
   const contentType = request.headers.get('content-type') || '';
   let audioBuffer = null;
@@ -184,7 +194,7 @@ export async function onRequestPost({ request, env }) {
 
   if (audioBuffer.byteLength > MAX_SAMPLE_SIZE_BYTES) {
     const sizeMb = (audioBuffer.byteLength / (1024 * 1024)).toFixed(2);
-    return jsonError(`Audio sample too large (${sizeMb} MB). Maximum size allowed is 3.5 MB.`, 413, corsHeaders);
+    return jsonError(`Audio sample too large (${sizeMb} MB). Maximum size allowed is 1 MB.`, 413, corsHeaders);
   }
 
   // Minimum required audio sample size (at least 2KB for valid audio headers)

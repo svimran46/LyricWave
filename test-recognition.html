@@ -189,14 +189,29 @@
           <span>Acoustic Recognition Testbed</span>
         </h1>
         <p style="font-size: 0.76rem; color: var(--text-muted); margin-top: 0.15rem;">
-          Verify ACRCloud credentials, HMAC-SHA1 signature, match confidence, and millisecond playback offset.
+          Verify music recognition engines (AudD & ACRCloud), match confidence, and millisecond playback offset.
         </p>
       </div>
       <div class="testbed-badge">DEV ONLY</div>
     </div>
 
+    <!-- Provider Selection Bar -->
+    <div style="margin-bottom: 1.25rem; background: rgba(0,0,0,0.3); padding: 0.75rem 1rem; border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span style="font-size: 0.82rem; font-weight: 600; color: #f8fafc;">Recognition Engine:</span>
+        <select id="selTestProvider" style="background: #0f172a; color: #38bdf8; border: 1px solid rgba(56,189,248,0.4); padding: 0.35rem 0.65rem; border-radius: var(--radius-sm); font-size: 0.8rem; outline: none; cursor: pointer;">
+          <option value="audd" selected>AudD (audd.io REST API)</option>
+          <option value="acrcloud">ACRCloud (acrcloud.com)</option>
+        </select>
+      </div>
+      <span id="providerInfoBadge" style="font-size: 0.72rem; color: #94a3b8; font-family: 'JetBrains Mono', monospace;">
+        Token: AUDD_API_TOKEN / test
+      </span>
+    </div>
+
     <!-- Test Inputs Grid -->
     <div class="test-actions-grid">
+
       <!-- 1. Live 10s Microphone Sample -->
       <div class="test-panel-box">
         <div class="test-panel-title">
@@ -330,12 +345,25 @@
     const resOffset = document.getElementById('resOffset');
     const resConfidence = document.getElementById('resConfidence');
     const jsonDump = document.getElementById('jsonDump');
-    const btnCopyJson = document.getElementById('btnCopyJson');
+    const selTestProvider = document.getElementById('selTestProvider');
+    const providerInfoBadge = document.getElementById('providerInfoBadge');
 
     let selectedUploadFile = null;
     let mediaRecorder = null;
     let recAudioChunks = [];
     let recCountdownTimer = null;
+
+    if (selTestProvider) {
+      selTestProvider.addEventListener('change', () => {
+        const val = selTestProvider.value;
+        if (val === 'audd') {
+          providerInfoBadge.textContent = 'Token: AUDD_API_TOKEN / test';
+        } else {
+          providerInfoBadge.textContent = 'Auth: ACR_ACCESS_KEY + HMAC-SHA1';
+        }
+      });
+    }
+
 
     function setStatus(text, type = 'info') {
       const timestamp = new Date().toLocaleTimeString();
@@ -478,11 +506,18 @@
         const formData = new FormData();
         formData.append('sample', blobOrFile, 'sample.bin');
 
+        const selectedProvider = selTestProvider?.value || 'audd';
+        const headers = {
+          'X-Recognition-Provider': selectedProvider
+        };
+
         const startTime = performance.now();
         const response = await fetch('/api/recognize', {
           method: 'POST',
+          headers,
           body: formData
         });
+
 
         const rttMs = Math.round(performance.now() - startTime);
 
@@ -501,6 +536,10 @@
           setStatus(`✓ Identified in ${rttMs}ms: "${data.title}" by ${data.artist} (Confidence: ${data.confidence}%, Offset: ${data.offsetMs !== null ? data.offsetMs + ' ms' : 'N/A'})`, 'success');
 
           resultsCard.classList.remove('hidden');
+          const badge = document.getElementById('resProviderBadge');
+          if (badge) {
+            badge.textContent = (data.provider || selectedProvider).toUpperCase();
+          }
           resTitle.textContent = data.title || 'Unknown';
           resArtist.textContent = data.artist || 'Unknown';
           resAlbum.textContent = data.album || '—';
@@ -515,9 +554,10 @@
 
           resConfidence.textContent = `${data.confidence || 100}%`;
         } else {
-          setStatus(`⚠️ Audio processed (${rttMs}ms), but no match was found in the ACRCloud database (Code 1001: No Result). Try a louder or more recognizable section of music.`, 'error');
+          setStatus(`⚠️ Audio processed (${rttMs}ms), but no match was found in the ${selectedProvider === 'audd' ? 'AudD' : 'ACRCloud'} database. Try a louder or clearer section of music.`, 'error');
           resultsCard.classList.add('hidden');
         }
+
 
       } catch (err) {
         setStatus(`Network/Client error: ${err.message}`, 'error');
