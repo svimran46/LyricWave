@@ -1,0 +1,61 @@
+{
+  "id": "tiger",
+  "name": "Tiger",
+  "fps": 24,
+  "height_px": 420,
+  "anchor": {
+    "x": 0.5,
+    "y": 1.0
+  },
+  "collar": false,
+  "states": {
+    "idle_sit_front": {
+      "clips": ["sit_front_a"],
+      "weight": 5
+    },
+    "idle_sit_back": {
+      "clips": ["sit_back_a"],
+      "weight": 3
+    },
+    "walk_right": {
+      "clips": ["walk_r_a"],
+      "weight": 2
+    },
+    "walk_left": {
+      "clips": ["walk_l_a"],
+      "weight": 2
+    },
+    "loaf": {
+      "clips": ["loaf_a"],
+      "weight": 4
+    },
+    "groom_paw": {
+      "clips": ["groom_paw_a"],
+      "weight": 2
+    },
+    "stalk": {
+      "clips": ["stalk_a"],
+      "weight": 2
+    },
+    "sleep": {
+      "clips": ["sleep_a"],
+      "weight": 0,
+      "night_only": true
+    },
+    "react_poke": {
+      "clips": ["poke_startle_a"],
+      "oneshot": true
+    },
+    "wink_smug": {
+      "clips": ["wink_a"],
+      "oneshot": true
+    }
+  },
+  "transitions": [
+    {
+      "from": "*",
+      "to": "*",
+      "fallback": "crossfade_150ms"
+    }
+  ]
+}

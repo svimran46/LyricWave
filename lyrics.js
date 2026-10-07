@@ -1,0 +1,317 @@
+/**
+ * LyricWave Lyrics Service (Phase 3)
+ * 
+ * Fetches synced lyrics from LRCLIB API (lrclib.net),
+ * parses LRC timestamp formats, handles caching,
+ * provides fallbacks for plain/instrumental tracks,
+ * and manages user offset calibration.
+ */
+
+const LRCLIB_GET_URL = 'https://lrclib.net/api/get';
+const LRCLIB_SEARCH_URL = 'https://lrclib.net/api/search';
+const STORAGE_OFFSET_KEY = 'lyricwave_manual_offset_ms';
+const STORAGE_CACHE_PREFIX = 'lyricwave_lrc_';
+
+// In-memory runtime cache for rapid track switching
+const memoryCache = new Map();
+
+/**
+ * Clean track title by removing common suffixes that hurt API match rates
+ */
+export function cleanTrackTitle(title) {
+  if (!title) return '';
+  return title
+    .replace(/\s*-\s*.*?(remaster(?:ed)?|deluxe|bonus|radio edit|live|mono|stereo|anniversary|edit|version).*$/i, '')
+    .replace(/\s*\(feat\..*?\)/i, '')
+    .replace(/\s*\(with.*?\)/i, '')
+    .replace(/\s*\[feat\..*?\]/i, '')
+    .replace(/\s*\(.*?(remaster(?:ed)?|deluxe|bonus|anniversary).*?\)/i, '')
+    .trim();
+}
+
+/**
+ * Parse raw LRC string into a sorted array of timed lyric objects
+ * Returns: Array<{ timeMs: number, text: string }>
+ */
+export function parseLRC(lrcText) {
+  if (!lrcText || typeof lrcText !== 'string') return [];
+
+  const lines = lrcText.split('\n');
+  const parsed = [];
+  const timestampRegex = /\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]/g;
+
+  for (const rawLine of lines) {
+    const trimmed = rawLine.trim();
+    if (!trimmed) continue;
+
+    // Skip metadata tags (e.g. [ar:Artist], [ti:Title], [length:...])
+    if (/^\[(ar|ti|al|by|offset|length|re|ve):/i.test(trimmed)) {
+      continue;
+    }
+
+    // Collect all timestamps in the line
+    const timestamps = [];
+    let match;
+    while ((match = timestampRegex.exec(trimmed)) !== null) {
+      const minutes = parseInt(match[1], 10);
+      const seconds = parseInt(match[2], 10);
+      let ms = 0;
+
+      if (match[3]) {
+        // Handle 1, 2, or 3 digit fractions of seconds
+        const fraction = match[3];
+        if (fraction.length === 1) ms = parseInt(fraction, 10) * 100;
+        else if (fraction.length === 2) ms = parseInt(fraction, 10) * 10;
+        else ms = parseInt(fraction.slice(0, 3), 10);
+      }
+
+      timestamps.push(minutes * 60 * 1000 + seconds * 1000 + ms);
+    }
+
+    // Extract text portion after stripping all timestamp tags
+    const text = trimmed.replace(timestampRegex, '').trim();
+
+    // Map each timestamp to this text
+    for (const timeMs of timestamps) {
+      parsed.push({ timeMs, text });
+    }
+  }
+
+  // Sort chronologically
+  parsed.sort((a, b) => a.timeMs - b.timeMs);
+
+  return parsed;
+}
+
+/**
+ * Fetch lyrics from LRCLIB with multi-tier fallback (Exact GET -> Cleaned GET -> Search API)
+ */
+export async function fetchLyrics(track) {
+  if (!track || !track.title) {
+    return { status: 'none', message: 'No track provided' };
+  }
+
+  const cacheKey = `${track.id || track.title}__${track.artists}`.toLowerCase();
+
+  // 1. Check in-memory cache
+  if (memoryCache.has(cacheKey)) {
+    return memoryCache.get(cacheKey);
+  }
+
+  // 2. Check localStorage cache
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const cachedItem = localStorage.getItem(`${STORAGE_CACHE_PREFIX}${cacheKey}`);
+      if (cachedItem) {
+        const data = JSON.parse(cachedItem);
+        memoryCache.set(cacheKey, data);
+        return data;
+      }
+    } catch (err) {
+      console.warn('LocalStorage read error:', err);
+    }
+  }
+
+  // 3. Fetch from LRCLIB
+  const durationSec = Math.round((track.durationMs || 0) / 1000);
+  const primaryArtist = track.artists?.split(',')[0]?.trim() || '';
+
+  let lyricResult = null;
+
+  try {
+    // Attempt 1: Exact query via /api/get
+    const params = new URLSearchParams({
+      track_name: track.title,
+      artist_name: primaryArtist
+    });
+    if (track.album) params.append('album_name', track.album);
+    if (durationSec > 0) params.append('duration', durationSec.toString());
+
+    let isQuotaError = false;
+
+    let res = await fetch(`${LRCLIB_GET_URL}?${params.toString()}`);
+    if (res.status === 429) isQuotaError = true;
+    if (res.ok) {
+      lyricResult = await res.json();
+    }
+
+    // Attempt 2: Cleaned track title via /api/get if exact failed
+    const cleanedTitle = cleanTrackTitle(track.title);
+    if (!lyricResult && cleanedTitle !== track.title && !isQuotaError) {
+      const cleanParams = new URLSearchParams({
+        track_name: cleanedTitle,
+        artist_name: primaryArtist
+      });
+      if (durationSec > 0) cleanParams.append('duration', durationSec.toString());
+      res = await fetch(`${LRCLIB_GET_URL}?${cleanParams.toString()}`);
+      if (res.status === 429) isQuotaError = true;
+      if (res.ok) {
+        lyricResult = await res.json();
+      }
+    }
+
+    // Attempt 3: Search endpoint fallback via /api/search
+    if (!lyricResult && !isQuotaError) {
+      const searchParams = new URLSearchParams({
+        track_name: cleanedTitle || track.title,
+        artist_name: primaryArtist
+      });
+      res = await fetch(`${LRCLIB_SEARCH_URL}?${searchParams.toString()}`);
+      if (res.status === 429) isQuotaError = true;
+      if (res.ok) {
+        const searchResults = await res.json();
+        if (Array.isArray(searchResults) && searchResults.length > 0) {
+          // Prefer results that have syncedLyrics and close duration
+          const bestSynced = searchResults.find(r => r.syncedLyrics && Math.abs(r.duration - durationSec) < 8);
+          lyricResult = bestSynced || searchResults.find(r => r.syncedLyrics) || searchResults[0];
+        }
+      }
+    }
+
+    if (isQuotaError && !lyricResult) {
+      return {
+        status: 'quota',
+        type: 'none',
+        message: 'LRCLIB API rate limit exceeded (HTTP 429). Please wait a moment.',
+        syncedLines: [],
+        plainLyrics: ''
+      };
+    }
+  } catch (fetchErr) {
+    console.warn('LRCLIB network error:', fetchErr);
+    if (!navigator.onLine) {
+      return {
+        status: 'error',
+        type: 'none',
+        message: 'You are currently offline. Connect to the internet to load new lyrics.',
+        syncedLines: [],
+        plainLyrics: ''
+      };
+    }
+  }
+
+  // 4. Process and format final lyrics result
+  let processed;
+
+  if (!lyricResult) {
+    processed = {
+      status: 'not_found',
+      type: 'none',
+      message: 'No lyrics found for this song on LRCLIB.',
+      syncedLines: [],
+      plainLyrics: ''
+    };
+  } else if (lyricResult.instrumental) {
+    processed = {
+      status: 'instrumental',
+      type: 'instrumental',
+      message: '🎷 Instrumental track — no lyrics available.',
+      syncedLines: [],
+      plainLyrics: ''
+    };
+  } else if (lyricResult.syncedLyrics) {
+    const lines = parseLRC(lyricResult.syncedLyrics);
+    processed = {
+      status: 'synced',
+      type: 'synced',
+      syncedLines: lines,
+      plainLyrics: lyricResult.plainLyrics || '',
+      lrclibId: lyricResult.id
+    };
+  } else if (lyricResult.plainLyrics) {
+    processed = {
+      status: 'plain',
+      type: 'plain',
+      syncedLines: [],
+      plainLyrics: lyricResult.plainLyrics,
+      message: 'Plain lyrics available (unsynced).',
+      lrclibId: lyricResult.id
+    };
+  } else {
+    processed = {
+      status: 'not_found',
+      type: 'none',
+      message: 'No lyrics found for this song on LRCLIB.',
+      syncedLines: [],
+      plainLyrics: ''
+    };
+  }
+
+  // 5. Store in memory and persistent cache
+  memoryCache.set(cacheKey, processed);
+  try {
+    localStorage.setItem(`${STORAGE_CACHE_PREFIX}${cacheKey}`, JSON.stringify(processed));
+  } catch (err) {
+    // If quota exceeded, clean up old lyric cache entries
+    pruneOldCache();
+  }
+
+  return processed;
+}
+
+/**
+ * Prune old lyric cache items if storage is full
+ */
+function pruneOldCache() {
+  try {
+    const keys = Object.keys(localStorage).filter(k => k.startsWith(STORAGE_CACHE_PREFIX));
+    for (let i = 0; i < Math.min(keys.length, 20); i++) {
+      localStorage.removeItem(keys[i]);
+    }
+  } catch {
+    // Ignore prune errors
+  }
+}
+
+/**
+ * Find index of active line for current playback position
+ */
+export function findActiveLineIndex(syncedLines, positionMs) {
+  if (!syncedLines || syncedLines.length === 0) return -1;
+  if (positionMs < syncedLines[0].timeMs) return -1; // Before first line
+
+  // Binary search or linear scan for current line
+  let activeIndex = 0;
+  for (let i = 0; i < syncedLines.length; i++) {
+    if (syncedLines[i].timeMs <= positionMs) {
+      activeIndex = i;
+    } else {
+      break;
+    }
+  }
+  return activeIndex;
+}
+
+/**
+ * Manual Offset Management (-5000ms to +5000ms)
+ * Supports global default and per-source offset retention (e.g. mic, lastfm, search, spotify).
+ */
+export function getStoredOffsetMs(source = null) {
+  if (typeof localStorage === 'undefined') return 0;
+  
+  if (source) {
+    const sourceKey = `${STORAGE_OFFSET_KEY}_${source.toLowerCase()}`;
+    const sourceVal = localStorage.getItem(sourceKey);
+    if (sourceVal !== null) {
+      const num = parseInt(sourceVal, 10);
+      return isNaN(num) ? 0 : Math.max(-5000, Math.min(5000, num));
+    }
+  }
+
+  const val = localStorage.getItem(STORAGE_OFFSET_KEY);
+  if (!val) return 0;
+  const num = parseInt(val, 10);
+  return isNaN(num) ? 0 : Math.max(-5000, Math.min(5000, num));
+}
+
+export function setStoredOffsetMs(offsetMs, source = null) {
+  const clamped = Math.max(-5000, Math.min(5000, Math.round(offsetMs)));
+  if (typeof localStorage !== 'undefined') {
+    if (source) {
+      localStorage.setItem(`${STORAGE_OFFSET_KEY}_${source.toLowerCase()}`, clamped.toString());
+    }
+    // Also keep global key synchronized as baseline
+    localStorage.setItem(STORAGE_OFFSET_KEY, clamped.toString());
+  }
+  return clamped;
+}
