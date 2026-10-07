@@ -59,5 +59,15 @@ assert(setStoredOffsetMs(6000) === 5000, 'Offsets > +5000ms clamped to +5000ms')
 assert(setStoredOffsetMs(-6000) === -5000, 'Offsets < -5000ms clamped to -5000ms');
 assert(setStoredOffsetMs(0) === 0, 'Offset reset to 0');
 
+// 5. [offset: ms] LRC Tag Support
+const lrcWithOffset = `
+[ti:Offset Song]
+[offset:500]
+[00:02.00]Line shifted by 500ms
+`;
+const parsedOffset = parseLRC(lrcWithOffset);
+assert(parsedOffset.length === 1, 'Parsed 1 line from offset LRC');
+assert(parsedOffset[0].timeMs === 2500, '[offset: 500] correctly added 500ms to 2000ms timestamp (2500ms)');
+
 console.log(`\nResults: ${passed} passed, ${failed} failed.`);
 if (failed > 0) process.exit(1);

@@ -88,11 +88,29 @@ async function runTests() {
   assert(mic.autoRelistenTimer === null, 'Auto re-listen timer cleared when disabled');
 
   // 7. Latency & Position Compensation Logic
-  // Sample: offsetMs = 45000, 10s recording + 850ms network RTT = 10850ms
+  // Sample: offsetMs = 45000, upload/backend RTT = 850ms (post-recording delay)
   const mockOffsetMs = 45000;
-  const mockTimeSinceStartMs = 10850;
-  const expectedPositionSec = (mockOffsetMs + mockTimeSinceStartMs) / 1000; // 55.85s
-  assert(expectedPositionSec === 55.85, 'Position correctly compensates for recording duration and RTT delay');
+  const mockPostRecordingDelayMs = 850;
+  const expectedPositionSec = (mockOffsetMs + mockPostRecordingDelayMs) / 1000; // 45.85s (NOT 55.85s which double-counted 10s recording)
+  assert(expectedPositionSec === 45.85, 'Position correctly compensates for post-recording RTT without double-counting sample duration');
+
+  // 8. Cancellation behavior
+  const cancelSource = new MicSource();
+  let recorderStopped = false;
+  cancelSource.mediaRecorder = {
+    state: 'recording',
+    onstop: () => {},
+    stop: () => { recorderStopped = true; }
+  };
+  cancelSource.audioChunks = [new Uint8Array([1, 2, 3])];
+  cancelSource.isListening = true;
+  cancelSource.stop();
+
+  assert(cancelSource.isCancelled === true, 'Stopping mic sets isCancelled flag to prevent upload');
+  assert(cancelSource.audioChunks.length === 0, 'Stopping mic clears audioChunks immediately');
+  assert(cancelSource.isListening === false, 'isListening is false after cancel');
+  assert(recorderStopped === true, 'Underlying mediaRecorder stop() was cleanly invoked');
+  assert(cancelSource.mediaRecorder === null, 'mediaRecorder reference cleared');
 
   console.log(`\nResults: ${passed} passed, ${failed} failed.`);
 }

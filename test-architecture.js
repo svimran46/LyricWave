@@ -101,6 +101,13 @@ async function runTests() {
   // Seeking test
   engine.seek(60);
   assert(Math.abs(engine.getPositionSeconds() - 60) < 0.2, 'Engine seeked to 60s');
+  assert(engine.durationMs === 203000, 'Engine exposes durationMs (203000ms)');
+
+  // Resilience to seek(NaN)
+  const posBeforeNaN = engine.getPositionSeconds();
+  engine.seek(NaN);
+  assert(!isNaN(engine.getPositionSeconds()), 'Engine position is not NaN after seek(NaN)');
+  assert(Math.abs(engine.getPositionSeconds() - posBeforeNaN) < 0.1, 'Engine position remains intact after seek(NaN)');
 
   // Pause test
   engine.pause();
@@ -111,8 +118,39 @@ async function runTests() {
   await new Promise(r => setTimeout(r, 50));
   assert(engine.getPositionSeconds() === pausedPos, 'Engine clock frozen when paused');
 
+  // Verify hasOffset, isApproximate, and confidence preservation in normalizer
+  const withMeta = normalizeNowPlaying({
+    title: 'Song With Offset',
+    artist: 'Artist',
+    hasOffset: false,
+    isApproximate: true,
+    confidence: 85,
+    spotifyId: 'track_xyz'
+  });
+  assert(withMeta.hasOffset === false, 'hasOffset preserved in normalizeNowPlaying');
+  assert(withMeta.isApproximate === true, 'isApproximate preserved in normalizeNowPlaying');
+  assert(withMeta.confidence === 85, 'confidence preserved in normalizeNowPlaying');
+  assert(withMeta.spotifyId === 'track_xyz', 'spotifyId preserved in normalizeNowPlaying');
+
+  // Verify onError chaining in connectSource
+  let sourceErrorFired = false;
+  let engineErrorFired = false;
+  const dummySource = {
+    name: 'test_dummy',
+    onError: (err) => { sourceErrorFired = true; },
+    stop: () => {}
+  };
+  const testEngine = new UnifiedSyncEngine({
+    onError: (err) => { engineErrorFired = true; }
+  });
+  testEngine.connectSource(dummySource);
+  dummySource.onError(new Error('Test error'));
+  assert(sourceErrorFired === true, 'Source-level onError handler was called');
+  assert(engineErrorFired === true, 'Engine-level onError handler was called in chain');
+
   console.log(`\nResults: ${passed} passed, ${failed} failed.`);
   engine.stop();
+  testEngine.stop();
   source.stop();
   process.exit(failed > 0 ? 1 : 0);
 }

@@ -32,14 +32,33 @@ export class ReelVisualizer {
     this.activeWords = [];
     this.currentWordIndex = -1;
 
-    // Listen for reduced motion changes
-    window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', (e) => {
-      this.reducedMotion = e.matches;
-    });
+    // Listen for reduced motion changes with addEventListener / addListener fallback
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+      this.reducedMotion = motionQuery.matches;
+      const motionHandler = (e) => { this.reducedMotion = e.matches; };
+      if (typeof motionQuery.addEventListener === 'function') {
+        motionQuery.addEventListener('change', motionHandler);
+      } else if (typeof motionQuery.addListener === 'function') {
+        motionQuery.addListener(motionHandler);
+      }
+    }
 
-    // Resize handling
+    // Resize handling (Window resize, orientation change, and container ResizeObserver)
     this.resizeCanvas();
-    window.addEventListener('resize', () => this.resizeCanvas());
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', () => this.resizeCanvas());
+      window.addEventListener('orientationchange', () => {
+        setTimeout(() => this.resizeCanvas(), 100);
+      });
+    }
+
+    if (typeof ResizeObserver !== 'undefined' && this.container) {
+      try {
+        const ro = new ResizeObserver(() => this.resizeCanvas());
+        ro.observe(this.container);
+      } catch {}
+    }
   }
 
   resizeCanvas() {

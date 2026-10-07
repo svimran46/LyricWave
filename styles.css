@@ -2343,3 +2343,119 @@ input:checked + .slider-round:before {
     transform: none !important;
   }
 }
+
+/* =====================================================================
+   Defined Element Classes from Markup
+   ===================================================================== */
+.btn-resync-label {
+  display: inline;
+}
+
+.time-label {
+  font-size: 0.76rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: var(--text-muted);
+}
+
+.lyrics-status-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* =====================================================================
+   Responsive Mobile Media Queries (Down to 360px)
+   ===================================================================== */
+@media (max-width: 600px) {
+  body {
+    padding: 0.75rem;
+  }
+
+  .container {
+    max-width: 100%;
+  }
+
+  .brand-title {
+    font-size: 1.35rem;
+  }
+
+  .source-nav {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .source-tab {
+    flex: 1 1 calc(50% - 4px);
+    font-size: 0.78rem;
+    padding: 0.5rem 0.4rem;
+  }
+
+  .source-tab svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .btn-header-tool span {
+    display: none;
+  }
+
+  .btn-header-tool {
+    padding: 0.4rem;
+  }
+
+  .playback-main-row {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .track-text-meta {
+    align-items: center;
+  }
+
+  .player-btn-controls {
+    justify-content: center;
+  }
+
+  .reel-toolbar {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: stretch;
+  }
+
+  .reel-theme-selector {
+    justify-content: center;
+  }
+
+  .reel-actions {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 400px) {
+  body {
+    padding: 0.4rem;
+  }
+
+  .card {
+    padding: 1rem 0.75rem;
+  }
+
+  .source-tab {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+
+  .btn-resync-label {
+    display: none;
+  }
+
+  .brand-title {
+    font-size: 1.2rem;
+  }
+
+  .modal-dialog {
+    width: 95%;
+    padding: 1rem;
+  }
+}

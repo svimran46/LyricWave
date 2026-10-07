@@ -214,5 +214,6 @@ export class SearchSource {
     this.isPlaying = false;
     this.currentTrack = null;
     this.positionSec = 0;
+    this.onIdle();
   }
 }

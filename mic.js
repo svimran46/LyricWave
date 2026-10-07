@@ -34,6 +34,7 @@ export class MicSource {
 
     // State
     this.isListening = false;
+    this.isCancelled = false;
     this.currentTrack = null;
     this.audioStream = null;
     this.audioContext = null;
@@ -42,13 +43,11 @@ export class MicSource {
     this.audioChunks = [];
     this.rafId = null;
     this.countdownTimer = null;
-    this.recordTimeout = null;
     this.maxVolumeObserved = 0;
 
     // Timing compensation trackers
     this.recordStartTime = 0;   // performance.now() when recording started
     this.uploadStartTime = 0;   // performance.now() when upload started
-    this.roundTripLatencyMs = 0; // Upload + backend processing RTT in ms
 
     // Auto Re-listen every 2 minutes (120,000ms)
     this.autoRelistenEnabled = false;
@@ -108,6 +107,7 @@ export class MicSource {
 
       this.audioStream = await navigator.mediaDevices.getUserMedia(constraints);
       this.isListening = true;
+      this.isCancelled = false;
       this.onListeningStateChange(true);
       this.maxVolumeObserved = 0;
 
@@ -207,12 +207,27 @@ export class MicSource {
       };
 
       this.mediaRecorder.onstop = async () => {
+        if (this.isCancelled) {
+          this.audioChunks = [];
+          this.stopHardware();
+          return;
+        }
+
         // Collect recorded blob
-        const audioBlob = new Blob(this.audioChunks, { type: selectedMime || 'audio/webm' });
+        const chunks = [...this.audioChunks];
         this.audioChunks = [];
 
-        // Stop all tracks immediately so OS mic indicators (green dot on iOS/Android/Mac) turn off
+        // Stop all tracks immediately so OS mic indicators turn off
         this.stopHardware();
+
+        if (chunks.length === 0 || this.isCancelled) {
+          return;
+        }
+
+        const audioBlob = new Blob(chunks, { type: selectedMime || 'audio/webm' });
+        if (audioBlob.size === 0) {
+          return;
+        }
 
         // Check for silence / too quiet audio (background room hum without music)
         if (this.maxVolumeObserved < 0.04) {
@@ -294,10 +309,11 @@ export class MicSource {
         const hasOffset = typeof result.offsetMs === 'number';
 
         if (hasOffset) {
-          // Total elapsed time since microphone began capturing audio
-          const timeSinceRecordStartMs = Math.round(uploadEndTime - this.recordStartTime);
-          // Total compensated position in song
-          const totalCompensatedMs = result.offsetMs + timeSinceRecordStartMs;
+          // ACRCloud play_offset_ms points to the end of the recognized audio buffer.
+          // The buffer ended when recording stopped (this.uploadStartTime).
+          // We only need to add network upload & processing delay elapsed since recording ended.
+          const postRecordingDelayMs = Math.max(0, Math.round(uploadEndTime - this.uploadStartTime));
+          const totalCompensatedMs = result.offsetMs + postRecordingDelayMs;
           positionSec = Math.max(0, totalCompensatedMs / 1000);
         } else {
           // No offset returned by provider: start from 0s and prompt user to tap line
@@ -422,6 +438,7 @@ export class MicSource {
    */
   stop() {
     this.isListening = false;
+    this.isCancelled = true;
     this.onListeningStateChange(false);
 
     if (this.countdownTimer) {
@@ -429,9 +446,12 @@ export class MicSource {
       this.countdownTimer = null;
     }
 
-    if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+    if (this.mediaRecorder) {
       try {
-        this.mediaRecorder.stop();
+        this.mediaRecorder.onstop = null;
+        if (this.mediaRecorder.state === 'recording') {
+          this.mediaRecorder.stop();
+        }
       } catch {}
     }
     this.mediaRecorder = null;

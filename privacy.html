@@ -162,8 +162,8 @@
         <h3>🟢 4. Spotify Live Tracking (OAuth PKCE)</h3>
         <ul>
           <li><strong>Authentication:</strong> Secure OAuth 2.0 with Proof Key for Code Exchange (PKCE).</li>
-          <li><strong>Tokens:</strong> Access and refresh tokens are stored in your device's browser <code>localStorage</code> and never sent to our servers.</li>
-          <li><strong>Permissions:</strong> Read-only access to currently playing track state (<code>user-read-currently-playing</code>).</li>
+          <li><strong>Tokens:</strong> Access and refresh tokens are stored strictly in your device's browser <code>localStorage</code> and never sent to our servers.</li>
+          <li><strong>Permissions:</strong> Read-only access to track identity (<code>user-read-currently-playing</code>), playback time and play/pause state (<code>user-read-playback-state</code>), and profile avatar/display name (<code>user-read-private</code>).</li>
         </ul>
       </div>
 

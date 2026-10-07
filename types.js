@@ -46,7 +46,7 @@ export function normalizeNowPlaying(data) {
     positionSec = data.progress_ms / 1000;
   }
 
-  return {
+  const res = {
     id: String(data.id || `${data.title || 'track'}__${data.artist || 'unknown'}`),
     title: String(data.title || 'Unknown Title'),
     artist: String(data.artist || data.artists || 'Unknown Artist'),
@@ -54,8 +54,25 @@ export function normalizeNowPlaying(data) {
     albumArt: String(data.albumArt || data.artwork || ''),
     duration: Math.max(0, Number(durationSec) || 0),
     position: Math.max(0, Number(positionSec) || 0),
-    isPlaying: Boolean(data.isPlaying ?? data.is_playing ?? true),
+    isPlaying: (data.isPlaying !== undefined || data.is_playing !== undefined)
+      ? Boolean(data.isPlaying ?? data.is_playing)
+      : true,
     source: String(data.source || 'unknown'),
     playbackType: String(data.playbackType || data.currently_playing_type || 'track')
   };
+
+  if (typeof data.hasOffset === 'boolean') {
+    res.hasOffset = data.hasOffset;
+  }
+  if (typeof data.isApproximate === 'boolean') {
+    res.isApproximate = data.isApproximate;
+  }
+  if (typeof data.confidence === 'number') {
+    res.confidence = data.confidence;
+  }
+  if (data.spotifyId) {
+    res.spotifyId = String(data.spotifyId);
+  }
+
+  return res;
 }

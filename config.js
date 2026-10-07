@@ -31,5 +31,11 @@ export const CONFIG = {
     "user-read-currently-playing",
     "user-read-playback-state",
     "user-read-private"
-  ]
+  ],
+
+  /**
+   * Last.fm API Key (Optional override).
+   * If not provided, LastFmSource falls back to the public demo key.
+   */
+  LASTFM_API_KEY: ""
 };

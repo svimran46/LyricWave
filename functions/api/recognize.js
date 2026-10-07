@@ -19,7 +19,7 @@ import { getRecognitionProvider } from './providers/index.js';
 // Max allowed sample size: 3.5 MB (~15-20s uncompressed PCM or several minutes compressed)
 const MAX_SAMPLE_SIZE_BYTES = 3.5 * 1024 * 1024;
 
-// Basic in-memory rate limiter for serverless instance (15 requests per minute per IP)
+// Basic in-memory rate limiter for serverless instance (20 requests per minute per IP)
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 20;
 const ipRateMap = new Map();
@@ -51,15 +51,37 @@ function isRateLimited(clientIp) {
 }
 
 /**
- * Build standard CORS headers
+ * Check if origin is allowed (same-origin, pages.dev domains, localhost, or 127.0.0.1)
+ */
+function isAllowedOrigin(origin) {
+  if (!origin) return false;
+  try {
+    const url = new URL(origin);
+    const host = url.hostname;
+    return (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === 'lyricwave.pages.dev' ||
+      host.endsWith('.lyricwave.pages.dev')
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Build standard CORS headers with allowlist enforcement
  */
 function getCorsHeaders(request) {
-  const origin = request.headers.get('Origin') || '*';
+  const origin = request.headers.get('Origin');
+  const allowed = isAllowedOrigin(origin) ? origin : 'null';
+
   return {
-    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Origin': allowed,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-Recognition-Provider',
     'Access-Control-Max-Age': '86400',
+    'Cache-Control': 'no-store, no-cache, must-revalidate',
     'Vary': 'Origin'
   };
 }
@@ -76,6 +98,7 @@ function jsonError(message, status = 400, corsHeaders = {}) {
     status,
     headers: {
       'Content-Type': 'application/json',
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
       ...corsHeaders
     }
   });

@@ -7,7 +7,7 @@
 
 import { ACRCloudProvider } from './acrcloud.js';
 
-export function getRecognitionProvider(env, providerName = 'acrcloud') {
+export function getRecognitionProvider(env, providerName = null) {
   const selected = (providerName || env.RECOGNITION_PROVIDER || 'acrcloud').toLowerCase();
 
   switch (selected) {

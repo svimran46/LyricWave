@@ -56,7 +56,6 @@ const devDbgPlayState = document.getElementById('devDbgPlayState');
 
 // DOM Elements: Microphone Input
 const btnMicListen = document.getElementById('btnMicListen');
-const micRingPulse = document.getElementById('micRingPulse');
 const micStatusTitle = document.getElementById('micStatusTitle');
 const micStatusSubtitle = document.getElementById('micStatusSubtitle');
 const micCountdownWrap = document.getElementById('micCountdownWrap');
@@ -128,7 +127,6 @@ const themePills = document.querySelectorAll('.btn-theme-pill');
 // DOM Elements: Synced Lyrics View
 const lyricsStatusBadge = document.getElementById('lyricsStatusBadge');
 const lyricsStatusText = document.getElementById('lyricsStatusText');
-const lyricsViewport = document.getElementById('lyricsViewport');
 const lyricsContent = document.getElementById('lyricsContent');
 const btnToggleOffset = document.getElementById('btnToggleOffset');
 const offsetPreviewLabel = document.getElementById('offsetPreviewLabel');
@@ -328,6 +326,12 @@ const engine = new UnifiedSyncEngine({
       showAlert(`Finished "${finishedTrack.title}". Listening for the next song...`, 'info');
       mic.start();
     }
+  },
+
+  onError: (err) => {
+    const msg = typeof err === 'string' ? err : (err?.message || 'Sync error occurred.');
+    console.warn('Sync engine error:', msg);
+    showAlert(msg, 'warning');
   }
 });
 
@@ -599,8 +603,9 @@ function renderSearchResults(tracks) {
   tracks.forEach((track) => {
     const item = document.createElement('div');
     item.className = 'search-item';
+    const cleanArt = sanitizeUrl(track.albumArt);
     item.innerHTML = `
-      <img class="search-item-art" src="${track.albumArt || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22/>'}" alt="" onerror="this.style.display='none'">
+      <img class="search-item-art" src="${cleanArt || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22/>'}" alt="" onerror="this.style.display='none'">
       <div class="search-item-info">
         <div class="search-item-title">${escapeHtml(track.title)}</div>
         <div class="search-item-artist">${escapeHtml(track.artist)}</div>
@@ -641,6 +646,7 @@ function renderSearchResults(tracks) {
 // =====================================================================
 
 const lastfm = new LastFmSource({
+  apiKey: CONFIG.LASTFM_API_KEY || undefined,
   pollInterval: 4000,
   onError: (errMsg) => {
     lastfmStatusInfo.classList.remove('hidden');
@@ -757,6 +763,31 @@ sourceTabs.forEach((tab) => {
       tabPanels[key].classList.toggle('hidden', key !== targetTab);
     });
 
+    // Tear down previous source and clear engine connection
+    if (targetTab !== 'mic' && mic.isListening) {
+      mic.stop();
+    }
+    if (targetTab !== 'spotify' && spotifySource.isRunning) {
+      spotifySource.stop();
+    }
+    if (targetTab !== 'lastfm' && lastfm.isRunning) {
+      lastfm.stop();
+    }
+    if (targetTab !== 'search' && searchSource.isPlaying) {
+      searchSource.stop();
+    }
+
+    // Connect the active source to engine if appropriate
+    if (targetTab === 'spotify' && isAuthenticated()) {
+      engine.connectSource(spotifySource);
+    } else if (targetTab === 'lastfm' && lastfm.getUsername()) {
+      engine.connectSource(lastfm);
+    } else if (targetTab === 'search') {
+      engine.connectSource(searchSource);
+    } else if (targetTab === 'mic') {
+      engine.connectSource(null);
+    }
+
     // Update active offset for newly switched source
     engine.loadOffsetForSource(targetTab);
     updateOffsetUI();
@@ -802,8 +833,21 @@ progressTrack.addEventListener('click', (e) => {
   const rect = progressTrack.getBoundingClientRect();
   const clickX = e.clientX - rect.left;
   const ratio = Math.max(0, Math.min(1, clickX / rect.width));
-  const targetMs = ratio * engine.durationMs;
+  const targetMs = ratio * (engine.durationMs || engine.durationSec * 1000);
   engine.seek(targetMs);
+});
+
+progressTrack.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    engine.seekBy(-5000);
+  } else if (e.key === 'ArrowRight') {
+    e.preventDefault();
+    engine.seekBy(5000);
+  } else if (e.key === ' ' || e.key === 'Enter') {
+    e.preventDefault();
+    engine.togglePlay();
+  }
 });
 
 // =====================================================================
@@ -910,7 +954,7 @@ function renderLyricsState(lyrics) {
     if (retryBtn) {
       retryBtn.addEventListener('click', () => {
         if (engine.track) {
-          engine.setTrack(engine.track, engine.isPlaying);
+          engine.setTrack(engine.track, engine.isPlaying, true);
         }
       });
     }
@@ -1073,20 +1117,45 @@ function toggleFullscreen() {
   }
 }
 
-btnOpenSettings.addEventListener('click', () => {
+function openSettings() {
   settingsBackdrop.classList.remove('hidden');
-});
+  settingsBackdrop.setAttribute('aria-hidden', 'false');
+  btnCloseSettings?.focus();
+}
 
-btnCloseSettings.addEventListener('click', () => {
+function closeSettings() {
   settingsBackdrop.classList.add('hidden');
-});
+  settingsBackdrop.setAttribute('aria-hidden', 'true');
+  btnOpenSettings?.focus();
+}
 
-btnDoneSettings.addEventListener('click', () => {
-  settingsBackdrop.classList.add('hidden');
-});
+btnOpenSettings.addEventListener('click', openSettings);
+btnCloseSettings.addEventListener('click', closeSettings);
+btnDoneSettings.addEventListener('click', closeSettings);
 
 settingsBackdrop.addEventListener('click', (e) => {
-  if (e.target === settingsBackdrop) settingsBackdrop.classList.add('hidden');
+  if (e.target === settingsBackdrop) closeSettings();
+});
+
+window.addEventListener('keydown', (e) => {
+  // Escape to close settings dialog or mic consent dialog
+  if (e.key === 'Escape') {
+    if (!settingsBackdrop.classList.contains('hidden')) {
+      closeSettings();
+    }
+    if (micConsentBackdrop && !micConsentBackdrop.classList.contains('hidden')) {
+      micConsentBackdrop.classList.add('hidden');
+    }
+  }
+
+  // 'F' key for Fullscreen (when not typing in an input)
+  if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+    if (activeTag !== 'input' && activeTag !== 'textarea' && activeTag !== 'select') {
+      e.preventDefault();
+      toggleFullscreen();
+    }
+  }
 });
 
 themePills.forEach((btn) => {
@@ -1188,9 +1257,22 @@ function formatMs(ms) {
 }
 
 function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function sanitizeUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  if (/^(https?:\/\/|data:image\/)/i.test(trimmed)) {
+    return trimmed;
+  }
+  return '';
 }
 
 // =====================================================================

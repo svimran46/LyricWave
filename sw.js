@@ -2,7 +2,7 @@
  * LyricWave Service Worker (PWA Offline & Shell Caching)
  */
 
-const CACHE_NAME = 'lyricwave-v2';
+const CACHE_NAME = 'lyricwave-v3';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -12,7 +12,6 @@ const STATIC_ASSETS = [
   './auth.js',
   './types.js',
   './engine.js',
-  './player.js',
   './lyrics.js',
   './reel.js',
   './mic.js',
@@ -45,12 +44,19 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Only handle GET requests; never intercept or cache POST/PUT/DELETE
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
   const url = new URL(event.request.url);
 
-  // Bypass service worker caching for Spotify and LRCLIB APIs
+  // Bypass service worker caching for external APIs and backend recognition functions
   if (
     url.hostname.includes('spotify.com') ||
-    url.hostname.includes('lrclib.net')
+    url.hostname.includes('lrclib.net') ||
+    url.hostname.includes('audioscrobbler.com') ||
+    url.pathname.startsWith('/api/')
   ) {
     return;
   }
@@ -68,11 +74,12 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         })
-        .catch(() => {
-          // If offline and request is for page navigation, fallback to index.html
+        .catch(async () => {
+          // If offline and request is for page navigation, fallback to cached index.html
           if (event.request.mode === 'navigate') {
-            return caches.match('./index.html');
+            return (await caches.match('./index.html')) || (await caches.match('/index.html'));
           }
+          return cachedResponse || new Response('Network error occurred.', { status: 503, statusText: 'Service Unavailable' });
         });
 
       return cachedResponse || fetchPromise;

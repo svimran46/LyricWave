@@ -39,13 +39,21 @@ export function parseLRC(lrcText) {
   const lines = lrcText.split('\n');
   const parsed = [];
   const timestampRegex = /\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]/g;
+  let fileOffsetMs = 0;
 
   for (const rawLine of lines) {
     const trimmed = rawLine.trim();
     if (!trimmed) continue;
 
+    // Check for [offset: +/- ms] metadata tag
+    const offsetMatch = trimmed.match(/^\[offset:\s*([+-]?\d+)\s*\]/i);
+    if (offsetMatch) {
+      fileOffsetMs = parseInt(offsetMatch[1], 10) || 0;
+      continue;
+    }
+
     // Skip metadata tags (e.g. [ar:Artist], [ti:Title], [length:...])
-    if (/^\[(ar|ti|al|by|offset|length|re|ve):/i.test(trimmed)) {
+    if (/^\[(ar|ti|al|by|length|re|ve):/i.test(trimmed)) {
       continue;
     }
 
@@ -71,9 +79,10 @@ export function parseLRC(lrcText) {
     // Extract text portion after stripping all timestamp tags
     const text = trimmed.replace(timestampRegex, '').trim();
 
-    // Map each timestamp to this text
+    // Map each timestamp to this text, adjusting for file [offset: ms]
     for (const timeMs of timestamps) {
-      parsed.push({ timeMs, text });
+      const adjustedTimeMs = Math.max(0, timeMs + fileOffsetMs);
+      parsed.push({ timeMs: adjustedTimeMs, text });
     }
   }
 
@@ -179,15 +188,16 @@ export async function fetchLyrics(track) {
     }
   } catch (fetchErr) {
     console.warn('LRCLIB network error:', fetchErr);
-    if (!navigator.onLine) {
-      return {
-        status: 'error',
-        type: 'none',
-        message: 'You are currently offline. Connect to the internet to load new lyrics.',
-        syncedLines: [],
-        plainLyrics: ''
-      };
-    }
+    const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
+    return {
+      status: 'error',
+      type: 'none',
+      message: isOffline
+        ? 'You are currently offline. Connect to the internet to load new lyrics.'
+        : `Network error reaching lyrics provider (${fetchErr.message || 'connection failed'}).`,
+      syncedLines: [],
+      plainLyrics: ''
+    };
   }
 
   // 4. Process and format final lyrics result

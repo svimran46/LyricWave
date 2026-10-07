@@ -1,0 +1,18 @@
+{
+  "name": "lyricwave",
+  "version": "1.0.0",
+  "description": "Real-time synchronized lyrics companion with OLED reel visualizer across Spotify, Microphone, Last.fm, and Search.",
+  "type": "module",
+  "scripts": {
+    "test": "node test-architecture.js && node test-lyrics.js && node test-mic.js && node test-providers.js && node test-reel.js && node test-sources.js",
+    "dev": "wrangler pages dev . --ip 127.0.0.1 --port 8788 --compatibility-date=2026-10-06",
+    "deploy": "wrangler pages deploy . --project-name lyricwave"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  },
+  "license": "MIT"
+}

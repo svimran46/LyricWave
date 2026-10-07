@@ -36,6 +36,7 @@ export class UnifiedSyncEngine {
     this.track = null;
     this.isPlaying = false;
     this.durationSec = 0;
+    this.durationMs = 0;
     this.rawPositionSec = 0;
 
     // Local Clock Anchor
@@ -68,7 +69,13 @@ export class UnifiedSyncEngine {
     source.onTrackChange = (track) => this.setTrack(track);
     source.onPlaybackUpdate = (track) => this.updatePlayback(track);
     source.onIdle = () => this.handleIdle();
-    source.onError = (err) => this.onError(err);
+    const originalSourceOnError = source.onError;
+    source.onError = (err) => {
+      if (typeof originalSourceOnError === 'function') {
+        try { originalSourceOnError(err); } catch {}
+      }
+      this.onError(err);
+    };
 
     // If source already has an active track, sync immediately
     if (source.currentTrack) {
@@ -100,14 +107,15 @@ export class UnifiedSyncEngine {
   /**
    * Set or change active track (Accepts any object conforming to NowPlaying interface)
    */
-  async setTrack(trackData, autoPlay = true) {
+  async setTrack(trackData, autoPlay = true, forceReload = false) {
     if (!trackData) return;
 
     const normalized = normalizeNowPlaying(trackData);
-    const isNew = !this.track || this.track.id !== normalized.id;
+    const isNew = forceReload || !this.track || this.track.id !== normalized.id;
 
     this.track = normalized;
     this.durationSec = normalized.duration || 180;
+    this.durationMs = Math.round(this.durationSec * 1000);
     this.rawPositionSec = normalized.position || 0;
     this.isPlaying = typeof normalized.isPlaying === 'boolean' ? normalized.isPlaying : autoPlay;
 
@@ -169,6 +177,7 @@ export class UnifiedSyncEngine {
     const isPlaying = normalized.isPlaying;
     this.isPlaying = isPlaying;
     this.durationSec = normalized.duration || this.durationSec;
+    this.durationMs = Math.round(this.durationSec * 1000);
     this.rawPositionSec = normalized.position;
 
     const now = performance.now();
@@ -204,6 +213,8 @@ export class UnifiedSyncEngine {
   handleIdle() {
     this.track = null;
     this.isPlaying = false;
+    this.durationSec = 0;
+    this.durationMs = 0;
     this.anchorPositionSec = 0;
     this.rawPositionSec = 0;
     this.lyricsData = null;
@@ -215,6 +226,9 @@ export class UnifiedSyncEngine {
     if (!this.track || this.isPlaying) return;
     this.isPlaying = true;
     this.anchorLocalTime = performance.now();
+    if (this.currentSource && typeof this.currentSource.play === 'function') {
+      try { this.currentSource.play(); } catch {}
+    }
     this.onPlaybackChange(true);
   }
 
@@ -223,6 +237,9 @@ export class UnifiedSyncEngine {
     this.anchorPositionSec = this.getPositionSeconds();
     this.anchorLocalTime = performance.now();
     this.isPlaying = false;
+    if (this.currentSource && typeof this.currentSource.pause === 'function') {
+      try { this.currentSource.pause(); } catch {}
+    }
     this.onPlaybackChange(false);
   }
 
@@ -236,16 +253,24 @@ export class UnifiedSyncEngine {
 
   seek(target) {
     if (!this.track) return;
+    const targetNum = Number(target);
+    if (isNaN(targetNum)) return;
     // Handle either seconds or milliseconds (if > 1000 and durationSec < 1000, treat as ms)
-    const targetSec = (target > this.durationSec && target > 1000) ? (target / 1000) : target;
-    this.anchorPositionSec = Math.max(0, Math.min(this.durationSec, targetSec));
+    const targetSec = (targetNum > this.durationSec && targetNum > 1000) ? (targetNum / 1000) : targetNum;
+    const clampedSec = Math.max(0, Math.min(this.durationSec, targetSec));
+    this.anchorPositionSec = clampedSec;
     this.anchorLocalTime = performance.now();
     this.activeLineIndex = -1;
+    if (this.currentSource && typeof this.currentSource.seek === 'function') {
+      try { this.currentSource.seek(clampedSec); } catch {}
+    }
   }
 
   seekBy(delta) {
+    const deltaNum = Number(delta);
+    if (isNaN(deltaNum)) return;
     // If delta is large (> 50 or < -50), treat as ms
-    const deltaSec = (Math.abs(delta) > 50) ? (delta / 1000) : delta;
+    const deltaSec = (Math.abs(deltaNum) > 50) ? (deltaNum / 1000) : deltaNum;
     this.seek(this.getPositionSeconds() + deltaSec);
   }
 
@@ -284,7 +309,7 @@ export class UnifiedSyncEngine {
   }
 
   loop() {
-    if (this.track) {
+    if (this.track && (typeof document === 'undefined' || !document.hidden)) {
       const positionSec = this.getPositionSeconds();
       const positionMs = Math.round(positionSec * 1000);
       const effectiveMs = positionMs + this.offsetMs;
@@ -307,7 +332,7 @@ export class UnifiedSyncEngine {
         }
       }
 
-      // 60fps tick notification
+      // Tick notification
       this.onTick({
         positionSec,
         positionMs,
@@ -322,6 +347,8 @@ export class UnifiedSyncEngine {
       });
     }
 
-    this.rafId = requestAnimationFrame(this.loop);
+    if (this.rafId !== null) {
+      this.rafId = requestAnimationFrame(this.loop);
+    }
   }
 }

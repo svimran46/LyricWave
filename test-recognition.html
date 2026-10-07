@@ -457,7 +457,7 @@
     function handleSelectedFile(file) {
       selectedUploadFile = file;
       const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
-      dropzoneLabel.innerHTML = `<strong>${file.name}</strong> (${sizeMb} MB)`;
+      dropzoneLabel.textContent = `${file.name} (${sizeMb} MB)`;
       btnUploadSubmit.disabled = false;
       setStatus(`File selected: ${file.name} (${sizeMb} MB). Click "Send Audio to Backend".`, 'info');
     }

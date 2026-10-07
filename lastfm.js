@@ -63,6 +63,7 @@ export class LastFmSource {
     }
     this.currentTrackKey = null;
     this.currentTrack = null;
+    this.onIdle();
   }
 
   async poll() {
