@@ -107,6 +107,16 @@
           <span class="badge-hot-tag">Hot</span>
         </button>
 
+        <button id="tabNews" class="source-tab" role="tab" aria-selected="false" data-tab="news">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;" aria-hidden="true">
+            <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>
+            <path d="M18 14h-8"/>
+            <path d="M15 18h-5"/>
+            <path d="M10 6h8v4h-8V6Z"/>
+          </svg>
+          <span class="tab-label">News</span>
+        </button>
+
         <button id="tabConnect" class="source-tab" role="tab" aria-selected="false" data-tab="connect">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;" aria-hidden="true">
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
@@ -330,6 +340,48 @@
           <div class="charts-loading-state">
             <div class="spinner" style="margin: 0 auto 0.75rem auto;"></div>
             <p>Loading hot chart songs...</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. Music News Panel: Genius-Themed Headlines & Stories -->
+      <section id="panelNews" class="tab-panel hidden" aria-label="Music News">
+        <div class="news-hero-card">
+          <div class="news-header-row">
+            <div>
+              <div class="charts-supertitle">
+                <span class="charts-fire-badge">📰 MUSIC DISPATCH</span>
+                <span class="charts-updated-tag" id="newsUpdatedTag">Live Today</span>
+              </div>
+              <h2 class="charts-main-title">Music News & Culture</h2>
+              <p class="charts-subtitle">
+                Latest music headlines, album releases, and breaking stories from Rolling Stone & NME.
+              </p>
+            </div>
+
+            <button id="btnRefreshNews" class="btn-refresh-charts" type="button" aria-label="Refresh News" title="Refresh Music News">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+              <span>Refresh</span>
+            </button>
+          </div>
+
+          <!-- News Source / Filter Pills -->
+          <div class="charts-genre-bar" role="tablist" aria-label="News Topics">
+            <button class="news-filter-pill active" type="button" data-source="all">All Stories</button>
+            <button class="news-filter-pill" type="button" data-source="nme">NME</button>
+            <button class="news-filter-pill" type="button" data-source="rolling-stone">Rolling Stone</button>
+          </div>
+        </div>
+
+        <!-- News Articles List Container -->
+        <div id="newsListContainer" class="news-list-wrap">
+          <div class="charts-loading-state">
+            <div class="spinner" style="margin: 0 auto 0.75rem auto;"></div>
+            <p>Loading fresh music headlines...</p>
           </div>
         </div>
       </section>

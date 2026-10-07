@@ -34,6 +34,7 @@ const tabPanels = {
   mic: document.getElementById('panelMic'),
   search: document.getElementById('panelSearch'),
   charts: document.getElementById('panelCharts'),
+  news: document.getElementById('panelNews'),
   connect: document.getElementById('panelConnect'),
   lastfm: document.getElementById('panelLastfm'),
   spotify: document.getElementById('panelSpotify')
@@ -121,6 +122,13 @@ const chartsListContainer = document.getElementById('chartsListContainer');
 const btnRefreshCharts = document.getElementById('btnRefreshCharts');
 const chartsUpdatedTag = document.getElementById('chartsUpdatedTag');
 const genrePills = document.querySelectorAll('.genre-pill');
+
+// DOM Elements: News Panel
+const panelNews = document.getElementById('panelNews');
+const newsListContainer = document.getElementById('newsListContainer');
+const btnRefreshNews = document.getElementById('btnRefreshNews');
+const newsUpdatedTag = document.getElementById('newsUpdatedTag');
+const newsFilterPills = document.querySelectorAll('.news-filter-pill');
 
 // DOM Elements: Last.fm Input
 const lastfmUserInput = document.getElementById('lastfmUserInput');
@@ -1174,6 +1182,170 @@ if (btnRefreshCharts) {
 }
 
 // =====================================================================
+// Genius-Themed Music News Section (Rolling Stone & NME)
+// =====================================================================
+
+let currentNewsSource = 'all';
+let cachedNewsData = null;
+let isFetchingNews = false;
+
+async function loadNews(sourceFilter = 'all', forceRefresh = false) {
+  if (!newsListContainer) return;
+  if (isFetchingNews) return;
+
+  currentNewsSource = sourceFilter;
+
+  if (btnRefreshNews) {
+    btnRefreshNews.classList.add('loading');
+  }
+
+  newsListContainer.innerHTML = `
+    <div class="charts-loading-state">
+      <div class="spinner" style="margin: 0 auto 0.75rem auto;"></div>
+      <p>Loading fresh music headlines...</p>
+    </div>
+  `;
+
+  try {
+    isFetchingNews = true;
+    const query = new URLSearchParams({
+      limit: '20'
+    });
+    if (forceRefresh) {
+      query.set('t', Date.now().toString());
+    }
+
+    const res = await fetch(`/api/news?${query.toString()}`);
+    if (!res.ok) {
+      throw new Error(`Failed to load news (HTTP ${res.status})`);
+    }
+
+    const data = await res.json();
+    cachedNewsData = data;
+
+    if (newsUpdatedTag && data.updated) {
+      try {
+        const d = new Date(data.updated);
+        newsUpdatedTag.textContent = `Updated ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      } catch {
+        newsUpdatedTag.textContent = 'Live Today';
+      }
+    }
+
+    renderNews(data.articles || [], sourceFilter);
+  } catch (err) {
+    console.warn('News load error:', err);
+    newsListContainer.innerHTML = `
+      <div class="charts-empty-state">
+        <p style="margin-bottom:0.6rem;">⚠️ Unable to load music news right now.</p>
+        <button id="btnRetryNews" class="btn btn-sm btn-ghost" type="button" style="border:1px solid var(--border);">
+          ↻ Try Again
+        </button>
+      </div>
+    `;
+    const btnRetry = document.getElementById('btnRetryNews');
+    if (btnRetry) {
+      btnRetry.addEventListener('click', () => loadNews(sourceFilter, true));
+    }
+  } finally {
+    isFetchingNews = false;
+    if (btnRefreshNews) {
+      btnRefreshNews.classList.remove('loading');
+    }
+  }
+}
+
+function renderNews(articles, sourceFilter = 'all') {
+  if (!newsListContainer) return;
+
+  let filtered = articles;
+  if (sourceFilter !== 'all') {
+    const sLow = sourceFilter.toLowerCase();
+    filtered = articles.filter(a => {
+      const src = (a.source || '').toLowerCase().replace(/\s+/g, '-');
+      return src.includes(sLow);
+    });
+  }
+
+  if (!filtered || filtered.length === 0) {
+    newsListContainer.innerHTML = `
+      <div class="charts-empty-state">
+        <p>No headlines found for this publication. Check back soon!</p>
+      </div>
+    `;
+    return;
+  }
+
+  newsListContainer.innerHTML = '';
+  const fragment = document.createDocumentFragment();
+
+  filtered.forEach((article) => {
+    const card = document.createElement('a');
+    card.className = 'news-article-card';
+    card.href = article.link || '#';
+    card.target = '_blank';
+    card.rel = 'noopener noreferrer';
+    card.setAttribute('aria-label', `${article.title} - ${article.source}`);
+
+    let timeAgo = '';
+    if (article.pubDate) {
+      try {
+        const d = new Date(article.pubDate);
+        timeAgo = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      } catch {}
+    }
+
+    const cleanImg = sanitizeUrl(article.imageUrl);
+    const imgHtml = cleanImg
+      ? `<img class="news-article-img" src="${cleanImg}" alt="${escapeHtml(article.title)}" loading="lazy" onerror="this.parentElement.style.display='none'">`
+      : `<div class="news-article-img" style="display:flex;align-items:center;justify-content:center;font-size:1.4rem;background:#181b22;">📰</div>`;
+
+    card.innerHTML = `
+      <div class="news-article-img-wrap">
+        ${imgHtml}
+      </div>
+      <div class="news-article-content">
+        <div>
+          <div class="news-article-badge-row">
+            <span class="news-source-tag">${escapeHtml(article.source || 'News')}</span>
+            ${timeAgo ? `<span class="news-time-tag">• ${escapeHtml(timeAgo)}</span>` : ''}
+          </div>
+          <div class="news-article-title">${escapeHtml(article.title)}</div>
+        </div>
+        ${article.excerpt ? `<p class="news-article-excerpt">${escapeHtml(article.excerpt)}</p>` : ''}
+      </div>
+    `;
+
+    fragment.appendChild(card);
+  });
+
+  newsListContainer.appendChild(fragment);
+}
+
+// News source filter pills click listener
+if (newsFilterPills && newsFilterPills.length > 0) {
+  newsFilterPills.forEach((pill) => {
+    pill.addEventListener('click', () => {
+      newsFilterPills.forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      const src = pill.dataset.source || 'all';
+      if (cachedNewsData && cachedNewsData.articles) {
+        renderNews(cachedNewsData.articles, src);
+      } else {
+        loadNews(src);
+      }
+    });
+  });
+}
+
+// News refresh button listener
+if (btnRefreshNews) {
+  btnRefreshNews.addEventListener('click', () => {
+    loadNews(currentNewsSource, true);
+  });
+}
+
+// =====================================================================
 // Input Source 3: Last.fm Live Scrobble (Approximate Mode)
 // =====================================================================
 
@@ -1392,6 +1564,13 @@ sourceTabs.forEach((tab) => {
       updateOffsetUI();
       if (!cachedChartData) {
         loadCharts(currentChartGenre);
+      }
+    } else if (targetTab === 'news') {
+      engine.connectSource(searchSource);
+      engine.loadOffsetForSource('search');
+      updateOffsetUI();
+      if (!cachedNewsData) {
+        loadNews(currentNewsSource);
       }
     } else if (targetTab === 'mic') {
       engine.connectSource(null);
