@@ -3,12 +3,14 @@ package app.lyricwave.twa;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.ActivityNotFoundException;
+import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -43,6 +45,8 @@ public class MainActivity extends AppCompatActivity {
     private static final String APP_START_URL = "https://" + APP_HOST + "/assets/index.html";
 
     private WebView webView;
+    private NowPlayingMonitor nowPlayingMonitor;
+    private boolean nowPlayingPushQueued;
     private PermissionRequest pendingAudioPermissionRequest;
 
     /** True only for the bundled app origin served by WebViewAssetLoader. */
@@ -120,6 +124,9 @@ public class MainActivity extends AppCompatActivity {
         // Minimal native bridge: the only capability exposed is toggling keep-screen-on,
         // because the Screen Wake Lock API is not available inside Android WebView.
         webView.addJavascriptInterface(new NativeBridge(), "LyricWaveNative");
+
+        // Follows the phone's music apps via media sessions (needs notification access).
+        nowPlayingMonitor = new NowPlayingMonitor(this, this::queueNowPlayingPush);
 
         // Configure WebViewClient for local asset interception and external URL routing
         webView.setWebViewClient(new WebViewClient() {
@@ -242,7 +249,57 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /** Exposed to page JS as window.LyricWaveNative. Keep this surface tiny. */
+    /** Push the current track to the page (coalesced to at most one pending push). */
+    private void queueNowPlayingPush() {
+        if (nowPlayingPushQueued || webView == null) return;
+        nowPlayingPushQueued = true;
+        webView.postDelayed(() -> {
+            nowPlayingPushQueued = false;
+            if (webView == null || nowPlayingMonitor == null) return;
+            String json = nowPlayingMonitor.snapshotJson();
+            webView.evaluateJavascript(
+                    "window.__lyricwaveNowPlaying && window.__lyricwaveNowPlaying(" + json + ")", null);
+        }, 150);
+    }
+
     private class NativeBridge {
+        /** True once "Notification access" is enabled for LyricWave. */
+        @JavascriptInterface
+        public boolean hasMediaAccess() {
+            return nowPlayingMonitor != null && nowPlayingMonitor.hasAccess();
+        }
+
+        /** Opens the system screen where the user can grant notification access. */
+        @JavascriptInterface
+        public void openMediaAccessSettings() {
+            runOnUiThread(() -> {
+                ComponentName cn = nowPlayingMonitor.getListenerComponent();
+                Intent intent;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
+                            .putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, cn.flattenToString());
+                } else {
+                    intent = new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS");
+                }
+                try {
+                    startActivity(intent);
+                } catch (ActivityNotFoundException e) {
+                    try {
+                        startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"));
+                    } catch (ActivityNotFoundException ignored) {
+                        // Very old / unusual ROM without the settings screen.
+                    }
+                }
+            });
+        }
+
+        /** JSON snapshot: {access, active, package, title, artist, album, artUri, durationMs, positionMs, isPlaying}. */
+        @JavascriptInterface
+        public String getNowPlaying() {
+            if (nowPlayingMonitor == null) return "{\"access\":false,\"active\":false}";
+            return nowPlayingMonitor.snapshotJson();
+        }
+
         /** Opens Spotify's authorize page in a Chrome Custom Tab (never inside the WebView). */
         @JavascriptInterface
         public void openSpotifyLogin(final String url) {
@@ -291,6 +348,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (nowPlayingMonitor != null) nowPlayingMonitor.start();
         if (webView != null) {
             webView.onResume();
         }
@@ -299,6 +357,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
+        if (nowPlayingMonitor != null) nowPlayingMonitor.stop();
         // Never hold the screen on while the app is not visible.
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         if (webView != null) {

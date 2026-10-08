@@ -36,5 +36,17 @@
 
         </activity>
 
+        <!-- Lets LyricWave see which music app is playing (media sessions). Notification
+             contents are never read; see MediaListenerService. -->
+        <service
+            android:name=".MediaListenerService"
+            android:label="${launcherName}"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
     </application>
 </manifest>
