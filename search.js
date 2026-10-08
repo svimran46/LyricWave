@@ -27,70 +27,98 @@ export async function searchTracks(query, limit = 8) {
   const results = [];
   const seenKeys = new Set();
 
-  // 1. Primary Search: iTunes Search API (fast, high-res artwork, exact duration)
-  try {
-    const params = new URLSearchParams({
-      term: cleanQuery,
-      entity: 'song',
-      limit: limit.toString()
+  const normalizeKey = (t, a) => `${(t || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()}__${(a || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()}`;
+
+  const LRCLIB_HEADERS = {
+    'Lrclib-Client': 'LyricWave/1.0.0 (https://github.com/lyricwave)'
+  };
+
+  // 1. Concurrently query iTunes (for high-res artwork & audio preview) and LRCLIB (for confirmed lyrics)
+  const itunesParams = new URLSearchParams({
+    term: cleanQuery,
+    entity: 'song',
+    limit: clampedLimit.toString()
+  });
+
+  const lrcParams = new URLSearchParams({ q: cleanQuery });
+
+  const itunesPromise = fetch(`${ITUNES_SEARCH_URL}?${itunesParams.toString()}`)
+    .then(r => r.ok ? r.json() : null)
+    .catch(err => {
+      console.warn('iTunes search error:', err);
+      return null;
     });
 
-    const response = await fetch(`${ITUNES_SEARCH_URL}?${params.toString()}`);
-    if (response.ok) {
-      const data = await response.json();
-      if (Array.isArray(data.results)) {
-        for (const item of data.results) {
-          const key = `${item.trackName}__${item.artistName}`.toLowerCase();
-          if (!seenKeys.has(key)) {
-            seenKeys.add(key);
-            // Replace 100x100 artwork with 600x600 for sharp OLED display
-            const highResArt = (item.artworkUrl100 || '').replace('100x100bb', '600x600bb');
-            results.push({
-              id: `itunes_${item.trackId}`,
-              title: item.trackName,
-              artist: item.artistName,
-              album: item.collectionName || '',
-              albumArt: highResArt || item.artworkUrl100 || '',
-              durationMs: item.trackTimeMillis || 0,
-              previewUrl: item.previewUrl || null,
-              source: 'search'
-            });
-          }
-        }
+  const lrcPromise = fetch(`${LRCLIB_SEARCH_URL}?${lrcParams.toString()}`, { headers: LRCLIB_HEADERS })
+    .then(r => r.ok ? r.json() : null)
+    .catch(err => {
+      console.warn('LRCLIB search error:', err);
+      return null;
+    });
+
+  const [itunesData, lrcData] = await Promise.all([itunesPromise, lrcPromise]);
+
+  // Index iTunes artwork and audio preview metadata
+  const artMap = new Map();
+  if (itunesData && Array.isArray(itunesData.results)) {
+    for (const item of itunesData.results) {
+      const k = normalizeKey(item.trackName, item.artistName);
+      const highResArt = (item.artworkUrl100 || '').replace('100x100bb', '600x600bb');
+      if (!artMap.has(k)) {
+        artMap.set(k, {
+          albumArt: highResArt || item.artworkUrl100 || '',
+          previewUrl: item.previewUrl || null,
+          collectionName: item.collectionName || ''
+        });
       }
     }
-  } catch (err) {
-    console.warn('iTunes search error:', err);
   }
 
-  // 2. Fallback / Augment with LRCLIB search if iTunes returned few or zero results
-  if (results.length < 3) {
-    try {
-      const lrcParams = new URLSearchParams({ q: cleanQuery });
-      const lrcRes = await fetch(`${LRCLIB_SEARCH_URL}?${lrcParams.toString()}`);
-      if (lrcRes.ok) {
-        const lrcData = await lrcRes.json();
-        if (Array.isArray(lrcData)) {
-          for (const item of lrcData) {
-            const key = `${item.trackName}__${item.artistName}`.toLowerCase();
-            if (!seenKeys.has(key) && results.length < limit) {
-              seenKeys.add(key);
-              results.push({
-                id: `lrclib_${item.id}`,
-                title: item.trackName,
-                artist: item.artistName,
-                album: item.albumName || '',
-                albumArt: '',
-                durationMs: (item.duration || 0) * 1000,
-                previewUrl: null,
-                source: 'search'
-              });
-            }
-          }
-        }
+  // 2. Prioritize LRCLIB tracks (guaranteed to have lyrics available)
+  if (Array.isArray(lrcData)) {
+    for (const item of lrcData) {
+      const key = `${item.trackName}__${item.artistName}`.toLowerCase();
+      if (!seenKeys.has(key) && results.length < clampedLimit) {
+        seenKeys.add(key);
+        const normK = normalizeKey(item.trackName, item.artistName);
+        const matchedItunes = artMap.get(normK) || null;
+        results.push({
+          id: `lrclib_${item.id}`,
+          lrclibId: item.id,
+          title: item.trackName,
+          artist: item.artistName,
+          album: item.albumName || matchedItunes?.collectionName || '',
+          albumArt: matchedItunes?.albumArt || '',
+          durationMs: (item.duration || 0) * 1000,
+          previewUrl: matchedItunes?.previewUrl || null,
+          syncedLyrics: item.syncedLyrics || null,
+          plainLyrics: item.plainLyrics || null,
+          instrumental: item.instrumental || false,
+          hasSynced: Boolean(item.syncedLyrics),
+          source: 'search'
+        });
       }
-    } catch (lrcErr) {
-      console.warn('LRCLIB search error:', lrcErr);
+    }
+  }
+
+  // 3. Augment with remaining iTunes tracks that weren't in LRCLIB results
+  if (itunesData && Array.isArray(itunesData.results)) {
+    for (const item of itunesData.results) {
+      const key = `${item.trackName}__${item.artistName}`.toLowerCase();
+      if (!seenKeys.has(key) && results.length < clampedLimit) {
+        seenKeys.add(key);
+        const highResArt = (item.artworkUrl100 || '').replace('100x100bb', '600x600bb');
+        results.push({
+          id: `itunes_${item.trackId}`,
+          title: item.trackName,
+          artist: item.artistName,
+          album: item.collectionName || '',
+          albumArt: highResArt || item.artworkUrl100 || '',
+          durationMs: item.trackTimeMillis || 0,
+          previewUrl: item.previewUrl || null,
+          source: 'search'
+        });
+      }
     }
   }
 

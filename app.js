@@ -976,7 +976,7 @@ function renderSearchResults(tracks) {
       <div class="search-item-info">
         <div class="search-item-title">${escapeHtml(track.title)}</div>
         <div class="search-item-artist">${escapeHtml(track.artist)}</div>
-        <div class="search-item-meta">${escapeHtml(track.album || '')} • ${formatMs(track.durationMs)}</div>
+        <div class="search-item-meta">${escapeHtml(track.album || '')} • ${formatMs(track.durationMs)}${track.hasSynced || track.syncedLyrics ? ' <span class="lyrics-badge synced" style="padding:0.1rem 0.4rem;font-size:0.65rem;margin-left:0.35rem;">Synced</span>' : ''}</div>
       </div>
       <div class="search-item-action">
         <button class="btn-start-track" type="button" aria-label="Start lyrics playback">

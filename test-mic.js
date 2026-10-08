@@ -116,6 +116,11 @@ async function runTests() {
   provMic.setProvider('audd');
   assert(localStorage.getItem('lyricwave_recognition_provider') === 'audd', 'Switched back to audd in localStorage');
 
+  // 10. Sample Duration Configuration (Optimized default to 3s)
+  assert(mic.sampleDurationSec === 3, 'Default sampleDurationSec is 3s for fast recognition');
+  const customDurationMic = new MicSource({ sampleDurationSec: 4 });
+  assert(customDurationMic.sampleDurationSec === 4, 'Custom sampleDurationSec is respected');
+
   console.log(`\nResults: ${passed} passed, ${failed} failed.`);
 
 }

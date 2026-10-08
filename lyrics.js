@@ -9,6 +9,9 @@
 
 const LRCLIB_GET_URL = 'https://lrclib.net/api/get';
 const LRCLIB_SEARCH_URL = 'https://lrclib.net/api/search';
+const LRCLIB_HEADERS = {
+  'Lrclib-Client': 'LyricWave/1.0.0 (https://github.com/lyricwave)'
+};
 const STORAGE_OFFSET_KEY = 'lyricwave_manual_offset_ms';
 const STORAGE_CACHE_PREFIX = 'lyricwave_lrc_';
 
@@ -110,11 +113,17 @@ const memoryCache = new Map();
 export function cleanTrackTitle(title) {
   if (!title) return '';
   return title
-    .replace(/\s*-\s*.*?(remaster(?:ed)?|deluxe|bonus|radio edit|live|mono|stereo|anniversary|edit|version|session(?:s)?).*$/i, '')
+    .replace(/^["'“‘]+|["'”’]+$/g, '')
+    .replace(/\s*-\s*.*?(remaster(?:ed)?|deluxe|bonus|radio edit|live|mono|stereo|anniversary|edit|version|session(?:s)?|audio|video|visualizer|mix).*$/i, '')
+    .replace(/\s*-\s*\d{4}\s+remaster.*$/i, '')
     .replace(/\s*\(feat\..*?\)/i, '')
     .replace(/\s*\(with.*?\)/i, '')
     .replace(/\s*\[feat\..*?\]/i, '')
-    .replace(/\s*\(.*?(remaster(?:ed)?|deluxe|bonus|anniversary|session(?:s)?|live|edit|acoustic).*?\)/i, '')
+    .replace(/\s*\[with.*?\]/i, '')
+    .replace(/\s*(?:feat\.|ft\.|featuring)\s+.*$/i, '')
+    .replace(/\s*\(.*?(remaster(?:ed)?|deluxe|bonus|anniversary|session(?:s)?|live|edit|acoustic|official|audio|video|visualizer|lyrics?).*?\)/i, '')
+    .replace(/\s*\[.*?(remaster(?:ed)?|deluxe|bonus|anniversary|session(?:s)?|live|edit|acoustic|official|audio|video|visualizer|lyrics?).*?\]/i, '')
+    .replace(/\s*-\s*(?:single|ep|single version).*$/i, '')
     .trim();
 }
 
@@ -194,6 +203,21 @@ export async function fetchLyrics(track) {
   const idbKey = normalizeLyricCacheKey(primaryArtist, track.title);
   const cacheKey = `${track.id || track.title}__${track.artists || track.artist}`.toLowerCase();
 
+  // 0. Fast-path: pre-attached lyrics on track object (e.g. from rich search results)
+  if (track.syncedLyrics || track.plainLyrics) {
+    const lines = track.syncedLyrics ? parseLRC(track.syncedLyrics) : [];
+    const directResult = {
+      status: lines.length > 0 ? 'synced' : (track.plainLyrics ? 'plain' : 'none'),
+      type: lines.length > 0 ? 'synced' : (track.plainLyrics ? 'plain' : 'none'),
+      syncedLines: lines,
+      plainLyrics: track.plainLyrics || '',
+      lrclibId: track.lrclibId || (typeof track.id === 'string' && track.id.startsWith('lrclib_') ? track.id.replace('lrclib_', '') : null)
+    };
+    memoryCache.set(cacheKey, directResult);
+    memoryCache.set(idbKey, directResult);
+    return directResult;
+  }
+
   // 1. Check in-memory cache
   if (memoryCache.has(cacheKey)) {
     return memoryCache.get(cacheKey);
@@ -244,14 +268,23 @@ export async function fetchLyrics(track) {
 
     const queries = [];
 
-    // Query 1: Clean exact GET query via /api/get (do NOT constrain by album_name or strict duration
-    // as album titles vary across single/EP/album releases and cause 404s)
+    // Query 0: Exact ID lookup if LRCLIB ID is available
+    const explicitLrcId = track.lrclibId || (typeof track.id === 'string' && track.id.startsWith('lrclib_') ? track.id.replace('lrclib_', '') : null);
+    if (explicitLrcId) {
+      queries.push(
+        fetch(`${LRCLIB_GET_URL}/${explicitLrcId}`, { headers: LRCLIB_HEADERS, signal: fetchSignal })
+          .then(r => r.ok ? r.json() : null)
+          .catch(() => null)
+      );
+    }
+
+    // Query 1: Clean exact GET query via /api/get
     const exactParams = new URLSearchParams({
       track_name: track.title,
       artist_name: primaryArtist
     });
     queries.push(
-      fetch(`${LRCLIB_GET_URL}?${exactParams.toString()}`, { signal: fetchSignal })
+      fetch(`${LRCLIB_GET_URL}?${exactParams.toString()}`, { headers: LRCLIB_HEADERS, signal: fetchSignal })
         .then(r => r.ok ? r.json() : null)
         .catch(() => null)
     );
@@ -263,7 +296,7 @@ export async function fetchLyrics(track) {
         artist_name: primaryArtist
       });
       queries.push(
-        fetch(`${LRCLIB_GET_URL}?${cleanParams.toString()}`, { signal: fetchSignal })
+        fetch(`${LRCLIB_GET_URL}?${cleanParams.toString()}`, { headers: LRCLIB_HEADERS, signal: fetchSignal })
           .then(r => r.ok ? r.json() : null)
           .catch(() => null)
       );
@@ -275,7 +308,7 @@ export async function fetchLyrics(track) {
       artist_name: primaryArtist
     });
     queries.push(
-      fetch(`${LRCLIB_SEARCH_URL}?${searchParams.toString()}`, { signal: fetchSignal })
+      fetch(`${LRCLIB_SEARCH_URL}?${searchParams.toString()}`, { headers: LRCLIB_HEADERS, signal: fetchSignal })
         .then(r => r.ok ? r.json() : null)
         .then(results => {
           if (Array.isArray(results) && results.length > 0) {
@@ -292,7 +325,7 @@ export async function fetchLyrics(track) {
     const generalQ = `${primaryArtist} ${cleanedTitle || track.title}`.trim();
     const generalParams = new URLSearchParams({ q: generalQ });
     queries.push(
-      fetch(`${LRCLIB_SEARCH_URL}?${generalParams.toString()}`, { signal: fetchSignal })
+      fetch(`${LRCLIB_SEARCH_URL}?${generalParams.toString()}`, { headers: LRCLIB_HEADERS, signal: fetchSignal })
         .then(r => r.ok ? r.json() : null)
         .then(results => {
           if (Array.isArray(results) && results.length > 0) {
@@ -313,13 +346,35 @@ export async function fetchLyrics(track) {
         artist_name: rawArtist
       });
       queries.push(
-        fetch(`${LRCLIB_SEARCH_URL}?${rawSearchParams.toString()}`, { signal: fetchSignal })
+        fetch(`${LRCLIB_SEARCH_URL}?${rawSearchParams.toString()}`, { headers: LRCLIB_HEADERS, signal: fetchSignal })
           .then(r => r.ok ? r.json() : null)
           .then(results => {
             if (Array.isArray(results) && results.length > 0) {
               return results.find(r => r.syncedLyrics)
                 || results.find(r => r.plainLyrics)
                 || results[0];
+            }
+            return null;
+          })
+          .catch(() => null)
+      );
+    }
+
+    // Query 6: Search fallback using cleaned title alone for fuzzy artist matching
+    if (cleanedTitle) {
+      const titleOnlyParams = new URLSearchParams({ track_name: cleanedTitle });
+      queries.push(
+        fetch(`${LRCLIB_SEARCH_URL}?${titleOnlyParams.toString()}`, { headers: LRCLIB_HEADERS, signal: fetchSignal })
+          .then(r => r.ok ? r.json() : null)
+          .then(results => {
+            if (Array.isArray(results) && results.length > 0) {
+              const lowerPrimary = primaryArtist.toLowerCase();
+              const match = results.find(r => {
+                const rArtist = (r.artistName || '').toLowerCase();
+                return rArtist.includes(lowerPrimary) || lowerPrimary.includes(rArtist);
+              });
+              if (match) return match;
+              return results.find(r => r.syncedLyrics) || results.find(r => r.plainLyrics) || results[0];
             }
             return null;
           })

@@ -2,7 +2,7 @@
  * Unit Test for Lyrics Service and LRC Parser
  */
 
-import { parseLRC, cleanTrackTitle, findActiveLineIndex, getStoredOffsetMs, setStoredOffsetMs } from './lyrics.js';
+import { parseLRC, cleanTrackTitle, findActiveLineIndex, getStoredOffsetMs, setStoredOffsetMs, fetchLyrics } from './lyrics.js';
 
 let passed = 0;
 let failed = 0;
@@ -23,6 +23,10 @@ console.log('--- Testing LRC Parser & Lyrics Utilities ---');
 assert(cleanTrackTitle('Starboy - Remastered 2021') === 'Starboy', 'Remaster suffix cleaned');
 assert(cleanTrackTitle('Die For You (feat. Ariana Grande)') === 'Die For You', 'feat. suffix cleaned');
 assert(cleanTrackTitle('Blinding Lights') === 'Blinding Lights', 'Clean title preserved');
+assert(cleanTrackTitle('God\'s Plan ft. Drake') === 'God\'s Plan', 'Unbracketed ft. cleaned');
+assert(cleanTrackTitle('Hello (Official Audio)') === 'Hello', 'Official Audio suffix cleaned');
+assert(cleanTrackTitle('Yesterday [Official Music Video]') === 'Yesterday', 'Official Music Video bracket cleaned');
+assert(cleanTrackTitle('"Bohemian Rhapsody"') === 'Bohemian Rhapsody', 'Surrounding quotes cleaned');
 
 // 2. LRC Parser
 const sampleLRC = `
@@ -68,6 +72,19 @@ const lrcWithOffset = `
 const parsedOffset = parseLRC(lrcWithOffset);
 assert(parsedOffset.length === 1, 'Parsed 1 line from offset LRC');
 assert(parsedOffset[0].timeMs === 2500, '[offset: 500] correctly added 500ms to 2000ms timestamp (2500ms)');
+
+// 6. Fast-path: Pre-attached synced lyrics on track object
+const preloadedTrack = {
+  id: 'lrclib_9999',
+  title: 'Instant Track',
+  artist: 'Instant Artist',
+  syncedLyrics: '[00:05.00]Instant lyric line\n[00:10.00]Second line'
+};
+
+const preloadedResult = await fetchLyrics(preloadedTrack);
+assert(preloadedResult.status === 'synced', 'Pre-attached lyrics return status synced');
+assert(preloadedResult.syncedLines.length === 2, 'Pre-attached lyrics parsed 2 lines');
+assert(preloadedResult.syncedLines[0].timeMs === 5000, 'Pre-attached line 0 starts at 5000ms');
 
 console.log(`\nResults: ${passed} passed, ${failed} failed.`);
 if (failed > 0) process.exit(1);

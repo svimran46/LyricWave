@@ -58,6 +58,8 @@ export class MicSource {
     this.autoRelistenIntervalMs = 2 * 60 * 1000;
     // Recognition provider override ('acrcloud', 'audd', etc.)
     this.provider = options.provider || (typeof localStorage !== 'undefined' ? localStorage.getItem('lyricwave_recognition_provider') : null) || null;
+    // Acoustic sample duration in seconds (optimized to 3s for fast recognition)
+    this.sampleDurationSec = Number(options.sampleDurationSec) || 3;
   }
 
 
@@ -264,10 +266,10 @@ export class MicSource {
       };
 
       this.recordStartTime = performance.now();
-      this.mediaRecorder.start(500); // 500ms chunk slices
+      this.mediaRecorder.start(250); // 250ms chunk slices for fast flushing
 
-      // High-accuracy 5-second acoustic capture (gold standard for ACRCloud fingerprinting)
-      const TOTAL_SAMPLE_SECS = 5;
+      // High-accuracy acoustic capture (3-second capture is optimal for ACRCloud & AudD)
+      const TOTAL_SAMPLE_SECS = this.sampleDurationSec || 3;
       let remaining = TOTAL_SAMPLE_SECS;
       this.onCountdown(remaining, TOTAL_SAMPLE_SECS);
       this.onStatusChange(`Listening to room audio (${remaining}s)...`, 'working');
@@ -302,6 +304,10 @@ export class MicSource {
     this.onStatusChange('Identifying song via acoustic recognition...', 'working');
     this.uploadStartTime = performance.now();
 
+    // 10-second client timeout to prevent hanging when recognition backend is slow/cold
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 10000) : null;
+
     try {
       const formData = new FormData();
       formData.append('sample', audioBlob, 'sample.bin');
@@ -310,11 +316,17 @@ export class MicSource {
         headers['X-Recognition-Provider'] = this.provider;
       }
 
-      const response = await fetch('/api/recognize', {
-        method: 'POST',
-        headers,
-        body: formData
-      });
+      let response;
+      try {
+        response = await fetch('/api/recognize', {
+          method: 'POST',
+          headers,
+          body: formData,
+          signal: controller ? controller.signal : undefined
+        });
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
+      }
 
       const uploadEndTime = performance.now();
       // Round-trip network + serverless computation latency
@@ -397,7 +409,11 @@ export class MicSource {
     } catch (err) {
       this.isListening = false;
       this.onListeningStateChange(false);
-      this.onError(`Recognition failed: ${err.message}`, 'network');
+      const isTimeout = err.name === 'AbortError';
+      const msg = isTimeout 
+        ? 'Recognition request timed out. The server or connection took too long to respond.'
+        : `Recognition failed: ${err.message}`;
+      this.onError(msg, isTimeout ? 'timeout' : 'network');
     }
   }
 
