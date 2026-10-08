@@ -2,6 +2,7 @@ package app.lyricwave.twa;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
@@ -9,9 +10,12 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -21,6 +25,7 @@ import android.webkit.WebViewClient;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -31,16 +36,29 @@ import androidx.webkit.WebViewAssetLoader;
 public class MainActivity extends AppCompatActivity {
 
     private static final int PERMISSION_REQUEST_RECORD_AUDIO = 101;
+    private static final String APP_HOST = "appassets.androidplatform.net";
+    private static final String APP_START_URL = "https://" + APP_HOST + "/assets/index.html";
+
     private WebView webView;
     private PermissionRequest pendingAudioPermissionRequest;
 
-    @SuppressLint("SetJavaScriptEnabled")
+    /** True only for the bundled app origin served by WebViewAssetLoader. */
+    static boolean isAppHost(String host) {
+        return APP_HOST.equals(host);
+    }
+
+    /** Exact Spotify host match (spotify.com or *.spotify.com) — never a substring match. */
+    static boolean isSpotifyHost(String host) {
+        return host != null && (host.equals("spotify.com") || host.endsWith(".spotify.com"));
+    }
+
+    @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Keep screen on while lyrics are playing
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        // NOTE: the screen is NOT kept on unconditionally. The web app asks for it
+        // only while lyrics are playing via the LyricWaveNative bridge below.
 
         // Configure immersive dark status bar & navigation bar
         Window window = getWindow();
@@ -63,14 +81,13 @@ public class MainActivity extends AppCompatActivity {
 
         // Configure WebViewAssetLoader for fast, secure local asset serving
         final WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
-                .setDomain("appassets.androidplatform.net")
+                .setDomain(APP_HOST)
                 .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
                 .build();
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
-        settings.setDatabaseEnabled(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
@@ -79,6 +96,10 @@ public class MainActivity extends AppCompatActivity {
 
         // Enable hardware accelerated rendering
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+
+        // Minimal native bridge: the only capability exposed is toggling keep-screen-on,
+        // because the Screen Wake Lock API is not available inside Android WebView.
+        webView.addJavascriptInterface(new NativeBridge(), "LyricWaveNative");
 
         // Configure WebViewClient for local asset interception and external URL routing
         webView.setWebViewClient(new WebViewClient() {
@@ -93,41 +114,83 @@ public class MainActivity extends AppCompatActivity {
                 String host = uri.getHost();
 
                 // Keep local app navigation and Spotify login within the WebView
-                if (host != null && (host.equals("appassets.androidplatform.net") || host.contains("spotify.com"))) {
+                if (isAppHost(host) || isSpotifyHost(host)) {
                     return false;
                 }
 
-                // External hyperlinks (news sources, external links) open in the user's default browser
+                // Only hand ordinary web/mail links to other apps; swallow anything else
+                // (intent:, javascript:, file:, custom schemes) so pages can't launch arbitrary components.
+                String scheme = uri.getScheme();
+                if (!"https".equalsIgnoreCase(scheme) && !"http".equalsIgnoreCase(scheme)
+                        && !"mailto".equalsIgnoreCase(scheme)) {
+                    return true;
+                }
+
                 try {
                     Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+                    intent.addCategory(Intent.CATEGORY_BROWSABLE);
                     startActivity(intent);
-                    return true;
-                } catch (Exception e) {
-                    return false;
+                } catch (ActivityNotFoundException ignored) {
+                    // No app can handle it; stay put rather than loading a foreign page in-app.
                 }
+                return true;
+            }
+
+            @RequiresApi(api = Build.VERSION_CODES.O)
+            @Override
+            public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+                // Without this override a WebView renderer crash kills the whole app.
+                if (webView != null) {
+                    ViewGroup parent = (ViewGroup) webView.getParent();
+                    if (parent != null) parent.removeView(webView);
+                    webView.destroy();
+                    webView = null;
+                }
+                recreate();
+                return true;
             }
         });
 
-        // Configure WebChromeClient with automatic microphone audio capture permission bridge
+        // Microphone is the only web permission this app needs, and only the bundled
+        // app origin may receive it. Everything else is denied.
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onPermissionRequest(final PermissionRequest request) {
-                String[] requestedResources = request.getResources();
-                for (String resource : requestedResources) {
+                Uri origin = request.getOrigin();
+                boolean fromApp = origin != null && isAppHost(origin.getHost());
+                boolean wantsAudio = false;
+                for (String resource : request.getResources()) {
                     if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource)) {
-                        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.RECORD_AUDIO)
-                                == PackageManager.PERMISSION_GRANTED) {
-                            request.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
-                        } else {
-                            pendingAudioPermissionRequest = request;
-                            ActivityCompat.requestPermissions(MainActivity.this,
-                                    new String[]{Manifest.permission.RECORD_AUDIO},
-                                    PERMISSION_REQUEST_RECORD_AUDIO);
-                        }
-                        return;
+                        wantsAudio = true;
+                        break;
                     }
                 }
-                request.grant(request.getResources());
+
+                if (!fromApp || !wantsAudio) {
+                    request.deny();
+                    return;
+                }
+
+                if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.RECORD_AUDIO)
+                        == PackageManager.PERMISSION_GRANTED) {
+                    request.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
+                    return;
+                }
+
+                if (pendingAudioPermissionRequest != null) {
+                    pendingAudioPermissionRequest.deny();
+                }
+                pendingAudioPermissionRequest = request;
+                ActivityCompat.requestPermissions(MainActivity.this,
+                        new String[]{Manifest.permission.RECORD_AUDIO},
+                        PERMISSION_REQUEST_RECORD_AUDIO);
+            }
+
+            @Override
+            public void onPermissionRequestCanceled(PermissionRequest request) {
+                if (request == pendingAudioPermissionRequest) {
+                    pendingAudioPermissionRequest = null;
+                }
             }
         });
 
@@ -145,19 +208,31 @@ public class MainActivity extends AppCompatActivity {
         });
 
         // Load the self-contained local web app bundle
-        webView.loadUrl("https://appassets.androidplatform.net/assets/index.html");
+        webView.loadUrl(APP_START_URL);
+    }
+
+    /** Exposed to page JS as window.LyricWaveNative. Keep this surface tiny. */
+    private class NativeBridge {
+        @JavascriptInterface
+        public void setKeepScreenOn(final boolean keepOn) {
+            runOnUiThread(() -> {
+                if (keepOn) {
+                    getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                } else {
+                    getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                }
+            });
+        }
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == PERMISSION_REQUEST_RECORD_AUDIO) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                if (pendingAudioPermissionRequest != null) {
+            if (pendingAudioPermissionRequest != null) {
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     pendingAudioPermissionRequest.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
-                }
-            } else {
-                if (pendingAudioPermissionRequest != null) {
+                } else {
                     pendingAudioPermissionRequest.deny();
                 }
             }
@@ -176,6 +251,8 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
+        // Never hold the screen on while the app is not visible.
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         if (webView != null) {
             webView.onPause();
         }
@@ -185,6 +262,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         if (webView != null) {
             webView.destroy();
+            webView = null;
         }
         super.onDestroy();
     }

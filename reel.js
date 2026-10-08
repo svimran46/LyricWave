@@ -244,8 +244,15 @@ export class ReelVisualizer {
    */
   getCssToken(name, fallback) {
     if (typeof window === 'undefined' || !window.getComputedStyle) return fallback;
+    // Called every animation frame: getComputedStyle forces a style recalc, so re-read at
+    // most every 500ms (fast enough to follow theme / album-adaptive palette changes).
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (!this._cssTokenCache) this._cssTokenCache = new Map();
+    const cached = this._cssTokenCache.get(name);
+    if (cached && now - cached.at < 500) return cached.value || fallback;
     try {
       const val = window.getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      this._cssTokenCache.set(name, { value: val, at: now });
       return val || fallback;
     } catch {
       return fallback;

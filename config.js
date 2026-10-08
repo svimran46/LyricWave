@@ -48,6 +48,12 @@ export const CONFIG = {
    * Base URL for serverless backend API endpoints (/api/recognize, /api/charts, /api/news).
    * Automatically targets https://lyricwave.pages.dev when running inside standalone Android app.
    */
+  /**
+   * Public web address of the app. Used for share links, which must open for other
+   * people (inside the Android app window.location is the private appassets origin).
+   */
+  PUBLIC_WEB_URL: 'https://lyricwave.pages.dev/',
+
   API_BASE_URL: (typeof window !== 'undefined' && (
       window.location.hostname === 'appassets.androidplatform.net' ||
       window.location.protocol === 'file:'

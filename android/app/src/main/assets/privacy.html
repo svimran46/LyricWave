@@ -88,7 +88,7 @@
 <body>
   <div class="container">
     <div class="header">
-      <a href="/" class="back-link">← Return to LyricWave</a>
+      <a href="./index.html" class="back-link">← Return to LyricWave</a>
       <h1>Privacy Policy</h1>
       <span class="date-tag">Last updated: October 8, 2026 • Effective immediately</span>
     </div>
@@ -103,47 +103,63 @@
     <section>
       <h2>2. Microphone Audio & Acoustic Recognition</h2>
       <p>
-        LyricWave accesses your device's microphone <strong>only when you explicitly initiate acoustic recognition</strong> (tapping "Tap to Listen" or the microphone orb).
+        LyricWave uses your device's microphone <strong>only for song recognition</strong>, and only after you have accepted the in-app microphone notice. Recording starts when:
       </p>
       <ul>
-        <li><strong>Transient Audio Sampling:</strong> The microphone records a short audio sample (typically 5 to 10 seconds) exclusively to identify the currently playing music.</li>
-        <li><strong>Third-Party Processors:</strong> To identify tracks, the transient audio sample is securely transmitted via HTTPS to our acoustic recognition providers: <strong>ACRCloud</strong> (<a href="https://www.acrcloud.com/privacy" target="_blank" rel="noopener" style="color:var(--accent);">Privacy Policy</a>) and/or <strong>AudD</strong> (<a href="https://audd.io/privacy" target="_blank" rel="noopener" style="color:var(--accent);">Privacy Policy</a>).</li>
-        <li><strong>No Audio Storage:</strong> LyricWave does not record continuously in the background. Audio samples are processed in-memory and are never stored on LyricWave servers or sold to data brokers.</li>
+        <li>you tap "Tap to Listen", the microphone orb, "Listen again" or "Re-sync"; or</li>
+        <li>you have turned on <strong>Auto re-listen</strong> (off by default) while a song identified by the microphone is showing — LyricWave then takes a new sample about every 2 minutes to follow song changes; or</li>
+        <li>a song identified by the microphone finishes while the Microphone tab is open and the app is on screen, so the next song can be identified.</li>
       </ul>
-    </section>
-
-    <section>
-      <h2>3. Third-Party Music Connections (Spotify & Last.fm)</h2>
+      <p>Switching to another source, cancelling, or leaving the Microphone tab stops recording and any pending re-listen.</p>
       <ul>
-        <li><strong>Spotify Integration:</strong> Connects via official Spotify OAuth 2.0 PKCE. LyricWave requests permissions only to read currently playing tracks (`user-read-currently-playing`, `user-read-playback-state`). Access tokens are stored locally on your device in your browser's private session storage. Tokens are never transmitted to our servers and can be revoked at any time via your Spotify Account Dashboard.</li>
-        <li><strong>Last.fm Integration:</strong> Polls your public Last.fm scrobble profile using your chosen username. We store only your username locally on your device to persist your session.</li>
+        <li><strong>Short samples:</strong> each recording is about 5 seconds long and is used only to identify the music playing.</li>
+        <li><strong>Processors:</strong> the sample is sent over HTTPS to our recognition endpoint (hosted on Cloudflare) and from there to <strong>ACRCloud</strong> (<a href="https://www.acrcloud.com/privacy" target="_blank" rel="noopener" style="color:var(--accent);">Privacy Policy</a>) or <strong>AudD</strong> (<a href="https://audd.io/privacy" target="_blank" rel="noopener" style="color:var(--accent);">Privacy Policy</a>), depending on the engine selected in Settings.</li>
+        <li><strong>No audio storage:</strong> LyricWave does not keep, log or sell audio samples. Your IP address is used briefly in memory to rate-limit recognition requests and is not stored.</li>
       </ul>
     </section>
 
     <section>
-      <h2>4. Local On-Device Storage</h2>
+      <h2>3. Third-Party Services</h2>
+      <ul>
+        <li><strong>Spotify (optional):</strong> connects through Spotify's OAuth 2.0 PKCE flow and requests <code>user-read-currently-playing</code>, <code>user-read-playback-state</code> and <code>user-read-private</code> (used to show your display name and profile picture). Access and refresh tokens and your cached Spotify profile are stored in this app's <strong>local storage on your device</strong>; they are sent only to Spotify, never to LyricWave servers. You can disconnect in the app or revoke access in your Spotify account settings.</li>
+        <li><strong>Last.fm (optional):</strong> the username you enter is sent to the Last.fm API to read your public "now playing" scrobbles and track lengths, and is stored on your device.</li>
+        <li><strong>Lyrics, search and charts:</strong> song titles and artist names are sent to <strong>LRCLIB</strong> (lrclib.net) to fetch lyrics, and search terms to the <strong>Apple iTunes Search API</strong> for artwork and metadata. Top-chart and music-news lists are loaded from Apple's public charts feed and our Cloudflare endpoints.</li>
+        <li><strong>Fonts:</strong> the app loads typefaces from Google Fonts, which receives your IP address and browser information when fonts are downloaded.</li>
+      </ul>
+      <p>These services receive your IP address as part of any normal internet request and handle it under their own privacy policies.</p>
+    </section>
+
+    <section>
+      <h2>4. Data Stored on Your Device</h2>
       <p>
-        LyricWave uses your device's `localStorage` solely to enhance your user experience:
+        LyricWave keeps the following in this app's local storage and IndexedDB on your device. None of it is uploaded to LyricWave servers:
       </p>
       <ul>
-        <li>Theme preferences (Aurora, Neon, Adaptive, Vinyl, Paper)</li>
-        <li>Lyrics display settings (font scale, sync latency offset, word-by-word reveal)</li>
-        <li>Recently identified track titles and timestamps (up to 10 tracks, stored solely on your device and clearable with one tap)</li>
+        <li>Settings: theme, font size, word-by-word reveal, sync offsets, recognition engine, microphone-notice consent.</li>
+        <li>Up to 10 recently identified songs (title, artist, album, artwork link, time).</li>
+        <li>Cached lyrics (kept for up to 30 days to load faster and work offline).</li>
+        <li>Your Last.fm username and Spotify connection, if you use them.</li>
+        <li><strong>Optional LyricWave profile:</strong> if you sign up, your display name, email address and a salted PBKDF2 hash of your password are stored <strong>only on this device</strong>. Profiles do not sync between devices and are not sent anywhere.</li>
       </ul>
     </section>
 
     <section>
       <h2>5. Analytics & Diagnostics</h2>
       <p>
-        LyricWave operates without third-party tracking pixels, biometric trackers, or cross-app advertising SDKs. Core edge delivery performance and anonymous request counts are monitored solely via Cloudflare's privacy-first infrastructure.
+        LyricWave contains no advertising SDKs, tracking pixels or third-party analytics. Our hosting provider, Cloudflare, processes standard request data (such as IP address and request time) to deliver and protect the service.
       </p>
     </section>
 
     <section class="contact-card">
-      <h2>6. Contact & Data Rights</h2>
+      <h2>6. Your Choices & Contact</h2>
       <p>
-        You have the right to clear all local data at any time via the "Reset to Defaults" button in the app Settings or by clearing your browser/app storage.
+        You control all data LyricWave stores:
       </p>
+      <ul>
+        <li><strong>Delete your LyricWave profile:</strong> open the account menu and tap <strong>Delete Account</strong>. This permanently removes your name, email and password hash from the device.</li>
+        <li><strong>Erase everything:</strong> Settings → <strong>Clear All Data</strong> removes all preferences, recent songs, cached lyrics, your Last.fm username, Spotify tokens and local profiles. Uninstalling the app or clearing its storage does the same.</li>
+        <li>"Reset Defaults" only restores display settings; it does not delete your data.</li>
+      </ul>
       <p>
         For inquiries regarding this privacy policy or data processing practices, please contact:
         <br>

@@ -26,7 +26,7 @@ import { searchTracks, SearchSource } from './search.js';
 import { LastFmSource } from './lastfm.js';
 import { UnifiedSyncEngine } from './engine.js';
 import { ReelVisualizer } from './reel.js';
-import { signUp, logIn, logOut, getCurrentUser, updateUserPreferences } from './user-auth.js';
+import { signUp, logIn, logOut, getCurrentUser, updateUserPreferences, deleteCurrentAccount } from './user-auth.js';
 
 // DOM Elements: Navigation Tabs
 const sourceNav = document.getElementById('sourceNav');
@@ -249,6 +249,7 @@ let isWordMode = localStorage.getItem(STORAGE_WORD_MODE_KEY) !== 'false';
 let currentFontScale = parseInt(localStorage.getItem(STORAGE_FONT_SCALE_KEY) || '100', 10);
 let deferredInstallPrompt = null;
 let searchDebounceTimer = null;
+let searchRequestSeq = 0;
 let lineElements = [];
 let reelWordElements = [];
 let cursorIdleTimeout = null;
@@ -259,6 +260,26 @@ let cursorIdleTimeout = null;
 function isDevMode() {
   const urlParams = new URLSearchParams(window.location.search);
   return urlParams.get('dev') === '1';
+}
+
+/**
+ * True when running inside the bundled Android app (WebView served from appassets).
+ */
+const IS_NATIVE_APP = typeof window !== 'undefined' && (
+  window.location.hostname === 'appassets.androidplatform.net' ||
+  /LyricWaveNativeApp/.test(navigator.userAgent || '')
+);
+
+/**
+ * Keep-screen-on while lyrics play. The Screen Wake Lock API is unavailable in Android
+ * WebView, so the native shell exposes a one-method bridge for it.
+ */
+function setNativeKeepScreenOn(on) {
+  try {
+    if (window.LyricWaveNative && typeof window.LyricWaveNative.setKeepScreenOn === 'function') {
+      window.LyricWaveNative.setKeepScreenOn(Boolean(on));
+    }
+  } catch {}
 }
 
 // =====================================================================
@@ -376,9 +397,11 @@ if (btnClearRecent) {
 let wakeLockSentinel = null;
 
 async function requestWakeLock() {
+  if (document.hidden || !engine.isPlaying) return;
+  setNativeKeepScreenOn(true);
   if (typeof navigator === 'undefined' || !('wakeLock' in navigator)) return;
   // Only request if playing and document is visible
-  if (wakeLockSentinel || document.hidden || !engine.isPlaying) return;
+  if (wakeLockSentinel) return;
   try {
     wakeLockSentinel = await navigator.wakeLock.request('screen');
     wakeLockSentinel.addEventListener('release', () => {
@@ -391,6 +414,7 @@ async function requestWakeLock() {
 }
 
 async function releaseWakeLock() {
+  setNativeKeepScreenOn(false);
   if (wakeLockSentinel) {
     try {
       await wakeLockSentinel.release();
@@ -658,7 +682,9 @@ const engine = new UnifiedSyncEngine({
 
   onSongEnd: (finishedTrack) => {
     // If user is on the Microphone source, auto re-listen to detect the next song
-    if (activeTab === 'mic' && !mic.isListening) {
+    // Only for songs the mic itself identified — never switch the mic on after a search,
+    // chart or recent-song playback just because the Mic tab happens to be selected.
+    if (activeTab === 'mic' && finishedTrack?.source === 'mic' && !mic.isListening && !document.hidden) {
       micStatusTitle.textContent = 'Song Finished — Listening for next song...';
       showAlert(`Finished "${finishedTrack.title}". Listening for the next song...`, 'info');
       mic.start();
@@ -748,13 +774,16 @@ const mic = new MicSource({
     }
   },
 
-  onTrackChange: (track) => {
+  // Fired by MicSource just before it hands the track to the engine via onTrackChange.
+  onIdentified: (track) => {
     micStatusTitle.textContent = 'Found!';
     micStatusSubtitle.textContent = `Found: ${track.title} - ${track.artist || track.artists}`;
 
-    // Pass identified track directly into the unified sync engine
-    engine.connectSource(mic);
-    engine.setTrack(track, true);
+    // Route mic results into the sync engine. start:false — connecting must never
+    // start another recording (that used to double-record every identification).
+    if (engine.currentSource !== mic) {
+      engine.connectSource(mic, { start: false, syncCurrent: false });
+    }
     if (activePlaybackView) {
       activePlaybackView.classList.remove('hidden');
       activePlaybackView.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -770,8 +799,13 @@ const mic = new MicSource({
     // Helpful visual alert with actionable retry
     if (errorType === 'denied') {
       micStatusTitle.textContent = 'Microphone Blocked';
-      micStatusSubtitle.innerHTML = `Microphone access was blocked. Click the <strong>lock/tune icon</strong> in your browser address bar and set Microphone to <strong>Allow</strong>, then tap Retry.`;
-      showAlert('Microphone permission blocked. Click the lock icon in the address bar to Allow, then tap Retry.', 'warning');
+      if (IS_NATIVE_APP) {
+        micStatusSubtitle.innerHTML = `Microphone access is off for LyricWave. Open <strong>Settings → Apps → LyricWave → Permissions</strong>, allow <strong>Microphone</strong>, then tap Retry.`;
+        showAlert('Microphone permission is off. Allow it in Android Settings → Apps → LyricWave → Permissions, then tap Retry.', 'warning');
+      } else {
+        micStatusSubtitle.innerHTML = `Microphone access was blocked. Click the <strong>lock/tune icon</strong> in your browser address bar and set Microphone to <strong>Allow</strong>, then tap Retry.`;
+        showAlert('Microphone permission blocked. Click the lock icon in the address bar to Allow, then tap Retry.', 'warning');
+      }
       if (micActionRow) {
         micActionRow.classList.remove('hidden');
         micActionRow.innerHTML = `<button id="btnMicRetryPermission" class="btn btn-sm btn-spotify" type="button">↻ Retry Mic</button>`;
@@ -917,6 +951,7 @@ searchInput.addEventListener('input', (e) => {
 
   if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
   if (!query) {
+    searchRequestSeq++;
     searchResults.innerHTML = `
       <div class="search-prompt">
         <span class="search-prompt-icon">🔍</span>
@@ -933,11 +968,14 @@ searchInput.addEventListener('input', (e) => {
     </div>
   `;
 
+  const requestId = ++searchRequestSeq;
   searchDebounceTimer = setTimeout(async () => {
     try {
       const results = await searchTracks(query, 8);
+      if (requestId !== searchRequestSeq) return; // a newer search superseded this one
       renderSearchResults(results);
     } catch (err) {
+      if (requestId !== searchRequestSeq) return;
       searchResults.innerHTML = `
         <div class="search-prompt">
           <p>Search failed. Please check connection.</p>
@@ -948,6 +986,8 @@ searchInput.addEventListener('input', (e) => {
 });
 
 btnClearSearch.addEventListener('click', () => {
+  searchRequestSeq++; // drop any in-flight results
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
   searchInput.value = '';
   btnClearSearch.classList.add('hidden');
   searchResults.innerHTML = `
@@ -1019,12 +1059,16 @@ function renderSearchResults(tracks) {
 let currentChartGenre = 'all';
 let cachedChartData = null;
 let isFetchingCharts = false;
+let pendingChartGenre = null;
 
 async function loadCharts(genre = 'all', forceRefresh = false) {
   if (!chartsListContainer) return;
-  if (isFetchingCharts) return;
-
   currentChartGenre = genre;
+  if (isFetchingCharts) {
+    // Don't drop a genre change made mid-load; reload once the current fetch finishes.
+    pendingChartGenre = genre;
+    return;
+  }
 
   // Visual loading feedback
   if (btnRefreshCharts) {
@@ -1093,7 +1137,8 @@ async function loadCharts(genre = 'all', forceRefresh = false) {
         if (chartsUpdatedTag) {
           chartsUpdatedTag.textContent = 'Live Today';
         }
-        renderCharts(clientSongs);
+        cachedChartData = { songs: clientSongs, genre };
+        if (currentChartGenre === genre) renderCharts(clientSongs);
         return;
       }
     }
@@ -1128,7 +1173,7 @@ async function loadCharts(genre = 'all', forceRefresh = false) {
       }
     }
 
-    renderCharts(data.songs || []);
+    if (currentChartGenre === genre) renderCharts(data.songs || []);
   } catch (err) {
     console.warn('Charts backend load error:', err);
 
@@ -1148,6 +1193,11 @@ async function loadCharts(genre = 'all', forceRefresh = false) {
     isFetchingCharts = false;
     if (btnRefreshCharts) {
       btnRefreshCharts.classList.remove('loading');
+    }
+    if (pendingChartGenre !== null) {
+      const next = pendingChartGenre;
+      pendingChartGenre = null;
+      if (next !== genre) loadCharts(next);
     }
   }
 }
@@ -1209,9 +1259,11 @@ function renderCharts(songs) {
         albumArt: song.albumArt || '',
         previewUrl: song.previewUrl || null,
         durationMs: song.durationMs || 30000,
+        // Chart feeds only carry the 30s preview length; the real length comes from LRCLIB.
+        durationEstimated: true,
         source: 'chart'
       }, true);
-      showAlert(`▶ Playing #${rank}: "${song.title}" on speaker...`, 'success');
+      showAlert(`▶ Lyrics for #${rank}: "${song.title}"`, 'success');
       if (activePlaybackView) {
         activePlaybackView.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
@@ -1360,7 +1412,7 @@ function renderNews(articles, sourceFilter = 'all') {
   filtered.forEach((article) => {
     const card = document.createElement('a');
     card.className = 'news-article-card';
-    card.href = article.link || '#';
+    card.href = /^https?:\/\//i.test(article.link || '') ? article.link : '#';
     card.target = '_blank';
     card.rel = 'noopener noreferrer';
     card.setAttribute('aria-label', `${article.title} - ${article.source}`);
@@ -1605,7 +1657,8 @@ sourceTabs.forEach((tab) => {
     });
 
     // Tear down previous sources
-    if (targetTab !== 'mic' && mic.isListening) {
+    if (targetTab !== 'mic') {
+      // Also cancels a pending upload and the auto re-listen timer.
       mic.stop();
     }
     if (targetTab !== 'connect' && targetTab !== 'spotify' && spotifySource.isRunning) {
@@ -1716,11 +1769,11 @@ btnPlayPause.addEventListener('click', () => {
 });
 
 btnSeekBack.addEventListener('click', () => {
-  engine.seekBy(-5000);
+  engine.seekBy(-5);
 });
 
 btnSeekForward.addEventListener('click', () => {
-  engine.seekBy(5000);
+  engine.seekBy(5);
 });
 
 progressTrack.addEventListener('click', (e) => {
@@ -1728,16 +1781,16 @@ progressTrack.addEventListener('click', (e) => {
   const clickX = e.clientX - rect.left;
   const ratio = Math.max(0, Math.min(1, clickX / rect.width));
   const targetMs = ratio * (engine.durationMs || engine.durationSec * 1000);
-  engine.seek(targetMs);
+  engine.seekMs(targetMs);
 });
 
 progressTrack.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowLeft') {
     e.preventDefault();
-    engine.seekBy(-5000);
+    engine.seekBy(-5);
   } else if (e.key === 'ArrowRight') {
     e.preventDefault();
-    engine.seekBy(5000);
+    engine.seekBy(5);
   } else if (e.key === ' ' || e.key === 'Enter') {
     e.preventDefault();
     engine.togglePlay();
@@ -1793,7 +1846,7 @@ function renderLyricsState(lyrics) {
 
       // Tapping a line performs non-destructive sync alignment (seeks playback without clearing state)
       el.addEventListener('click', () => {
-        engine.seek(line.timeMs);
+        engine.seekMs(line.timeMs);
         if (tapLineBanner) tapLineBanner.classList.add('hidden');
       });
 
@@ -2146,7 +2199,7 @@ function applyTheme(themeName) {
       stageArtBackdrop.style.backgroundImage = 'none';
     }
   } else {
-    const currentTrack = engine?.currentTrack;
+    const currentTrack = engine?.track;
     if (currentTrack?.albumArt) {
       applyAlbumAdaptivePalette(currentTrack.albumArt);
     } else {
@@ -2488,6 +2541,58 @@ if (settingDebugMode) {
 }
 
 
+// "Clear All Data" handler: wipes everything LyricWave keeps on this device.
+async function clearAllLocalData() {
+  try { mic.stop(); } catch {}
+  try { engine.stop(); } catch {}
+  try { logout(); } catch {}            // Spotify tokens
+  try {
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith('lyricwave_'))
+      .forEach((k) => localStorage.removeItem(k));
+  } catch {}
+  try {
+    Object.keys(sessionStorage)
+      .filter((k) => k.startsWith('lyricwave_'))
+      .forEach((k) => sessionStorage.removeItem(k));
+  } catch {}
+  const dropDb = (name) => new Promise((resolve) => {
+    try {
+      const req = indexedDB.deleteDatabase(name);
+      req.onsuccess = req.onerror = req.onblocked = () => resolve();
+    } catch { resolve(); }
+  });
+  if (typeof indexedDB !== 'undefined') {
+    await Promise.all([dropDb('LyricWaveDB'), dropDb('LyricWaveAuthDB')]);
+  }
+  try {
+    if (typeof caches !== 'undefined') {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((k) => k.startsWith('lyricwave')).map((k) => caches.delete(k)));
+    }
+  } catch {}
+}
+
+const btnClearAllData = document.getElementById('btnClearAllData');
+if (btnClearAllData) {
+  let clearArmedTimer = null;
+  btnClearAllData.addEventListener('click', async () => {
+    if (!clearArmedTimer) {
+      btnClearAllData.textContent = 'Tap again to erase';
+      clearArmedTimer = setTimeout(() => {
+        clearArmedTimer = null;
+        btnClearAllData.textContent = 'Clear All Data';
+      }, 4000);
+      return;
+    }
+    clearTimeout(clearArmedTimer);
+    clearArmedTimer = null;
+    btnClearAllData.disabled = true;
+    await clearAllLocalData();
+    window.location.reload();
+  });
+}
+
 // "Reset to defaults" handler
 if (btnResetDefaults) {
   btnResetDefaults.addEventListener('click', () => {
@@ -2519,6 +2624,16 @@ if (btnResetDefaults) {
 // =====================================================================
 
 function setupPWA() {
+  if (IS_NATIVE_APP) {
+    // Assets are bundled in the APK. A service worker here would bypass the native asset
+    // loader and could serve stale files after an app update, so make sure none is active.
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations?.()
+        .then((regs) => regs.forEach((r) => r.unregister()))
+        .catch(() => {});
+    }
+    return;
+  }
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js').then((reg) => {
@@ -2700,7 +2815,10 @@ async function init() {
       }
       const artist = track.artist || track.artists || '';
       const query = `${artist} ${track.title}`.trim();
-      const url = new URL(window.location.origin + window.location.pathname);
+      const shareBase = IS_NATIVE_APP
+        ? (CONFIG.PUBLIC_WEB_URL || 'https://lyricwave.pages.dev/')
+        : window.location.origin + window.location.pathname;
+      const url = new URL(shareBase);
       url.searchParams.set('q', query);
       const shareUrl = url.toString();
 
@@ -2875,6 +2993,27 @@ function setupUserAuth() {
     logOut();
     updateAuthUI();
     showAlert('Logged out successfully.', 'info');
+  });
+
+  // Delete Account: two taps (no native confirm() dialog, which is unreliable in WebView).
+  const btnDeleteAccount = document.getElementById('btnDeleteAccount');
+  let deleteArmedTimer = null;
+  btnDeleteAccount?.addEventListener('click', async () => {
+    if (!deleteArmedTimer) {
+      btnDeleteAccount.textContent = 'Tap again to permanently delete';
+      deleteArmedTimer = setTimeout(() => {
+        deleteArmedTimer = null;
+        btnDeleteAccount.textContent = 'Delete Account';
+      }, 4000);
+      return;
+    }
+    clearTimeout(deleteArmedTimer);
+    deleteArmedTimer = null;
+    btnDeleteAccount.textContent = 'Delete Account';
+    await deleteCurrentAccount();
+    updateAuthUI();
+    authBackdrop?.classList.add('hidden');
+    showAlert('Your LyricWave account was deleted from this device.', 'info');
   });
 
   // Initial check on load

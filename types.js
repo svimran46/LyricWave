@@ -64,6 +64,9 @@ export function normalizeNowPlaying(data) {
   if (typeof data.hasOffset === 'boolean') {
     res.hasOffset = data.hasOffset;
   }
+  if (typeof data.durationEstimated === 'boolean') {
+    res.durationEstimated = data.durationEstimated;
+  }
   if (typeof data.isApproximate === 'boolean') {
     res.isApproximate = data.isApproximate;
   }

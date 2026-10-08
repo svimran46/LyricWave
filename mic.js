@@ -25,10 +25,16 @@ export class MicSource {
    */
   constructor(options = {}) {
     this.name = 'mic';
+    // Recording must only ever begin from an explicit user action (or the opt-in
+    // auto re-listen timer). Never let the sync engine start the mic on connect.
+    this.autoStartOnConnect = false;
     this.onStatusChange = options.onStatusChange || (() => {});
     this.onAudioLevel = options.onAudioLevel || (() => {});
     this.onCountdown = options.onCountdown || (() => {});
     this.onTrackChange = options.onTrackChange || (() => {});
+    // UI hook fired before onTrackChange when a song is identified. Kept separate from
+    // onTrackChange because the sync engine replaces onTrackChange when it connects.
+    this.onIdentified = options.onIdentified || (() => {});
     this.onError = options.onError || (() => {});
     this.onListeningStateChange = options.onListeningStateChange || (() => {});
     this.onPlaybackUpdate = options.onPlaybackUpdate || (() => {});
@@ -42,6 +48,7 @@ export class MicSource {
     this.analyser = null;
     this.mediaRecorder = null;
     this.audioChunks = [];
+    this.recognitionController = null; // AbortController for the in-flight /api/recognize call
     this.rafId = null;
     this.countdownTimer = null;
     this.maxVolumeObserved = 0;
@@ -308,7 +315,9 @@ export class MicSource {
 
     // 15-second client timeout for mobile network tolerance
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timeoutId = controller ? setTimeout(() => controller.abort(), 15000) : null;
+    this.recognitionController = controller;
+    let timedOut = false;
+    const timeoutId = controller ? setTimeout(() => { timedOut = true; controller.abort(); }, 15000) : null;
 
     try {
       const ext = mimeType.includes('mp4') ? 'mp4' : (mimeType.includes('ogg') ? 'ogg' : 'webm');
@@ -332,6 +341,9 @@ export class MicSource {
         if (timeoutId) clearTimeout(timeoutId);
       }
 
+      // User cancelled (or switched source) while the sample was uploading: drop the result.
+      if (this.isCancelled) return;
+
       const uploadEndTime = performance.now();
       // Round-trip network + serverless computation latency
       this.roundTripLatencyMs = Math.round(uploadEndTime - this.uploadStartTime);
@@ -342,6 +354,7 @@ export class MicSource {
       }
 
       const result = await response.json();
+      if (this.isCancelled) return;
 
       if (result.success && result.title) {
         this.isListening = false;
@@ -372,6 +385,7 @@ export class MicSource {
           album: result.album || '',
           albumArt: null,
           duration: result.duration || 180,
+          durationEstimated: !result.duration,
           position: positionSec,
           isPlaying: true,
           source: 'mic',
@@ -383,6 +397,7 @@ export class MicSource {
         this.currentTrack = track;
         this.retryAttempt = 0;
         this.onStatusChange(`Identified: ${track.title} by ${track.artist}`, 'success');
+        this.onIdentified(track);
         this.onTrackChange(track);
 
         // Schedule auto re-listen if enabled
@@ -411,13 +426,16 @@ export class MicSource {
       }
 
     } catch (err) {
+      if (this.isCancelled) return; // aborted by stop(): not an error worth surfacing
       this.isListening = false;
       this.onListeningStateChange(false);
-      const isTimeout = err.name === 'AbortError';
+      const isTimeout = err.name === 'AbortError' && timedOut;
       const msg = isTimeout 
         ? 'Recognition request timed out. The server or connection took too long to respond.'
         : `Recognition failed: ${err.message}`;
       this.onError(msg, isTimeout ? 'timeout' : 'network');
+    } finally {
+      if (this.recognitionController === controller) this.recognitionController = null;
     }
   }
 
@@ -472,7 +490,8 @@ export class MicSource {
 
     this.autoRelistenTimer = setTimeout(() => {
       // If still playing and not currently listening, trigger auto re-listen
-      if (!this.isListening && this.currentTrack) {
+      this.autoRelistenTimer = null;
+      if (!this.isListening && this.currentTrack && this.autoRelistenEnabled) {
         this.onStatusChange('Auto re-checking music in room...', 'working');
         this.start();
       }
@@ -504,6 +523,14 @@ export class MicSource {
     this.isListening = false;
     this.isCancelled = true;
     this.onListeningStateChange(false);
+
+    // A stopped source must not wake the microphone up later on its own.
+    this.clearAutoRelisten();
+
+    if (this.recognitionController) {
+      try { this.recognitionController.abort(); } catch {}
+      this.recognitionController = null;
+    }
 
     if (this.countdownTimer) {
       clearInterval(this.countdownTimer);

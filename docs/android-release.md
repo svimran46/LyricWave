@@ -34,6 +34,19 @@ keytool -list -v -keystore android.keystore -alias android
 ```
 Look for `Certificate fingerprints:` -> `SHA256: XX:XX:...`.
 
+### Using the keystore in GitHub Actions
+
+CI signs release builds with **this same keystore** every time (Play rejects updates signed with a different upload key). Add these repository secrets under *Settings → Secrets and variables → Actions*:
+
+| Secret | Value |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | output of `base64 -w0 android.keystore` (macOS: `base64 -i android.keystore`) |
+| `ANDROID_KEYSTORE_PASSWORD` | keystore password |
+| `ANDROID_KEY_ALIAS` | key alias (e.g. `android`) |
+| `ANDROID_KEY_PASSWORD` | key password |
+
+Without `ANDROID_KEYSTORE_BASE64` the workflow builds only the debug APK; it no longer generates a throwaway key.
+
 ---
 
 ## 3. Building the Release Android App Bundle (.aab)

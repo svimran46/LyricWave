@@ -952,7 +952,11 @@
                 <span style="font-size:0.75rem;">↗</span>
               </a>
               <button id="btnResetDefaults" class="btn-reset-defaults" type="button">Reset Defaults</button>
+              <button id="btnClearAllData" class="btn-reset-defaults" type="button" aria-describedby="clearAllDataHint" style="color:#ef4444;border-color:rgba(239,68,68,0.3);">Clear All Data</button>
             </div>
+            <p id="clearAllDataHint" style="font-size:0.72rem;color:var(--text-muted);margin:0.5rem 0 0;line-height:1.45;">
+              Clear All Data erases everything LyricWave stores on this device: preferences, recent songs, cached lyrics, Last.fm username, Spotify connection and local accounts.
+            </p>
 
           </div>
         </div>
@@ -982,19 +986,19 @@
 
       <div class="modal-body" style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.55;">
         <p style="margin-bottom: 0.75rem;">
-          When you tap <strong>"Listen"</strong>, LyricWave captures a temporary 10-second audio snippet through your microphone to recognize the music playing nearby.
+          When you tap <strong>"Listen"</strong>, LyricWave records a short (about 5-second) audio sample through your microphone and sends it to a recognition service to identify the music playing nearby. If you turn on <strong>Auto re-listen</strong>, it takes a new sample about every 2 minutes while a microphone-identified song is showing.
         </p>
 
         <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 0.85rem; margin-bottom: 0.85rem;">
           <ul style="padding-left: 1.1rem; display:flex; flex-direction:column; gap:0.45rem;">
             <li><strong>In-Memory Processing:</strong> Audio is processed directly in memory to generate an acoustic fingerprint.</li>
             <li><strong>Never Saved or Stored:</strong> Your recording is never saved to disk, logged, or retained after recognition.</li>
-            <li><strong>Hardware Release:</strong> The microphone hardware stream immediately turns off once the 10-second sample completes.</li>
+            <li><strong>Hardware Release:</strong> The microphone turns off as soon as each sample is captured, and whenever you cancel or switch source.</li>
           </ul>
         </div>
 
         <p style="font-size: 0.8rem; color: var(--text-muted);">
-          Audio samples are encrypted and securely matched against commercial music fingerprint databases (ACRCloud).
+          Samples are sent over HTTPS and matched by ACRCloud or AudD (selectable in Settings). See the Privacy Policy for details.
         </p>
       </div>
 
@@ -1095,6 +1099,10 @@
 
           <div id="authErrorMsg" class="auth-error-banner hidden" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;padding:0.5rem 0.75rem;border-radius:var(--radius-sm);font-size:0.78rem;margin-bottom:1rem;"></div>
 
+          <p style="font-size:0.75rem;color:var(--text-muted);margin:0 0 1rem;line-height:1.45;">
+            LyricWave profiles are stored only on this device. Your email and password never leave your phone or browser.
+          </p>
+
           <form id="authForm" onsubmit="return false;">
             <div id="authNameGroup" class="settings-group hidden" style="margin-bottom:0.85rem;">
               <label class="settings-label" for="authInputName" style="font-size:0.78rem;color:var(--text-muted);display:block;margin-bottom:0.35rem;">Display Name</label>
@@ -1130,11 +1138,14 @@
           </div>
 
           <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1.25rem;line-height:1.5;">
-            ✓ Your preferences, favorite themes, and custom timing offsets are saved to your account.
+            ✓ Your preferences, themes and timing offsets are saved to this profile <strong>on this device only</strong>. Nothing is uploaded, so the profile does not sync to other devices and is removed if you clear the app's data.
           </div>
 
-          <button id="btnUserLogOut" class="btn btn-sm btn-ghost" type="button" style="width:100%;justify-content:center;color:#ef4444;border-color:rgba(239,68,68,0.25);">
+          <button id="btnUserLogOut" class="btn btn-sm btn-ghost" type="button" style="width:100%;justify-content:center;margin-bottom:0.6rem;">
             Log Out
+          </button>
+          <button id="btnDeleteAccount" class="btn btn-sm btn-ghost" type="button" style="width:100%;justify-content:center;color:#ef4444;border-color:rgba(239,68,68,0.25);">
+            Delete Account
           </button>
         </div>
 

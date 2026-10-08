@@ -35,7 +35,12 @@ function openLyricsDB() {
           db.createObjectStore(STORE_NAME, { keyPath: 'key' });
         }
       };
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => {
+        const db = request.result;
+        // Let "Clear All Data" (deleteDatabase) proceed instead of being blocked.
+        db.onversionchange = () => db.close();
+        resolve(db);
+      };
       request.onerror = () => resolve(null);
     } catch {
       resolve(null);
@@ -125,6 +130,22 @@ export function cleanTrackTitle(title) {
     .replace(/\s*\[.*?(remaster(?:ed)?|deluxe|bonus|anniversary|session(?:s)?|live|edit|acoustic|official|audio|video|visualizer|lyrics?).*?\]/i, '')
     .replace(/\s*-\s*(?:single|ep|single version).*$/i, '')
     .trim();
+}
+
+/**
+ * Loose-but-safe artist comparison for LRCLIB search candidates.
+ * Empty names never match, and containment only counts on word boundaries for
+ * names of 3+ characters (so "" or "Ed" can't match every artist).
+ */
+export function artistsMatch(wanted, candidate) {
+  const norm = (v) => String(v || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const a = norm(wanted);
+  const b = norm(candidate);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
+  if (shorter.length < 3) return false;
+  return ` ${longer} `.includes(` ${shorter} `);
 }
 
 /**
@@ -295,6 +316,9 @@ export async function fetchLyrics(track) {
           track_name: track.title,
           artist_name: primaryArtist
         });
+        // LRCLIB matches duration within a couple of seconds; it disambiguates versions.
+        // Skip it when our duration is only a guess (chart previews, mic/Last.fm fallbacks).
+        if (durationSec > 0 && !track.durationEstimated) exactParams.set('duration', String(durationSec));
         const exactRes = await fetch(`${LRCLIB_GET_URL}?${exactParams.toString()}`, { headers: LRCLIB_HEADERS, signal: fetchSignal });
         if (exactRes.status === 429) isQuotaError = true;
         if (exactRes.ok) {
@@ -350,12 +374,8 @@ export async function fetchLyrics(track) {
         ];
 
         if (allCandidates.length > 0) {
-          const lowerPrimary = primaryArtist.toLowerCase();
           // Filter candidates to ensure the artist actually matches the requested artist
-          const artistMatches = allCandidates.filter(r => {
-            const rArtist = (r.artistName || '').toLowerCase();
-            return !primaryArtist || rArtist.includes(lowerPrimary) || lowerPrimary.includes(rArtist);
-          });
+          const artistMatches = allCandidates.filter(r => !primaryArtist || artistsMatch(primaryArtist, r.artistName));
           const pool = artistMatches.length > 0 ? artistMatches : [];
           if (pool.length > 0) {
             lyricResult = pool.find(r => r.syncedLyrics)
@@ -374,11 +394,7 @@ export async function fetchLyrics(track) {
         if (titleRes.ok) {
           const titleCandidates = await titleRes.json();
           if (Array.isArray(titleCandidates) && titleCandidates.length > 0) {
-            const lowerPrimary = primaryArtist.toLowerCase();
-            const matched = titleCandidates.find(r => {
-              const rArtist = (r.artistName || '').toLowerCase();
-              return rArtist.includes(lowerPrimary) || lowerPrimary.includes(rArtist);
-            });
+            const matched = titleCandidates.find(r => artistsMatch(primaryArtist, r.artistName));
             if (matched) {
               lyricResult = matched;
             }
@@ -438,7 +454,8 @@ export async function fetchLyrics(track) {
       type: 'synced',
       syncedLines: lines,
       plainLyrics: lyricResult.plainLyrics || '',
-      lrclibId: lyricResult.id
+      lrclibId: lyricResult.id,
+      durationSec: Number(lyricResult.duration) || 0
     };
   } else if (lyricResult.plainLyrics) {
     processed = {
@@ -447,7 +464,8 @@ export async function fetchLyrics(track) {
       syncedLines: [],
       plainLyrics: lyricResult.plainLyrics,
       message: 'Plain lyrics available (unsynced).',
-      lrclibId: lyricResult.id
+      lrclibId: lyricResult.id,
+      durationSec: Number(lyricResult.duration) || 0
     };
   } else {
     processed = {
