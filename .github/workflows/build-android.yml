@@ -75,8 +75,8 @@ jobs:
         if: always()
         run: |
           mkdir -p output-artifacts
-          find android/app/build/outputs/ -name "*.apk" -exec cp {} output-artifacts/ \; 2>/dev/null || true
-          find android/app/build/outputs/ -name "*.aab" -exec cp {} output-artifacts/ \; 2>/dev/null || true
+          echo "Searching for generated APK and AAB files across workspace..."
+          find . -type f \( -name "*.apk" -o -name "*.aab" \) -exec cp -v {} output-artifacts/ \;
           echo "Output Directory Contents:"
           ls -la output-artifacts/
 
