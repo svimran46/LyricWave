@@ -75,10 +75,15 @@ jobs:
         if: always()
         run: |
           mkdir -p output-artifacts
-          echo "Searching for generated APK and AAB files across workspace..."
-          find . -type f \( -name "*.apk" -o -name "*.aab" \) -exec cp -v {} output-artifacts/ \;
+          echo "=== TAIL OF BUILD LOG ==="
+          tail -n 80 output-artifacts/build.log || true
+          echo "========================="
+
+          echo "Searching for built artifacts inside android/app/build..."
+          find android/ -type f \( -name "*.apk" -o -name "*.aab" \) -exec cp -v {} output-artifacts/ \; || true
+          
           echo "Output Directory Contents:"
-          ls -la output-artifacts/
+          ls -lh output-artifacts/
 
       - name: Upload Android Build Artifacts (APK, AAB & Build Logs)
         if: always()
