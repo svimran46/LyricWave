@@ -63,32 +63,27 @@ jobs:
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || 'lyricwave_dev_pass' }}
         run: |
           echo "Starting Gradle compilation..."
-          mkdir -p ../output-artifacts
+          mkdir -p output-artifacts
           gradle assembleDebug assembleRelease bundleRelease \
             -PRELEASE_STORE_FILE=release.keystore \
             -PRELEASE_STORE_PASSWORD="$KEYSTORE_PASSWORD" \
             -PRELEASE_KEY_ALIAS="$KEY_ALIAS" \
             -PRELEASE_KEY_PASSWORD="$KEY_PASSWORD" \
-            --stacktrace 2>&1 | tee ../output-artifacts/build.log
+            --stacktrace
 
-      - name: Organize Output Artifacts
+      - name: Collect Output Binaries
         if: always()
         run: |
-          mkdir -p output-artifacts
-          echo "=== TAIL OF BUILD LOG ==="
-          tail -n 80 output-artifacts/build.log || true
-          echo "========================="
+          mkdir -p android-dist
+          echo "Collecting APK files..."
+          find android/app/build/outputs/ -type f \( -name "*.apk" -o -name "*.aab" \) -exec cp -v {} android-dist/ \; || true
+          echo "Collected Binaries:"
+          ls -lh android-dist/
 
-          echo "Searching for built artifacts inside android/app/build..."
-          find android/ -type f \( -name "*.apk" -o -name "*.aab" \) -exec cp -v {} output-artifacts/ \; || true
-          
-          echo "Output Directory Contents:"
-          ls -lh output-artifacts/
-
-      - name: Upload Android Build Artifacts (APK, AAB & Build Logs)
-        if: always()
+      - name: Upload Android Build Artifacts (APK & AAB)
         uses: actions/upload-artifact@v4
         with:
           name: lyricwave-android-build
-          path: output-artifacts/
+          path: android-dist/
+          if-no-files-found: error
           retention-days: 30
