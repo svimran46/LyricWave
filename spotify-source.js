@@ -47,6 +47,7 @@ export class SpotifySource {
       this.pollTimer = null;
     }
     this.currentTrackId = null;
+    this.currentTrack = null; // don't replay a stale track on the next connect
   }
 
   async pollNow() {
@@ -76,7 +77,15 @@ export class SpotifySource {
   }
 
   async fetchCurrentlyPlaying() {
-    const token = await getValidAccessToken();
+    let token;
+    try {
+      token = await getValidAccessToken();
+    } catch (err) {
+      // Transient (network) refresh failure: stay connected and retry on the next poll.
+      this.lastPollStatus = `Token refresh deferred (${err.message})`;
+      return;
+    }
+    if (!this.isRunning) return;
     if (!token) {
       this.lastPollStatus = 'No valid token';
       this.onError(new Error('Spotify session expired or not authenticated.'));
@@ -94,6 +103,8 @@ export class SpotifySource {
 
       const roundTripMs = performance.now() - startTime;
       this.lastLatencyMs = Math.round(roundTripMs / 2);
+
+      if (!this.isRunning) return;
 
       // 204 No Content: Nothing playing
       if (response.status === 204) {
@@ -119,6 +130,8 @@ export class SpotifySource {
       }
 
       const data = await response.json();
+      // Source may have been stopped (user switched source) while this request was in flight.
+      if (!this.isRunning) return;
       this.lastPollStatus = '200 OK';
       this.processPlaybackData(data, roundTripMs);
 

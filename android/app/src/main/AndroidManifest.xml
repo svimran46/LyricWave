@@ -5,10 +5,9 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="${launcherName}"
         android:supportsRtl="true"
@@ -19,6 +18,7 @@
             android:name=".MainActivity"
             android:label="${launcherName}"
             android:exported="true"
+            android:launchMode="singleTask"
             android:configChanges="orientation|keyboardHidden|screenSize|screenLayout|smallestScreenSize">
 
             <intent-filter>
@@ -26,7 +26,27 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Spotify OAuth redirect from the Custom Tab: lyricwave://callback?code=...&state=... -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="lyricwave" android:host="callback" />
+            </intent-filter>
+
         </activity>
+
+        <!-- Lets LyricWave see which music app is playing (media sessions). Notification
+             contents are never read; see MediaListenerService. -->
+        <service
+            android:name=".MediaListenerService"
+            android:label="${launcherName}"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
 
     </application>
 </manifest>

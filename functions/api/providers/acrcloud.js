@@ -159,6 +159,29 @@ export class ACRCloudProvider extends RecognitionProvider {
 
       const confidence = typeof topMatch.score === 'number' ? topMatch.score : 100;
 
+      // Extra lookup hints for lyric matching. ACRCloud's own title/artist strings are
+      // sometimes localized, romanized or carry release suffixes that LRCLIB doesn't have;
+      // the Spotify/Deezer names it links to are usually the canonical ones.
+      const lookupCandidates = [];
+      const pushCandidate = (t, a, d) => {
+        const ct = String(t || '').trim();
+        const ca = String(a || '').trim();
+        if (!ct) return;
+        const key = `${ct}__${ca}`.toLowerCase();
+        if (lookupCandidates.some(c => `${c.title}__${c.artist}`.toLowerCase() === key)) return;
+        lookupCandidates.push({ title: ct, artist: ca, duration: d || 0 });
+      };
+      for (const m of musicList.slice(0, 3)) {
+        const ext = m.external_metadata || {};
+        const sp = ext.spotify || {};
+        const dz = ext.deezer || {};
+        const d = m.duration_ms ? Math.round(m.duration_ms / 1000) : 0;
+        const namesOf = (arr) => (Array.isArray(arr) ? arr.map(x => x?.name).filter(Boolean).join(', ') : '');
+        pushCandidate(sp.track?.name, namesOf(sp.artists), d);
+        pushCandidate(dz.track?.name, namesOf(dz.artists), d);
+        pushCandidate(m.title, namesOf(m.artists), d);
+      }
+
       return {
         success: true,
         title,
@@ -168,6 +191,7 @@ export class ACRCloudProvider extends RecognitionProvider {
         offsetMs,
         confidence,
         provider: this.name,
+        lookupCandidates: lookupCandidates.slice(0, 6),
         raw: {
           acrid: topMatch.acrid || null,
           genres: topMatch.genres?.map(g => g.name) || [],

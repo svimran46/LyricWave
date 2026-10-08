@@ -20,6 +20,8 @@ const SPOTIFY_AUTH_ENDPOINT = 'https://accounts.spotify.com/authorize';
 const SPOTIFY_TOKEN_ENDPOINT = 'https://accounts.spotify.com/api/token';
 const SPOTIFY_ME_ENDPOINT = 'https://api.spotify.com/v1/me';
 
+let refreshInFlight = null;
+
 /**
  * Generate a cryptographically secure random string for PKCE code verifier
  */
@@ -75,9 +77,10 @@ export async function initiateLogin() {
   const codeChallenge = await generateCodeChallenge(codeVerifier);
   const state = generateRandomString(16);
 
-  // Store verifier and state for validation upon redirect
-  sessionStorage.setItem(STORAGE_KEYS.CODE_VERIFIER, codeVerifier);
-  sessionStorage.setItem(STORAGE_KEYS.AUTH_STATE, state);
+  // Store verifier and state for validation upon redirect. localStorage (not session)
+  // so the values survive Android killing the app while the login tab is in front.
+  localStorage.setItem(STORAGE_KEYS.CODE_VERIFIER, codeVerifier);
+  localStorage.setItem(STORAGE_KEYS.AUTH_STATE, state);
 
   const params = new URLSearchParams({
     client_id: CONFIG.CLIENT_ID,
@@ -89,7 +92,14 @@ export async function initiateLogin() {
     code_challenge: codeChallenge
   });
 
-  window.location.href = `${SPOTIFY_AUTH_ENDPOINT}?${params.toString()}`;
+  const authUrl = `${SPOTIFY_AUTH_ENDPOINT}?${params.toString()}`;
+  const native = typeof window !== 'undefined' ? window.LyricWaveNative : null;
+  if (native && typeof native.openSpotifyLogin === 'function') {
+    // Android app: open in a Chrome Custom Tab; the app is relaunched via lyricwave://callback.
+    native.openSpotifyLogin(authUrl);
+    return;
+  }
+  window.location.href = authUrl;
 }
 
 /**
@@ -134,8 +144,8 @@ export async function handleRedirectCallback() {
   }
 
   // Validate state to prevent CSRF attacks
-  const storedState = sessionStorage.getItem(STORAGE_KEYS.AUTH_STATE);
-  sessionStorage.removeItem(STORAGE_KEYS.AUTH_STATE);
+  const storedState = localStorage.getItem(STORAGE_KEYS.AUTH_STATE);
+  localStorage.removeItem(STORAGE_KEYS.AUTH_STATE);
 
   if (!returnedState || returnedState !== storedState) {
     return {
@@ -145,8 +155,8 @@ export async function handleRedirectCallback() {
   }
 
   // Retrieve code verifier
-  const codeVerifier = sessionStorage.getItem(STORAGE_KEYS.CODE_VERIFIER);
-  sessionStorage.removeItem(STORAGE_KEYS.CODE_VERIFIER);
+  const codeVerifier = localStorage.getItem(STORAGE_KEYS.CODE_VERIFIER);
+  localStorage.removeItem(STORAGE_KEYS.CODE_VERIFIER);
 
   if (!codeVerifier) {
     return {
@@ -222,35 +232,55 @@ export async function refreshAccessToken() {
     throw new Error('No refresh token available. Session has expired.');
   }
 
-  try {
+  // Share one in-flight refresh between concurrent callers: Spotify rotates refresh
+  // tokens, so two parallel refreshes can invalidate each other.
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = (async () => {
     const payload = new URLSearchParams({
       client_id: CONFIG.CLIENT_ID,
       grant_type: 'refresh_token',
       refresh_token: refreshToken
     });
 
-    const response = await fetch(SPOTIFY_TOKEN_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: payload.toString()
-    });
+    let response;
+    try {
+      response = await fetch(SPOTIFY_TOKEN_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: payload.toString()
+      });
+    } catch (networkErr) {
+      // Offline / flaky network: keep the refresh token and try again on the next poll.
+      const err = new Error('Network error while refreshing Spotify session.');
+      err.transient = true;
+      throw err;
+    }
 
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      // Refresh token revoked or invalid
-      logout();
-      const msg = data.error_description || data.error || 'Session refresh failed';
-      throw new Error(`Your Spotify session has expired (${msg}). Please log in again.`);
+      // Only a rejected grant means the session is really gone. 5xx / 429 are temporary.
+      if (response.status === 400 || response.status === 401) {
+        logout();
+        const msg = data.error_description || data.error || 'Session refresh failed';
+        throw new Error(`Your Spotify session has expired (${msg}). Please log in again.`);
+      }
+      const err = new Error(`Spotify token service unavailable (HTTP ${response.status}).`);
+      err.transient = true;
+      throw err;
     }
 
     saveTokens(data);
     return data.access_token;
-  } catch (err) {
-    logout();
-    throw err;
+  })();
+
+  try {
+    return await refreshInFlight;
+  } finally {
+    refreshInFlight = null;
   }
 }
 
@@ -271,7 +301,9 @@ export async function getValidAccessToken() {
   if (Date.now() >= expiresAt) {
     try {
       return await refreshAccessToken();
-    } catch {
+    } catch (err) {
+      // Transient failure: let the caller retry later instead of treating it as logged out.
+      if (err && err.transient) throw err;
       return null;
     }
   }
@@ -348,8 +380,8 @@ export function logout() {
   localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
   localStorage.removeItem(STORAGE_KEYS.EXPIRES_AT);
   localStorage.removeItem(STORAGE_KEYS.USER_PROFILE);
-  sessionStorage.removeItem(STORAGE_KEYS.CODE_VERIFIER);
-  sessionStorage.removeItem(STORAGE_KEYS.AUTH_STATE);
+  localStorage.removeItem(STORAGE_KEYS.CODE_VERIFIER);
+  localStorage.removeItem(STORAGE_KEYS.AUTH_STATE);
 }
 
 /**

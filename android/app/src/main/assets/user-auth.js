@@ -23,7 +23,12 @@ function openAuthDB() {
           store.createIndex('email', 'email', { unique: true });
         }
       };
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => {
+        const db = request.result;
+        // Let "Clear All Data" (deleteDatabase) proceed instead of being blocked.
+        db.onversionchange = () => db.close();
+        resolve(db);
+      };
       request.onerror = () => resolve(null);
     } catch {
       resolve(null);
@@ -203,6 +208,30 @@ export function getCurrentUser() {
   } catch {
     return null;
   }
+}
+
+/**
+ * Permanently delete the currently logged-in local account and end the session.
+ * @returns {Promise<boolean>} true if a stored account was removed
+ */
+export async function deleteCurrentAccount() {
+  const current = getCurrentUser();
+  localStorage.removeItem(SESSION_KEY);
+  if (!current || !current.email) return false;
+
+  const db = await openAuthDB();
+  if (!db) return false;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(USERS_STORE, 'readwrite');
+      tx.objectStore(USERS_STORE).delete(String(current.email).toLowerCase().trim());
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+      tx.onabort = () => resolve(false);
+    } catch {
+      resolve(false);
+    }
+  });
 }
 
 /**

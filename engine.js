@@ -69,7 +69,14 @@ export class UnifiedSyncEngine {
   /**
    * Connect an external music source (e.g., SpotifySource)
    */
-  connectSource(source) {
+  /**
+   * @param {Object|null} source
+   * @param {Object} [opts]
+   * @param {boolean} [opts.start=true]        Call source.start() after wiring (ignored when
+   *                                           the source sets autoStartOnConnect = false, e.g. the mic).
+   * @param {boolean} [opts.syncCurrent=true]  Immediately adopt source.currentTrack.
+   */
+  connectSource(source, { start = true, syncCurrent = true } = {}) {
     if (this.currentSource && typeof this.currentSource.stop === 'function') {
       this.currentSource.stop();
     }
@@ -81,20 +88,26 @@ export class UnifiedSyncEngine {
     source.onTrackChange = (track) => this.setTrack(track);
     source.onPlaybackUpdate = (track) => this.updatePlayback(track);
     source.onIdle = () => this.handleIdle();
-    const originalSourceOnError = source.onError;
-    source.onError = (err) => {
-      if (typeof originalSourceOnError === 'function') {
-        try { originalSourceOnError(err); } catch {}
+
+    // Remember the source's own (app-provided) error handler exactly once, so repeated
+    // connects don't stack wrappers and fire the same error N times.
+    if (!Object.prototype.hasOwnProperty.call(source, '_appOnError')) {
+      source._appOnError = typeof source.onError === 'function' ? source.onError : null;
+    }
+    const appOnError = source._appOnError;
+    source.onError = (...args) => {
+      if (appOnError) {
+        try { appOnError(...args); } catch {}
       }
-      this.onError(err);
+      this.onError(...args);
     };
 
     // If source already has an active track, sync immediately
-    if (source.currentTrack) {
+    if (syncCurrent && source.currentTrack) {
       this.setTrack(source.currentTrack, source.currentTrack.isPlaying);
     }
 
-    if (typeof source.start === 'function') {
+    if (start && source.autoStartOnConnect !== false && typeof source.start === 'function') {
       source.start();
     }
   }
@@ -180,6 +193,8 @@ export class UnifiedSyncEngine {
           artists: this.track.artist,
           album: this.track.album,
           durationMs: this.durationSec * 1000,
+          durationEstimated: Boolean(this.track.durationEstimated),
+          lookupCandidates: this.track.lookupCandidates,
           syncedLyrics: this.track.syncedLyrics,
           plainLyrics: this.track.plainLyrics,
           lrclibId: this.track.lrclibId
@@ -193,6 +208,7 @@ export class UnifiedSyncEngine {
             status: 'not_found',
             message: 'No synced lyrics found on LRCLIB.'
           };
+          this.adoptLyricsDuration(this.lyricsData);
           this.onLyricsLoaded(this.lyricsData);
         }
       } catch (err) {
@@ -204,6 +220,22 @@ export class UnifiedSyncEngine {
       }
     } else {
       this.onPlaybackChange(this.isPlaying);
+    }
+  }
+
+  /**
+   * When the track's duration was only a guess (chart entries, mic results without a
+   * length), use the real song length that LRCLIB reports so lyrics don't stop early.
+   */
+  adoptLyricsDuration(lyrics) {
+    const realSec = Number(lyrics?.durationSec) || 0;
+    if (!this.track || !this.track.durationEstimated || realSec <= 0) return;
+    this.durationSec = realSec;
+    this.durationMs = Math.round(realSec * 1000);
+    this.track.duration = realSec;
+    this.track.durationEstimated = false;
+    if (this.currentSource && typeof this.currentSource.setDuration === 'function') {
+      try { this.currentSource.setDuration(realSec); } catch {}
     }
   }
 
@@ -301,13 +333,15 @@ export class UnifiedSyncEngine {
     }
   }
 
-  seek(target) {
+  /**
+   * Seek to an absolute position in SECONDS. (Use seekMs() for milliseconds — units are
+   * never guessed, because guessing sent sub-second lyric taps to the end of the song.)
+   */
+  seek(targetSec) {
     if (!this.track) return;
-    const targetNum = Number(target);
-    if (isNaN(targetNum)) return;
-    // Handle either seconds or milliseconds (if > 1000 and durationSec < 1000, treat as ms)
-    const targetSec = (targetNum > this.durationSec && targetNum > 1000) ? (targetNum / 1000) : targetNum;
-    const clampedSec = Math.max(0, Math.min(this.durationSec, targetSec));
+    const targetNum = Number(targetSec);
+    if (!Number.isFinite(targetNum)) return;
+    const clampedSec = Math.max(0, Math.min(this.durationSec, targetNum));
     this.anchorPositionSec = clampedSec;
     this.anchorLocalTime = performance.now();
     this.activeLineIndex = -1;
@@ -316,12 +350,18 @@ export class UnifiedSyncEngine {
     }
   }
 
-  seekBy(delta) {
-    const deltaNum = Number(delta);
-    if (isNaN(deltaNum)) return;
-    // If delta is large (> 50 or < -50), treat as ms
-    const deltaSec = (Math.abs(deltaNum) > 50) ? (deltaNum / 1000) : deltaNum;
-    this.seek(this.getPositionSeconds() + deltaSec);
+  /** Seek to an absolute position in MILLISECONDS. */
+  seekMs(targetMs) {
+    const ms = Number(targetMs);
+    if (!Number.isFinite(ms)) return;
+    this.seek(ms / 1000);
+  }
+
+  /** Relative seek in SECONDS (negative = backwards). */
+  seekBy(deltaSec) {
+    const deltaNum = Number(deltaSec);
+    if (!Number.isFinite(deltaNum)) return;
+    this.seek(this.getPositionSeconds() + deltaNum);
   }
 
   setOffset(newOffsetMs, source = null) {
@@ -368,8 +408,14 @@ export class UnifiedSyncEngine {
 
       // Handle song finish
       if (this.isPlaying && positionSec >= this.durationSec && this.durationSec > 0) {
-        this.pause();
-        this.seek(0);
+        // Reset the lyric clock locally only. Telling the source to pause/seek here would
+        // pause or restart the user's music app (Phone source) right as it moves on to the
+        // next song; sources that own a clock (Search) already stop themselves at the end.
+        this.isPlaying = false;
+        this.anchorPositionSec = 0;
+        this.anchorLocalTime = performance.now();
+        this.activeLineIndex = -1;
+        this.onPlaybackChange(false);
         this.onSongEnd(this.track);
       }
 
@@ -398,7 +444,9 @@ export class UnifiedSyncEngine {
     }
 
     if (this.rafId !== null) {
-      this.rafId = requestAnimationFrame(this.loop);
+      // Idle (no track): let the loop sleep instead of waking 60x/second. setTrack() and
+      // play() call start() again, which resumes it.
+      this.rafId = this.track ? requestAnimationFrame(this.loop) : null;
     }
   }
 }

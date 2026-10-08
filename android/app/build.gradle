@@ -4,14 +4,15 @@ plugins {
 
 android {
     namespace 'app.lyricwave.twa'
-    compileSdk 34
+    compileSdk 36
 
     defaultConfig {
         applicationId "app.lyricwave.twa"
         minSdk 21
-        targetSdk 34
-        versionCode 1
-        versionName "1.0.0"
+        // Google Play requires targetSdk 36 for new apps and updates from Aug 31, 2026.
+        targetSdk 36
+        versionCode 3
+        versionName "1.1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders = [
@@ -70,13 +71,22 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'androidx.webkit:webkit:1.11.0'
     implementation 'androidx.core:core:1.13.1'
-    implementation 'androidx.activity:activity:1.9.0'
+    implementation 'androidx.activity:activity:1.10.1'
     implementation 'androidx.browser:browser:1.8.0'
 }
 
-task copyWebAssets(type: Copy) {
+// Production web files bundled into the app. Explicit allowlist so test files,
+// Playwright config and dev tooling never ship inside the APK. Sync (not Copy)
+// also removes stale files that are no longer in the list.
+def webAppFiles = [
+    'index.html', 'privacy.html', 'styles.css', 'manifest.webmanifest',
+    'app.js', 'audio-reactive.js', 'auth.js', 'config.js', 'engine.js', 'lastfm.js', 'lyrics.js',
+    'mic.js', 'phone-source.js', 'reel.js', 'search.js', 'spotify-source.js', 'types.js', 'user-auth.js'
+]
+
+task copyWebAssets(type: Sync) {
     from(rootDir.parentFile) {
-        include 'index.html', 'styles.css', '*.js', 'manifest.webmanifest'
+        include webAppFiles
         include 'icons/**'
     }
     into file("${projectDir}/src/main/assets")

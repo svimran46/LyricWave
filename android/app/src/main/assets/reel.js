@@ -4,8 +4,13 @@
  * Full-screen canvas animated sine waves,
  * OLED-style bordered current line box,
  * word-by-word reveal timing,
- * and multi-theme rendering (Pixel OLED, Neon, Minimal).
+ * multi-theme rendering (Pixel OLED, Neon, Vinyl, Paper + token-based themes),
+ * and (Sprint 2) animation styles driven by an AudioReactive source:
+ *   'pulse' (beat/vocal synced, default) | 'reveal' (word-by-word) | 'karaoke' (smooth fill) | 'minimal' (static).
  */
+
+const ANIMATION_STYLES = ['pulse', 'reveal', 'karaoke', 'minimal'];
+const STATIC_REDRAW_MS = 500; // static styles only repaint this often (follows theme / adaptive palette changes)
 
 export class ReelVisualizer {
   constructor(canvas, container, options = {}) {
@@ -16,6 +21,8 @@ export class ReelVisualizer {
     // Configuration & State
     this.theme = options.theme || 'pixel'; // 'pixel' | 'neon' | 'minimal'
     this.wordByWordMode = options.wordByWordMode ?? true;
+    this.animationStyle = ANIMATION_STYLES.includes(options.animationStyle) ? options.animationStyle : 'pulse';
+    this.audioReactive = null;
     this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     // Animation & Wave metrics
@@ -25,6 +32,19 @@ export class ReelVisualizer {
     this.isPlaying = false;
     this.lastRenderTime = performance.now();
     this.lastDrawTime = 0;
+
+    // Audio-reactive drawing state (set per render(); read by the wave drawers, no per-frame allocation)
+    this._beat = 0;
+    this._vocal = 0;
+    this._energy = 0;
+    this._ampMul = 1;     // amplitude multiplier (pulse style: <= 1 + 0.08 beat + 0.10 energy)
+    this._alphaMul = 1;   // brightness multiplier (pulse style: vocal / beat glow, capped per stroke at 1)
+    this._lwMul = 1;      // line-width multiplier
+    this._staticDirty = true;
+    this._lastStaticDraw = 0;
+    this._wordProgress = 0;
+    this._reactive = false; // true while drawing in the beat-synced 'pulse' style
+    this._audioPlaying = null;
 
     // Visibility & Offscreen Tracking
     this.isDocumentVisible = typeof document !== 'undefined' ? !document.hidden : true;
@@ -108,10 +128,34 @@ export class ReelVisualizer {
     this.canvas.height = Math.floor(this.height * dpr);
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.scale(dpr, dpr);
+    this._staticDirty = true;
   }
 
   setTheme(newTheme) {
     this.theme = newTheme;
+    this._staticDirty = true;
+  }
+
+  /**
+   * 'pulse' (beat/vocal synced waves, default) | 'reveal' (word-by-word, previous behaviour) |
+   * 'karaoke' (smooth word fill, exposes wordProgress) | 'minimal' (subtle static waves). Unknown values ignored.
+   */
+  setAnimationStyle(style) {
+    if (!ANIMATION_STYLES.includes(style)) return;
+    this.animationStyle = style;
+    this._staticDirty = true;
+  }
+
+  /**
+   * Attach an AudioReactive instance (audio-reactive.js) or null to detach. The reel only calls
+   * getFrame(positionMs) (pulse style) and, optionally, setActiveLine(); it never enables/disables it.
+   */
+  setAudioReactive(instance) {
+    this.audioReactive = instance && typeof instance.getFrame === 'function' ? instance : null;
+    this._audioPlaying = null; // force a setPlaying() sync on the next render
+    if (this.audioReactive && this.activeLine && typeof this.audioReactive.setActiveLine === 'function') {
+      try { this.audioReactive.setActiveLine(this.activeLine, this.nextLineTimeMs); } catch { /* ignore */ }
+    }
   }
 
   setWordByWordMode(enabled) {
@@ -127,9 +171,13 @@ export class ReelVisualizer {
       this.activeLineIndex = index;
       this.nextLineTimeMs = nextLineTimeMs;
 
-      // Pulse wave amplitude gently at each line change
-      if (!this.reducedMotion) {
-        this.pulseAmplitude = 2.2;
+      // Pulse wave amplitude gently at each line change (softer swell in beat-synced 'pulse'; none in 'minimal')
+      if (!this.reducedMotion && this.animationStyle !== 'minimal') {
+        this.pulseAmplitude = this.animationStyle === 'pulse' ? 1.35 : 2.2;
+      }
+
+      if (this.audioReactive && typeof this.audioReactive.setActiveLine === 'function') {
+        try { this.audioReactive.setActiveLine(line, nextLineTimeMs); } catch { /* ignore */ }
       }
 
       // Pre-compute word chunks for word-by-word reveal
@@ -153,7 +201,9 @@ export class ReelVisualizer {
   }
 
   /**
-   * Main render tick: draws sine waves and returns active word state
+   * Main render tick: updates the reactive signals, draws the waves and returns the word state.
+   * Returns { words, currentWordIndex, wordByWordMode, wordProgress (0..1 inside the current word),
+   *           beat, vocal, energy (0..1), bpm, mode ('audio'|'lyrics'|'off'), animationStyle }.
    */
   render(positionMs, isPlaying) {
     this.currentPositionMs = positionMs;
@@ -168,11 +218,46 @@ export class ReelVisualizer {
       this.pulseAmplitude = Math.max(1.0, this.pulseAmplitude - (dt * 3.2));
     }
 
+    // Reactive signals (only the 'pulse' style consumes them; reduced motion never pulses)
+    const style = this.animationStyle;
+    const audio = this.audioReactive;
+    let beat = 0;
+    let vocal = 0;
+    let energy = 0;
+    let bpm = 0;
+    let mode = 'off';
+    if (audio) {
+      try {
+        mode = audio.mode || 'off';
+        if (style === 'pulse' && !this.reducedMotion) {
+          const playing = Boolean(isPlaying);
+          if (playing !== this._audioPlaying && typeof audio.setPlaying === 'function') {
+            this._audioPlaying = playing;
+            audio.setPlaying(playing);
+          }
+          const f = audio.getFrame(positionMs);
+          if (f) {
+            beat = f.beat > 0 ? Math.min(1, f.beat) : 0;
+            vocal = f.vocal > 0 ? Math.min(1, f.vocal) : 0;
+            energy = f.energy > 0 ? Math.min(1, f.energy) : 0;
+            bpm = f.bpm > 0 ? f.bpm : 0;
+            mode = f.mode || mode;
+          }
+        }
+      } catch { /* a misbehaving source must never break the reel */ }
+    }
+    this._beat = beat;
+    this._vocal = vocal;
+    this._energy = energy;
+    this._updateDrawMultipliers();
+
     this.drawSineWaves(positionMs);
 
-    // Compute word-by-word reveal index
+    // Compute word-by-word reveal index (karaoke always needs word tracking)
     let wordIndex = -1;
-    if (this.wordByWordMode && this.activeWords.length > 0) {
+    let wordProgress = 0;
+    const trackWords = this.wordByWordMode || style === 'karaoke';
+    if (trackWords && this.activeWords.length > 0) {
       for (let i = 0; i < this.activeWords.length; i++) {
         if (positionMs >= this.activeWords[i].startMs) {
           wordIndex = i;
@@ -180,14 +265,51 @@ export class ReelVisualizer {
           break;
         }
       }
+      if (wordIndex >= 0) {
+        const w = this.activeWords[wordIndex];
+        const span = w.endMs - w.startMs;
+        const p = span > 0 ? (positionMs - w.startMs) / span : 1;
+        wordProgress = p > 1 ? 1 : p > 0 ? p : 0;
+        if (this.reducedMotion) wordProgress = 1; // stepped highlight, no continuous fill
+      }
     }
     this.currentWordIndex = wordIndex;
+    this._wordProgress = wordProgress;
 
     return {
       words: this.activeWords,
-      currentWordIndex: wordIndex,
-      wordByWordMode: this.wordByWordMode
+      currentWordIndex: this.currentWordIndex,
+      wordByWordMode: this.wordByWordMode,
+      wordProgress,
+      beat,
+      vocal,
+      energy,
+      bpm,
+      mode,
+      animationStyle: style
     };
+  }
+
+  /**
+   * Per-render drawing multipliers. In 'pulse' the beat adds <= 8% amplitude and the (slow) energy <= 10%;
+   * vocal / beat add a mild brightness lift (each stroke's alpha is still capped at 1). No pulsing otherwise.
+   */
+  _updateDrawMultipliers() {
+    const style = this.animationStyle;
+    this._reactive = style === 'pulse' && !this.reducedMotion;
+    if (style === 'minimal') {
+      this._ampMul = 1;
+      this._alphaMul = 0.6;
+      this._lwMul = 0.6;
+    } else if (this._reactive) {
+      this._ampMul = 1 + 0.08 * this._beat + 0.10 * this._energy;
+      this._alphaMul = 1 + 0.30 * this._vocal + 0.15 * this._beat;
+      this._lwMul = 1;
+    } else {
+      this._ampMul = 1;
+      this._alphaMul = 1;
+      this._lwMul = 1;
+    }
   }
 
   /**
@@ -203,7 +325,15 @@ export class ReelVisualizer {
 
     // Frame rate throttle: Cap to 30fps on mobile / low-power hardware
     const now = performance.now();
-    if (this.minFrameIntervalMs > 0 && (now - this.lastDrawTime < this.minFrameIntervalMs)) {
+    const style = this.animationStyle;
+    const isStatic = this.reducedMotion || style === 'minimal';
+
+    if (isStatic) {
+      // Nothing moves: repaint only when something changed (resize / theme / style) or to follow palette changes.
+      if (!this._staticDirty && now - this._lastStaticDraw < STATIC_REDRAW_MS) return;
+      this._staticDirty = false;
+      this._lastStaticDraw = now;
+    } else if (this.minFrameIntervalMs > 0 && (now - this.lastDrawTime < this.minFrameIntervalMs)) {
       return;
     }
     this.lastDrawTime = now;
@@ -221,22 +351,43 @@ export class ReelVisualizer {
     }
 
     const centerY = h / 2;
-    // Base phase derived from song playback position so waves move in sync with music
-    const basePhase = (positionMs / 1000) * 2.2;
-    const pulse = this.pulseAmplitude;
-
-    if (this.theme === 'pixel') {
-      this.drawPixelWaves(ctx, w, h, centerY, basePhase, pulse);
-    } else if (this.theme === 'neon') {
-      this.drawNeonWaves(ctx, w, h, centerY, basePhase, pulse);
-    } else if (this.theme === 'vinyl') {
-      this.drawVinylWaves(ctx, w, h, centerY, basePhase, pulse);
-    } else if (this.theme === 'paper') {
-      this.drawPaperWaves(ctx, w, h, centerY, basePhase, pulse);
+    let basePhase;
+    let pulse;
+    if (style === 'minimal') {
+      // subtle, thin, dim, frozen waves
+      basePhase = 0.6;
+      pulse = 0.7;
     } else {
-      // aurora, adaptive, minimal
-      this.drawDynamicWaveTokens(ctx, w, h, centerY, basePhase, pulse);
+      // Base phase derived from song playback position so waves move in sync with music
+      basePhase = (positionMs / 1000) * 2.2;
+      pulse = this.pulseAmplitude;
     }
+    pulse *= this._ampMul;
+
+    switch (this.theme) {
+      case 'pixel':
+        this.drawPixelWaves(ctx, w, h, centerY, basePhase, pulse);
+        break;
+      case 'neon':
+        this.drawNeonWaves(ctx, w, h, centerY, basePhase, pulse);
+        break;
+      case 'vinyl':
+        this.drawVinylWaves(ctx, w, h, centerY, basePhase, pulse);
+        break;
+      case 'paper':
+        this.drawPaperWaves(ctx, w, h, centerY, basePhase, pulse);
+        break;
+      case 'synthwave':
+        this.drawSynthwaveWaves(ctx, w, h, centerY, basePhase, pulse);
+        break;
+      case 'mono':
+        this.drawMonoWaves(ctx, w, h, centerY, basePhase, pulse);
+        break;
+      default:
+        // aurora, adaptive, minimal, sunset, ocean, sakura, forest and any future token-based theme
+        this.drawDynamicWaveTokens(ctx, w, h, centerY, basePhase, pulse);
+    }
+    ctx.globalAlpha = 1.0;
   }
 
   /**
@@ -244,27 +395,40 @@ export class ReelVisualizer {
    */
   getCssToken(name, fallback) {
     if (typeof window === 'undefined' || !window.getComputedStyle) return fallback;
+    // Called every animation frame: getComputedStyle forces a style recalc, so re-read at
+    // most every 500ms (fast enough to follow theme / album-adaptive palette changes).
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (!this._cssTokenCache) this._cssTokenCache = new Map();
+    const cached = this._cssTokenCache.get(name);
+    if (cached && now - cached.at < 500) return cached.value || fallback;
     try {
       const val = window.getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      this._cssTokenCache.set(name, { value: val, at: now });
       return val || fallback;
     } catch {
       return fallback;
     }
   }
 
+  /** alpha helper: base alpha scaled by the reactive brightness, never above 1 */
+  _a(base) {
+    const v = base * this._alphaMul;
+    return v > 1 ? 1 : v;
+  }
+
   /**
-   * Token-based waves for Aurora, Album Adaptive, and Minimal themes
+   * Token-based waves (--wave-1 / --wave-2) for Aurora, Album Adaptive, Minimal, Sunset, Ocean, Sakura, Forest
    */
   drawDynamicWaveTokens(ctx, w, h, centerY, basePhase, pulse) {
     const wave1Color = this.getCssToken('--wave-1', '#6366f1');
     const wave2Color = this.getCssToken('--wave-2', '#c084fc');
 
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = 2.5 * this._lwMul;
     ctx.lineCap = 'round';
 
     // Primary wave
     ctx.strokeStyle = wave1Color;
-    ctx.globalAlpha = 0.55;
+    ctx.globalAlpha = this._a(0.55);
     ctx.beginPath();
     for (let x = 0; x <= w; x += 8) {
       const angle = (x * 0.009) + basePhase;
@@ -276,7 +440,7 @@ export class ReelVisualizer {
 
     // Secondary wave
     ctx.strokeStyle = wave2Color;
-    ctx.globalAlpha = 0.35;
+    ctx.globalAlpha = this._a(0.35);
     ctx.beginPath();
     for (let x = 0; x <= w; x += 8) {
       const angle = (x * 0.013) - (basePhase * 0.85) + 1.2;
@@ -289,14 +453,108 @@ export class ReelVisualizer {
   }
 
   /**
+   * Synthwave: token waves plus a retro perspective grid scrolling toward the viewer below the horizon.
+   * One path / one stroke for the whole grid, no allocations.
+   */
+  drawSynthwaveWaves(ctx, w, h, centerY, basePhase, pulse) {
+    const wave1Color = this.getCssToken('--wave-1', '#ff2bd6');
+    const wave2Color = this.getCssToken('--wave-2', '#22d3ee');
+
+    const horizon = centerY + h * 0.14;
+    const floorH = h - horizon;
+    if (floorH > 12) {
+      const rows = 7;
+      const scroll = (basePhase * 0.06) % 1; // 0..1, loops seamlessly
+      ctx.strokeStyle = wave2Color;
+      ctx.lineWidth = 1 * this._lwMul;
+      ctx.lineCap = 'butt';
+      ctx.globalAlpha = this._a(0.16);
+      ctx.beginPath();
+      for (let i = 0; i < rows; i++) {
+        const tt = (i + scroll) / rows;
+        const y = horizon + floorH * tt * tt;
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+      }
+      const cols = 9;
+      const vx = w / 2;
+      for (let j = 0; j < cols; j++) {
+        const bx = vx + (j - (cols - 1) / 2) * (w / 4);
+        ctx.moveTo(vx + (bx - vx) * 0.04, horizon);
+        ctx.lineTo(bx, h);
+      }
+      ctx.stroke();
+    }
+
+    ctx.lineWidth = 2.2 * this._lwMul;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = wave1Color;
+    ctx.shadowColor = wave1Color;
+    ctx.shadowBlur = this._lwMul < 1 ? 0 : 8;
+    ctx.globalAlpha = this._a(0.6);
+    ctx.beginPath();
+    for (let x = 0; x <= w; x += 8) {
+      const angle = (x * 0.01) + basePhase;
+      const y = centerY + Math.sin(angle) * (24 * pulse) + Math.cos(angle * 1.7) * 5;
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    ctx.strokeStyle = wave2Color;
+    ctx.shadowColor = wave2Color;
+    ctx.globalAlpha = this._a(0.4);
+    ctx.beginPath();
+    for (let x = 0; x <= w; x += 8) {
+      const angle = (x * 0.014) - (basePhase * 0.9) + 0.9;
+      const y = centerY + Math.sin(angle) * (18 * pulse);
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1.0;
+  }
+
+  /**
+   * Mono (pure-black OLED): crisp, thin, white lines. No glow, no colour.
+   */
+  drawMonoWaves(ctx, w, h, centerY, basePhase, pulse) {
+    ctx.lineWidth = 1 * this._lwMul;
+    ctx.lineCap = 'butt';
+    ctx.strokeStyle = '#ffffff';
+
+    ctx.globalAlpha = this._a(0.8);
+    ctx.beginPath();
+    for (let x = 0; x <= w; x += 6) {
+      const angle = (x * 0.009) + basePhase;
+      const y = centerY + Math.sin(angle) * (22 * pulse);
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    ctx.globalAlpha = this._a(0.32);
+    ctx.beginPath();
+    for (let x = 0; x <= w; x += 6) {
+      const angle = (x * 0.014) - (basePhase * 0.8) + 1.1;
+      const y = centerY + Math.sin(angle) * (15 * pulse);
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+  }
+
+  /**
    * Vinyl Theme Waves: Gentle warm analog grooves
    */
   drawVinylWaves(ctx, w, h, centerY, basePhase, pulse) {
-    ctx.lineWidth = 1.8;
+    ctx.lineWidth = 1.8 * this._lwMul;
     ctx.lineCap = 'round';
 
     ctx.strokeStyle = '#d97706';
-    ctx.globalAlpha = 0.45;
+    ctx.globalAlpha = this._a(0.45);
     ctx.beginPath();
     for (let x = 0; x <= w; x += 8) {
       const angle = (x * 0.007) + (basePhase * 0.7);
@@ -307,7 +565,7 @@ export class ReelVisualizer {
     ctx.stroke();
 
     ctx.strokeStyle = '#92400e';
-    ctx.globalAlpha = 0.25;
+    ctx.globalAlpha = this._a(0.25);
     ctx.beginPath();
     for (let x = 0; x <= w; x += 8) {
       const angle = (x * 0.011) - (basePhase * 0.6) + 0.8;
@@ -323,11 +581,11 @@ export class ReelVisualizer {
    * Paper Theme Waves: Crisp monochrome ink contour line
    */
   drawPaperWaves(ctx, w, h, centerY, basePhase, pulse) {
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.5 * this._lwMul;
     ctx.lineCap = 'round';
 
     ctx.strokeStyle = '#2563eb';
-    ctx.globalAlpha = 0.35;
+    ctx.globalAlpha = this._a(0.35);
     ctx.beginPath();
     for (let x = 0; x <= w; x += 8) {
       const angle = (x * 0.009) + basePhase;
@@ -344,11 +602,12 @@ export class ReelVisualizer {
    */
   drawPixelWaves(ctx, w, h, centerY, basePhase, pulse) {
     const stepSize = 4; // Pixelated stepping
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2 * this._lwMul;
     ctx.lineCap = 'square';
+    ctx.strokeStyle = '#ffffff';
 
     // Wave 1: Primary phosphor wave
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+    ctx.globalAlpha = this._a(0.45);
     ctx.beginPath();
     for (let x = 0; x < w; x += stepSize) {
       const angle = (x * 0.012) + basePhase;
@@ -361,7 +620,7 @@ export class ReelVisualizer {
     ctx.stroke();
 
     // Wave 2: Harmonic secondary wave
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.globalAlpha = this._a(0.2);
     ctx.beginPath();
     for (let x = 0; x < w; x += stepSize) {
       const angle = (x * 0.018) - (basePhase * 0.8);
@@ -373,7 +632,7 @@ export class ReelVisualizer {
     ctx.stroke();
 
     // Wave 3: Background pulse ripple
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.globalAlpha = this._a(0.08);
     ctx.beginPath();
     for (let x = 0; x < w; x += stepSize) {
       const angle = (x * 0.007) + (basePhase * 1.4);
@@ -383,19 +642,22 @@ export class ReelVisualizer {
       else ctx.lineTo(x, steppedY);
     }
     ctx.stroke();
+    ctx.globalAlpha = 1.0;
   }
 
   /**
    * Neon Theme Waves: Glowing cyan and magenta flowing bezier curves
    */
   drawNeonWaves(ctx, w, h, centerY, basePhase, pulse) {
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 3 * this._lwMul;
     ctx.lineCap = 'round';
+    ctx.globalAlpha = this._reactive ? this._a(0.75) : Math.min(1, this._alphaMul);
+    const glow = this._lwMul < 1 ? 0 : 14;
 
     // Cyan Neon Wave
     ctx.strokeStyle = '#00f0ff';
     ctx.shadowColor = '#00f0ff';
-    ctx.shadowBlur = 14;
+    ctx.shadowBlur = glow;
     ctx.beginPath();
     for (let x = 0; x <= w; x += 10) {
       const angle = (x * 0.01) + basePhase;
@@ -408,7 +670,7 @@ export class ReelVisualizer {
     // Magenta Neon Wave
     ctx.strokeStyle = '#ff007f';
     ctx.shadowColor = '#ff007f';
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = glow * 0.85;
     ctx.beginPath();
     for (let x = 0; x <= w; x += 10) {
       const angle = (x * 0.014) - (basePhase * 1.1) + 1.2;
@@ -420,6 +682,7 @@ export class ReelVisualizer {
 
     // Reset shadow blur
     ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1.0;
   }
 
   /**

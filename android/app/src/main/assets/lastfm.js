@@ -6,7 +6,7 @@
  */
 
 const LASTFM_API_URL = 'https://ws.audioscrobbler.com/2.0/';
-const DEFAULT_LASTFM_KEY = '4a9f5581a9cdf20a699f540f52a51c9c'; // Public client key fallback
+const DEFAULT_LASTFM_KEY = 'bb89790d124ab6ab91be569d08e40481'; // LyricWave's own Last.fm API key
 
 export class LastFmSource {
   constructor(options = {}) {
@@ -25,6 +25,8 @@ export class LastFmSource {
     this.currentTrackKey = null;
     this.currentTrack = null;
     this.trackStartTime = 0;
+    this.consecutiveErrors = 0;
+    this.durationCache = new Map(); // "title__artist" -> seconds (0 = unknown)
   }
 
   /**
@@ -101,7 +103,8 @@ export class LastFmSource {
           this.currentTrackKey = key;
           this.trackStartTime = now;
 
-          const durationSec = track.durationSec > 0 ? track.durationSec : 210; // 3.5m fallback
+          const providedSec = track.durationSec > 0 ? track.durationSec : 0;
+          const durationSec = providedSec || 210; // 3.5m fallback until the real length is known
 
           this.currentTrack = {
             id: `lastfm_${Date.now()}`,
@@ -113,10 +116,25 @@ export class LastFmSource {
             position: 0,
             isPlaying: true,
             source: 'lastfm',
-            isApproximate: true
+            isApproximate: true,
+            // Lets the engine adopt LRCLIB's real length if Last.fm has none.
+            durationEstimated: !providedSec
           };
 
           this.onTrackChange({ ...this.currentTrack });
+
+          // recenttracks never includes a length, so look it up in the background — otherwise
+          // every song "ended" at the 3.5 min fallback and lyrics froze on longer tracks.
+          if (!providedSec) {
+            this.fetchTrackDuration(track.title, track.artist).then((sec) => {
+              if (sec > 0 && this.isRunning && this.currentTrackKey === key && this.currentTrack) {
+                this.currentTrack.duration = sec;
+                this.currentTrack.durationEstimated = false;
+                this.currentTrack.position = Math.min(sec, (performance.now() - this.trackStartTime) / 1000);
+                this.onPlaybackUpdate({ ...this.currentTrack });
+              }
+            });
+          }
         } else if (this.currentTrack) {
           // Same track still scrobbling now-playing: emit position update
           const elapsedSec = (now - this.trackStartTime) / 1000;
@@ -130,13 +148,49 @@ export class LastFmSource {
           this.onIdle();
         }
       }
+      this.consecutiveErrors = 0;
     } catch (err) {
-      this.onError(err.message);
+      this.consecutiveErrors++;
+      // Report the first failure only; repeated failures back off quietly instead of
+      // showing an alert every 4 seconds while offline.
+      if (this.consecutiveErrors === 1) {
+        this.onError(err.message);
+      }
     }
 
     if (this.isRunning) {
-      this.timer = setTimeout(() => this.poll(), this.pollInterval);
+      const backoff = this.consecutiveErrors > 0
+        ? Math.min(60000, this.pollInterval * Math.pow(2, this.consecutiveErrors - 1))
+        : this.pollInterval;
+      this.timer = setTimeout(() => this.poll(), backoff);
     }
+  }
+
+  /**
+   * Look up a track's length in seconds via track.getInfo (0 if unknown). Never throws.
+   */
+  async fetchTrackDuration(title, artist) {
+    const cacheKey = `${title}__${artist}`.toLowerCase();
+    if (this.durationCache.has(cacheKey)) return this.durationCache.get(cacheKey);
+    let sec = 0;
+    try {
+      const params = new URLSearchParams({
+        method: 'track.getInfo',
+        track: title,
+        artist,
+        api_key: this.apiKey,
+        autocorrect: '1',
+        format: 'json'
+      });
+      const res = await fetch(`${LASTFM_API_URL}?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        const ms = parseInt(data?.track?.duration, 10);
+        if (ms > 0) sec = ms / 1000;
+      }
+    } catch {}
+    this.durationCache.set(cacheKey, sec);
+    return sec;
   }
 
   async fetchRecentTrack() {

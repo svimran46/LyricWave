@@ -163,6 +163,7 @@ export class SearchSource {
 
     this.currentTrack = {
       id: track.id || `search_${Date.now()}`,
+      durationEstimated: Boolean(track.durationEstimated),
       title: track.title,
       artist: track.artist,
       album: track.album || '',
@@ -180,8 +181,11 @@ export class SearchSource {
 
     this.onTrackChange(this.currentTrack);
 
-    // Initialize real audio playback when in browser environment
-    if (typeof Audio !== 'undefined') {
+    // Preview audio is opt-in (track.playPreview === true). iTunes previews are ~30s clips
+    // taken from somewhere in the middle of the song, so they can't drive a lyric clock that
+    // starts at 0:00 — letting them do so showed the wrong lyrics and cut songs off at 30s.
+    // By default lyrics run on the full-length clock instead.
+    if (track.playPreview === true && typeof Audio !== 'undefined') {
       if (track.previewUrl) {
         this.initAudio(track.previewUrl, autoStart);
       } else if (track.title && track.artist) {
@@ -328,6 +332,18 @@ export class SearchSource {
       } catch {}
       this.audio = null;
     }
+  }
+
+  /**
+   * Update the track length once the real duration is known (e.g. from LRCLIB).
+   */
+  setDuration(sec) {
+    const d = Number(sec);
+    if (!Number.isFinite(d) || d <= 0 || !this.currentTrack) return;
+    this.durationSec = d;
+    this.currentTrack.duration = d;
+    this.currentTrack.durationMs = Math.round(d * 1000);
+    this.currentTrack.durationEstimated = false;
   }
 
   /**
