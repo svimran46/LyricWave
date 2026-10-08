@@ -58,8 +58,8 @@ export class MicSource {
     this.autoRelistenIntervalMs = 2 * 60 * 1000;
     // Recognition provider override ('acrcloud', 'audd', etc.)
     this.provider = options.provider || (typeof localStorage !== 'undefined' ? localStorage.getItem('lyricwave_recognition_provider') : null) || null;
-    // Acoustic sample duration in seconds (optimized to 3s for fast recognition)
-    this.sampleDurationSec = Number(options.sampleDurationSec) || 3;
+    // Acoustic sample duration in seconds (5s is optimal for reliable ACRCloud fingerprinting)
+    this.sampleDurationSec = Number(options.sampleDurationSec) || 5;
   }
 
 
@@ -253,8 +253,8 @@ export class MicSource {
           return;
         }
 
-        // Check for silence / too quiet audio (background room hum without music)
-        if (this.maxVolumeObserved < 0.04) {
+        // Check for silence only if audio level was active and virtually zero (< 0.005)
+        if (this.maxVolumeObserved > 0 && this.maxVolumeObserved < 0.005) {
           this.isListening = false;
           this.onListeningStateChange(false);
           this.onError('The recorded audio was too quiet to detect music. Please bring your device closer to the music speaker and try again.', 'too_quiet');
@@ -262,14 +262,14 @@ export class MicSource {
         }
 
         // Send to backend
-        await this.dispatchToBackend(audioBlob);
+        await this.dispatchToBackend(audioBlob, selectedMime);
       };
 
       this.recordStartTime = performance.now();
       this.mediaRecorder.start(250); // 250ms chunk slices for fast flushing
 
-      // High-accuracy acoustic capture (3-second capture is optimal for ACRCloud & AudD)
-      const TOTAL_SAMPLE_SECS = this.sampleDurationSec || 3;
+      // High-accuracy acoustic capture (5-second capture is optimal for ACRCloud fingerprinting)
+      const TOTAL_SAMPLE_SECS = this.sampleDurationSec || 5;
       let remaining = TOTAL_SAMPLE_SECS;
       this.onCountdown(remaining, TOTAL_SAMPLE_SECS);
       this.onStatusChange(`Listening to room audio (${remaining}s)...`, 'working');
@@ -299,18 +299,20 @@ export class MicSource {
   /**
    * Dispatch recorded sample to /api/recognize with upload and processing latency compensation
    * @param {Blob} audioBlob
+   * @param {string} [mimeType]
    */
-  async dispatchToBackend(audioBlob) {
+  async dispatchToBackend(audioBlob, mimeType = '') {
     this.onStatusChange('Identifying song via acoustic recognition...', 'working');
     this.uploadStartTime = performance.now();
 
-    // 10-second client timeout to prevent hanging when recognition backend is slow/cold
+    // 15-second client timeout for mobile network tolerance
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timeoutId = controller ? setTimeout(() => controller.abort(), 10000) : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 15000) : null;
 
     try {
+      const ext = mimeType.includes('mp4') ? 'mp4' : (mimeType.includes('ogg') ? 'ogg' : 'webm');
       const formData = new FormData();
-      formData.append('sample', audioBlob, 'sample.bin');
+      formData.append('sample', audioBlob, `sample.${ext}`);
       const headers = {};
       if (this.provider) {
         headers['X-Recognition-Provider'] = this.provider;
