@@ -1,5 +1,5 @@
 <resources>
-    <style name="Theme.LyricWave" parent="android:Theme.NoTitleBar.Fullscreen">
+    <style name="Theme.LyricWave" parent="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen">
         <item name="android:windowBackground">@color/colorPrimary</item>
         <item name="android:statusBarColor">@color/colorPrimary</item>
         <item name="android:navigationBarColor">@color/colorPrimary</item>
