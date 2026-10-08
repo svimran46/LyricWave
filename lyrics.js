@@ -243,13 +243,16 @@ export async function fetchLyrics(track) {
 
     const queries = [];
 
+    // Only filter by duration if this is a full-length track (>45s), not an audio preview snippet (30s)
+    const hasFullDuration = durationSec > 45;
+
     // Query 1: Exact query via /api/get
     const exactParams = new URLSearchParams({
       track_name: track.title,
       artist_name: primaryArtist
     });
     if (track.album) exactParams.append('album_name', track.album);
-    if (durationSec > 0) exactParams.append('duration', durationSec.toString());
+    if (hasFullDuration) exactParams.append('duration', durationSec.toString());
     queries.push(
       fetch(`${LRCLIB_GET_URL}?${exactParams.toString()}`, { signal: fetchSignal })
         .then(r => r.ok ? r.json() : null)
@@ -262,7 +265,7 @@ export async function fetchLyrics(track) {
         track_name: cleanedTitle,
         artist_name: primaryArtist
       });
-      if (durationSec > 0) cleanParams.append('duration', durationSec.toString());
+      if (hasFullDuration) cleanParams.append('duration', durationSec.toString());
       queries.push(
         fetch(`${LRCLIB_GET_URL}?${cleanParams.toString()}`, { signal: fetchSignal })
           .then(r => r.ok ? r.json() : null)
@@ -280,8 +283,13 @@ export async function fetchLyrics(track) {
         .then(r => r.ok ? r.json() : null)
         .then(results => {
           if (Array.isArray(results) && results.length > 0) {
-            return results.find(r => r.syncedLyrics && Math.abs((r.duration || 0) - durationSec) < 10)
-              || results.find(r => r.syncedLyrics)
+            // If full duration is available, prefer tracks matching length; otherwise pick best synced lyrics
+            if (hasFullDuration) {
+              const durationMatch = results.find(r => r.syncedLyrics && Math.abs((r.duration || 0) - durationSec) < 15);
+              if (durationMatch) return durationMatch;
+            }
+            return results.find(r => r.syncedLyrics)
+              || results.find(r => r.plainLyrics)
               || results[0];
           }
           return null;

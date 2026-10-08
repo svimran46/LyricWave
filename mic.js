@@ -304,6 +304,7 @@ export class MicSource {
 
     try {
       const formData = new FormData();
+      formData.append('sample', audioBlob, 'sample.bin');
       const headers = {};
       if (this.provider) {
         headers['X-Recognition-Provider'] = this.provider;
