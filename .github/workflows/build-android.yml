@@ -86,12 +86,17 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'lyricwave_dev_pass' }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || 'lyricwave_dev_pass' }}
         run: |
-          # Build via bubblewrap using twa-manifest.json
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export PATH="${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/tools/bin:${ANDROID_HOME}/platform-tools:${PATH}"
+          
+          # Run build non-interactively with exact arguments
           bubblewrap build \
+            --manifest=twa-manifest.json \
             --skipPwaValidation \
-            --keyStorePath=./android.keystore \
+            --keyStorePath="$(pwd)/android.keystore" \
             --keyStorePassword="$KEYSTORE_PASSWORD" \
-            --keyPassword="$KEY_PASSWORD"
+            --keyPassword="$KEY_PASSWORD" \
+            --verbose
 
       - name: Locate and Organize Output Artifacts
         run: |
