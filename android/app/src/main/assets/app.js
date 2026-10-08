@@ -938,14 +938,33 @@ function showActivePanels() {
 }
 
 // --- History integration: Android Back (WebView goBack) closes the sheet, then the stage, then leaves the app.
-const navStack = [];
-let navIgnore = 0;
+// Each history entry we push carries the full overlay stack in its state ({ lwNav: ['stage','sheet'] }), so
+// popstate reconciles the UI with whatever entry the browser actually landed on — no counters to drift.
+let navStack = [];
+let navTraversalPending = false;
+let navTraversalTimer = null;
+const navPushQueue = [];
 
 function pushNav(name) {
+  if (navTraversalPending) {
+    // A programmatic history.go() hasn't landed yet; pushing now would be undone by it.
+    navPushQueue.push(name);
+    return;
+  }
   try {
-    history.pushState({ lwNav: name }, '');
-    navStack.push(name);
+    navStack = [...navStack, name];
+    history.pushState({ lwNav: navStack }, '');
   } catch {}
+}
+
+function finishNavTraversal() {
+  navTraversalPending = false;
+  if (navTraversalTimer) { clearTimeout(navTraversalTimer); navTraversalTimer = null; }
+  const queued = navPushQueue.splice(0);
+  queued.forEach((name) => {
+    // Only re-push overlays that are still open.
+    if ((name === 'stage' && stageOpen) || (name === 'sheet' && sheetOpen)) pushNav(name);
+  });
 }
 
 /** Remove the history entries from `name` upwards (used when closing programmatically). */
@@ -953,26 +972,24 @@ function unwindNav(name) {
   const idx = navStack.lastIndexOf(name);
   if (idx < 0) return;
   const n = navStack.length - idx;
-  navStack.length = idx;
-  navIgnore++;
+  navStack = navStack.slice(0, idx);
+  navTraversalPending = true;
+  // If the browser never reports the traversal (entry gone after a reload/redirect), don't block forever.
+  navTraversalTimer = setTimeout(finishNavTraversal, 600);
   try {
     history.go(-n);
   } catch {
-    navIgnore--;
+    finishNavTraversal();
   }
 }
 
-window.addEventListener('popstate', () => {
-  if (navIgnore > 0) {
-    navIgnore--;
-    return;
-  }
-  const top = navStack.pop();
-  if (top === 'sheet' || (!top && sheetOpen)) {
-    closeMoreSheet({ fromHistory: true });
-  } else if (top === 'stage' || (!top && stageOpen)) {
-    closeStage({ fromHistory: true, userInitiated: true });
-  }
+window.addEventListener('popstate', (event) => {
+  const landed = Array.isArray(event.state?.lwNav) ? event.state.lwNav : [];
+  navStack = [...landed];
+  // Close whatever is open but not part of the entry we landed on (closing is idempotent).
+  if (sheetOpen && !landed.includes('sheet')) closeMoreSheet({ fromHistory: true });
+  if (stageOpen && !landed.includes('stage')) closeStage({ fromHistory: true, userInitiated: !navTraversalPending });
+  if (navTraversalPending) finishNavTraversal();
 });
 
 function openStage({ auto = false, focus = true } = {}) {

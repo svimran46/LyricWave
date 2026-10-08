@@ -45,6 +45,7 @@ import androidx.webkit.WebViewAssetLoader;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -320,8 +321,11 @@ public class MainActivity extends AppCompatActivity {
         if (Looper.myLooper() == Looper.getMainLooper()) return startAudioReactiveOnUi();
         final boolean[] result = new boolean[1];
         final CountDownLatch done = new CountDownLatch(1);
+        final AtomicBoolean abandoned = new AtomicBoolean(false);
         runOnUiThread(() -> {
             try {
+                // The caller gave up waiting: don't start a Visualizer nobody is listening to.
+                if (abandoned.get()) return;
                 result[0] = startAudioReactiveOnUi();
             } catch (RuntimeException e) {
                 result[0] = false;
@@ -329,12 +333,18 @@ public class MainActivity extends AppCompatActivity {
                 done.countDown();
             }
         });
+        boolean finished;
         try {
-            return done.await(2, TimeUnit.SECONDS) && result[0];
+            finished = done.await(2, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            finished = false;
+        }
+        if (!finished) {
+            abandoned.set(true);
             return false;
         }
+        return result[0];
     }
 
     /** Main thread. Tells the page whether RECORD_AUDIO is now granted. */

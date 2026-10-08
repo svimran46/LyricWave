@@ -258,6 +258,8 @@ export class AudioReactive {
       let started = false;
       try { started = this._bridge.startAudioReactive() === true; } catch { started = false; }
       if (!started) {
+        // A start that timed out natively may still complete later; make sure it is stopped.
+        try { this._bridge.stopAudioReactive?.(); } catch {}
         this._removeFrameHandler();
         this._setMode(MODE_LYRICS);
         return this._mode;
