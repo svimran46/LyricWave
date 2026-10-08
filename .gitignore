@@ -31,4 +31,5 @@ app-release-*
 *.apk
 .bubblewrap/
 android-project/
+dist-android/
 
