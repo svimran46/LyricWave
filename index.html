@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="pixel">
+<html lang="en" data-theme="aurora">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -17,21 +17,64 @@
   <!-- Web Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=Fraunces:opsz,wght@9..144,500;9..144,700&display=swap" rel="stylesheet">
+  <!-- Apply the saved theme before first paint (avoids a flash of the wrong theme) -->
+  <script>try{var t=localStorage.getItem("lyricwave_theme");if(!t)t=matchMedia("(prefers-color-scheme: light)").matches?"paper":"aurora";document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
+  <!-- SVG icon sprite (Lucide-style, 24x24, 2px stroke, currentColor). Use: <svg class="icon" aria-hidden="true"><use href="#i-play"/></svg> -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
+    <symbol id="i-play" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.9v14.2a1 1 0 0 0 1.52.86l11.4-7.1a1 1 0 0 0 0-1.72L9.02 4.04A1 1 0 0 0 7.5 4.9z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4.5" width="4" height="15" rx="1"/><rect x="14" y="4.5" width="4" height="15" rx="1"/></symbol>
+    <symbol id="i-skip-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 19.2V4.8a.8.8 0 0 0-1.27-.65l-9.6 7.2a.8.8 0 0 0 0 1.3l9.6 7.2A.8.8 0 0 0 19 19.2z"/><path d="M5 5v14"/></symbol>
+    <symbol id="i-skip-forward" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.8v14.4a.8.8 0 0 0 1.27.65l9.6-7.2a.8.8 0 0 0 0-1.3l-9.6-7.2A.8.8 0 0 0 5 4.8z"/><path d="M19 5v14"/></symbol>
+    <symbol id="i-rewind-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8.3"/><path d="M3 3.5v4.8h4.8"/><path stroke-width="1.7" d="M13.8 9h-3.1l-.4 2.7a2.1 2.1 0 1 1 .5 3.3"/></symbol>
+    <symbol id="i-forward-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36L21 8.3"/><path d="M21 3.5v4.8h-4.8"/><path stroke-width="1.7" d="M13.8 9h-3.1l-.4 2.7a2.1 2.1 0 1 1 .5 3.3"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+    <symbol id="i-more-horizontal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+    <symbol id="i-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v6.5A2.5 2.5 0 0 0 6.5 21h11a2.5 2.5 0 0 0 2.5-2.5V12"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-15.5-6.2L3 8.5"/><path d="M3 3.5v5h5"/><path d="M3 12a9 9 0 0 0 15.5 6.2L21 15.5"/><path d="M21 20.5v-5h-5"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.4-4.4"/></symbol>
+    <symbol id="i-compass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m16.2 7.8-2.1 6.3-6.3 2.1 2.1-6.3z"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-music" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15.5l.6 1.6 1.6.6-1.6.6-.6 1.6-.6-1.6-1.6-.6 1.6-.6z"/></symbol>
+    <symbol id="i-maximize" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H6a3 3 0 0 0-3 3v2"/><path d="M21 8V6a3 3 0 0 0-3-3h-2"/><path d="M3 16v2a3 3 0 0 0 3 3h2"/><path d="M16 21h2a3 3 0 0 0 3-3v-2"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M1 14h6"/><path d="M9 8h6"/><path d="M17 16h6"/></symbol>
+    <symbol id="i-palette" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="1"/><circle cx="17.5" cy="10.5" r="1"/><circle cx="8.5" cy="7.5" r="1"/><circle cx="6.5" cy="12.5" r="1"/><path d="M12 2a10 10 0 0 0 0 20c1.1 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.3-.5-.8-.5-1.2 0-1.1.9-2 2-2h2.4a4.6 4.6 0 0 0 4.6-4.6C22 6 17.5 2 12 2z"/></symbol>
+    <symbol id="i-wave" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10v4"/><path d="M6 7v10"/><path d="M10 4v16"/><path d="M14 6v12"/><path d="M18 8v8"/><path d="M22 11v2"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></symbol>
+    <symbol id="i-external-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+    <symbol id="i-keyboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01"/><path d="M10 9h.01"/><path d="M14 9h.01"/><path d="M18 9h.01"/><path d="M7 15h10"/></symbol>
+    <symbol id="i-timer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13.5" r="8"/><path d="M12 9.5v4l2.5 1.5"/><path d="M9.5 2h5"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6.5V12l3.5 2"/></symbol>
+    <symbol id="i-headphones" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/><path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></symbol>
+    <symbol id="i-radio" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4"/><path d="M7.8 16.2a6 6 0 0 1 0-8.4"/><path d="M19.1 4.9a10 10 0 0 1 0 14.2"/><path d="M4.9 19.1a10 10 0 0 1 0-14.2"/></symbol>
+    <symbol id="i-file-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z"/><path d="M14 2v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/></symbol>
+    <symbol id="i-wifi-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2l20 20"/><path d="M8.5 16.1a6 6 0 0 1 7 0"/><path d="M5 12.6a10.9 10.9 0 0 1 5.2-2.4"/><path d="M19 12.6a10.9 10.9 0 0 0-2.4-1.9"/><path d="M1.4 9a16 16 0 0 1 4.7-2.9"/><path d="M10.7 5.1A16 16 0 0 1 22.6 9"/><path d="M12 20h.01"/></symbol>
+    <symbol id="i-flame" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-3.5-2.5-5.5-3.5-8.5-.3-.9-.6-2-.5-3.5-3 1.5-5 4.5-5 7.5-1.5-.7-2-2.2-2-3.5C5.5 9.5 5 12 5 15a7 7 0 0 0 7 7z"/></symbol>
+    <symbol id="i-newspaper" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8z"/></symbol>
+    <symbol id="i-pointer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V10"/><path d="M12 10V9a1.5 1.5 0 0 1 3 0v1.5"/><path d="M15 10.5a1.5 1.5 0 0 1 3 0V15a7 7 0 0 1-7 7 6 6 0 0 1-5.2-3l-2.6-4.4a1.5 1.5 0 0 1 2.6-1.5L9 15"/></symbol>
+  </svg>
+
+
   <!-- Offline Status Banner -->
   <aside id="offlineBanner" class="offline-banner hidden" role="status" aria-live="polite">
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <line x1="1" y1="1" x2="23" y2="23"></line>
-      <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path>
-      <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path>
-      <path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path>
-      <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path>
-      <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
-      <line x1="12" y1="20" x2="12.01" y2="20"></line>
-    </svg>
+    <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-wifi-off"/></svg>
     <span id="offlineBannerText">You are offline. Live playback tracking will resume automatically when reconnected.</span>
   </aside>
 
@@ -42,14 +85,7 @@
       <div class="brand-header-row">
         <div class="brand-left">
           <div class="brand-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M2 10v4" />
-              <path d="M6 7v10" />
-              <path d="M10 4v16" />
-              <path d="M14 6v12" />
-              <path d="M18 8v8" />
-              <path d="M22 11v2" />
-            </svg>
+            <svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-wave"/></svg>
           </div>
           <div class="brand-text">
             <h1 class="brand-title">LyricWave</h1>
@@ -60,29 +96,19 @@
         <div class="brand-actions">
           <!-- Install App Button (PWA) -->
           <button id="btnInstallPwa" class="btn-header-tool btn-header-icon hidden" type="button" aria-label="Install LyricWave App" title="Install LyricWave App">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
+            <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-download"/></svg>
             <span class="btn-label">Install</span>
           </button>
 
           <!-- User Account Button -->
           <button id="btnOpenAuth" class="btn-header-tool btn-header-icon" type="button" aria-haspopup="dialog" aria-label="User Account" title="Log In / Sign Up">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
-            </svg>
+            <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-user"/></svg>
             <span id="userAccountBtnLabel" class="btn-label">Log In</span>
           </button>
 
           <!-- Settings Button -->
           <button id="btnOpenSettings" class="btn-header-tool btn-header-icon" type="button" aria-haspopup="dialog" aria-label="Open Preferences Settings" title="Preferences">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="3"></circle>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-            </svg>
+            <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-settings"/></svg>
             <span class="btn-label">Settings</span>
           </button>
         </div>
@@ -93,32 +119,20 @@
         <!-- Android app only: follows the phone's music apps (shown by app.js when available) -->
         <button id="tabPhone" class="source-tab hidden" role="tab" aria-selected="false" data-tab="phone">
           <span class="tab-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="6" y="2" width="12" height="20" rx="2"/>
-              <path d="M12 7v6.5"/>
-              <circle cx="10.5" cy="14.5" r="1.5"/>
-              <path d="M12 7l2.5 1"/>
-            </svg>
+            <svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-phone"/></svg>
           </span>
           <span class="tab-label">Phone</span>
         </button>
         <button id="tabMic" class="source-tab active" role="tab" aria-selected="true" data-tab="mic">
           <span class="tab-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-              <line x1="12" y1="19" x2="12" y2="22"/>
-            </svg>
+            <svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-mic"/></svg>
           </span>
           <span class="tab-label">Listen</span>
         </button>
 
         <button id="tabSearch" class="source-tab" role="tab" aria-selected="false" data-tab="search">
           <span class="tab-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8"/>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
+            <svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-search"/></svg>
           </span>
           <span class="tab-label">Search</span>
         </button>
@@ -126,10 +140,7 @@
         <!-- Discover = Charts + News (switched by the Charts | News segmented control inside the panels) -->
         <button id="tabCharts" class="source-tab" role="tab" aria-selected="false" data-tab="charts">
           <span class="tab-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
-            </svg>
+            <svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-compass"/></svg>
           </span>
           <span class="tab-label">Discover</span>
         </button>
@@ -137,45 +148,19 @@
         <!-- Kept in the DOM so persisted 'news' state and the Charts | News switch keep working; Discover is the visible nav item -->
         <button id="tabNews" class="source-tab hidden" role="tab" aria-selected="false" aria-hidden="true" tabindex="-1" data-tab="news">
           <span class="tab-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>
-              <path d="M18 14h-8"/>
-              <path d="M15 18h-5"/>
-              <path d="M10 6h8v4h-8V6Z"/>
-            </svg>
+            <svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-newspaper"/></svg>
           </span>
           <span class="tab-label">News</span>
         </button>
 
         <button id="tabConnect" class="source-tab" role="tab" aria-selected="false" data-tab="connect">
           <span class="tab-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-            </svg>
+            <svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-link"/></svg>
           </span>
           <span class="tab-label">Connect</span>
         </button>
       </nav>
 
-
-      <!-- Compact Switcher for "Now Playing" state -->
-      <div id="compactSourceBar" class="compact-source-bar hidden">
-        <button id="btnListenAgain" class="btn-listen-again" type="button" aria-label="Listen again with Microphone" title="Listen again (Space)">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-            <line x1="12" y1="19" x2="12" y2="22"/>
-          </svg>
-          <span>Listen again</span>
-        </button>
-        <button id="btnSwitchSourceCompact" class="btn-compact-source" type="button" title="Change Input Source">
-          <span id="compactSourceLabel">Live Source</span>
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
-        </button>
-      </div>
 
       <!-- Desktop Sidebar: Recently Identified Tracks List -->
       <section id="sidebarRecentSection" class="sidebar-recent-section" aria-label="Recently Identified Songs">
@@ -194,12 +179,12 @@
 
       <!-- First-Run Onboarding Hint Banner -->
       <div id="firstRunHint" class="first-run-hint hidden" role="note" aria-label="First-time guidance">
-        <div class="first-run-icon">✨</div>
+        <div class="first-run-icon" aria-hidden="true"><svg class="icon icon--lg" width="28" height="28" aria-hidden="true" focusable="false"><use href="#i-sparkles"/></svg></div>
         <div class="first-run-body">
           <strong>Welcome to LyricWave</strong>
           <p>Pick a source below. Lyrics running early or late? Nudge them with <strong>−0.1s / +0.1s</strong>.</p>
         </div>
-        <button id="btnDismissFirstRun" class="btn-dismiss-first-run" type="button" aria-label="Dismiss first-run hint">✕</button>
+        <button id="btnDismissFirstRun" class="btn-dismiss-first-run" type="button" aria-label="Dismiss first-run hint"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
       </div>
 
       <!-- Developer Mode Banner (Shown ONLY on localhost or with ?dev=1) -->
@@ -213,9 +198,10 @@
           <div id="devRedirectStatus" class="dev-status-row">Checking Redirect URI...</div>
           <p class="dev-hint">Setup guides and instructions are located in <code>README.md</code> and <code>SPOTIFY_SETUP.md</code>.</p>
           <div style="margin-top:0.4rem;">
-            <a href="test-recognition.html?dev=1" target="_blank" class="btn btn-sm btn-outline-debug" style="text-decoration:none; display:inline-flex; align-items:center; gap:0.35rem;">
-              <span>🎙️ Acoustic Recognition Testbed</span>
-              <span style="font-size:0.68rem; opacity:0.7;">↗</span>
+            <a href="test-recognition.html?dev=1" target="_blank" rel="noopener" class="btn btn-sm btn-outline-debug" style="text-decoration:none; display:inline-flex; align-items:center; gap:0.35rem;">
+              <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-mic"/></svg>
+              <span>Acoustic Recognition Testbed</span>
+              <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-external-link"/></svg>
             </a>
           </div>
           
@@ -268,11 +254,7 @@
             </svg>
             <div id="micRingPulse" class="mic-ring-pulse"></div>
             <button id="btnMicListen" class="mic-orb" type="button" aria-label="Start Listening to Music">
-              <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                <line x1="12" y1="19" x2="12" y2="22"/>
-              </svg>
+              <svg class="mic-icon" width="38" height="38" aria-hidden="true" focusable="false"><use href="#i-mic"/></svg>
             </button>
           </div>
 
@@ -301,7 +283,7 @@
 
           <!-- Subtle Privacy Disclosure -->
           <div class="mic-privacy-footnote">
-            <span>🔒 Audio is analyzed in-memory and never stored.</span>
+            <span><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-lock"/></svg> Audio is analyzed in-memory and never stored.</span>
             <button id="btnShowMicConsent" class="btn-text-link" type="button">Privacy details</button>
           </div>
         </div>
@@ -313,7 +295,7 @@
           <!-- Shown until notification access is granted: prominent disclosure before Android's prompt -->
           <div id="phoneOnboarding">
             <div class="lastfm-header">
-              <div class="lastfm-icon-badge" aria-hidden="true">📱</div>
+              <div class="lastfm-icon-badge" aria-hidden="true"><svg class="icon icon--lg" width="28" height="28" aria-hidden="true" focusable="false"><use href="#i-phone"/></svg></div>
               <div>
                 <h2 class="lastfm-title">Lyrics for whatever's playing</h2>
                 <div class="lastfm-mode-pill">
@@ -344,7 +326,7 @@
           <!-- Shown once access is granted -->
           <div id="phoneStatusView" class="hidden">
             <div class="lastfm-header">
-              <div class="lastfm-icon-badge" aria-hidden="true">🎧</div>
+              <div class="lastfm-icon-badge" aria-hidden="true"><svg class="icon icon--lg" width="28" height="28" aria-hidden="true" focusable="false"><use href="#i-headphones"/></svg></div>
               <div>
                 <h2 id="phoneStatusTitle" class="lastfm-title">Waiting for music…</h2>
                 <div class="lastfm-mode-pill">
@@ -364,18 +346,15 @@
       <section id="panelSearch" class="tab-panel hidden" aria-label="Search">
         <div class="search-box-wrap">
           <div class="search-input-row">
-            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="8"/>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
+            <svg class="search-icon icon" width="20" height="20" aria-hidden="true" focusable="false"><use href="#i-search"/></svg>
             <input id="searchInput" class="search-input" type="search" placeholder="Search by song title or artist..." autocomplete="off" aria-label="Search song title or artist">
-            <button id="btnClearSearch" class="btn-clear-search hidden" type="button" aria-label="Clear search">✕</button>
+            <button id="btnClearSearch" class="btn-clear-search hidden" type="button" aria-label="Clear search"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
           </div>
         </div>
 
         <div id="searchResults" class="search-results-list" aria-live="polite">
           <div class="search-prompt">
-            <span class="search-prompt-icon" aria-hidden="true">🔍</span>
+            <span class="search-prompt-icon" aria-hidden="true"><svg class="icon icon--lg" width="28" height="28" aria-hidden="true" focusable="false"><use href="#i-search"/></svg></span>
             <p>Type any song name above to find synced lyrics directly on LRCLIB.</p>
           </div>
         </div>
@@ -393,11 +372,7 @@
             <div class="discover-actions">
               <span class="discover-updated" id="chartsUpdatedTag">Live Today</span>
               <button id="btnRefreshCharts" class="btn-refresh-charts btn-icon-round" type="button" aria-label="Refresh Charts" title="Refresh Trending Charts">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <polyline points="23 4 23 10 17 10"></polyline>
-                  <polyline points="1 20 1 14 7 14"></polyline>
-                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                </svg>
+                <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-refresh"/></svg>
                 <span class="btn-label">Refresh</span>
               </button>
             </div>
@@ -439,11 +414,7 @@
             <div class="discover-actions">
               <span class="discover-updated" id="newsUpdatedTag">Live Today</span>
               <button id="btnRefreshNews" class="btn-refresh-charts btn-icon-round" type="button" aria-label="Refresh News" title="Refresh Music News">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <polyline points="23 4 23 10 17 10"></polyline>
-                  <polyline points="1 20 1 14 7 14"></polyline>
-                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                </svg>
+                <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-refresh"/></svg>
                 <span class="btn-label">Refresh</span>
               </button>
             </div>
@@ -485,7 +456,7 @@
         <div id="panelLastfm" class="connect-sub-view" aria-label="Last.fm">
           <div class="lastfm-card">
             <div class="lastfm-header">
-              <div class="lastfm-icon-badge" aria-hidden="true">📻</div>
+              <div class="lastfm-icon-badge" aria-hidden="true"><svg class="icon icon--lg" width="28" height="28" aria-hidden="true" focusable="false"><use href="#i-radio"/></svg></div>
               <div>
                 <h2 class="lastfm-title">Last.fm Live Scrobble Sync</h2>
                 <div class="lastfm-mode-pill">
@@ -553,190 +524,394 @@
         </div>
       </section>
 
-      <!-- ===================================================================
-           SHARED PLAYBACK & LYRICS DISPLAY AREA
-           (Active for all 4 input sources)
-           =================================================================== -->
-      <section id="activePlaybackView" class="active-playback-view hidden" aria-label="Current Track & Lyrics">
-        
-        <!-- Track Info & Controls Header -->
-        <div class="track-header">
-          <div class="album-art-wrap">
-            <img id="trackArt" class="album-art" src="" alt="Album Artwork">
-            <div id="artPlaceholder" class="album-art-placeholder">🎵</div>
-          </div>
+    </main>
 
-          <div class="track-details">
-            <div class="track-status-badge">
-              <span id="playStateDot" class="status-dot"></span>
-              <span id="playStateText">Playing</span>
-              <span id="trackSourceBadge" class="source-tag">Live</span>
-            </div>
-            <h2 id="trackTitle" class="track-title" title="">Song Title</h2>
-            <p id="trackArtist" class="track-artist">Artist Name</p>
-            <p id="trackAlbum" class="track-album">Album Name</p>
-          </div>
+  </div>
 
-          <!-- Playback Actions (Play/Pause, Rewind, Forward) -->
-          <div class="playback-controls">
-            <button id="btnSeekBack" class="btn-ctrl" type="button" aria-label="Rewind 5 seconds" title="Rewind 5 seconds">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <polyline points="11 17 6 12 11 7"/>
-                <polyline points="18 17 13 12 18 7"/>
-              </svg>
-            </button>
-            <button id="btnPlayPause" class="btn-ctrl btn-play-large" type="button" aria-label="Play or Pause playback" title="Play / Pause">
-              <svg id="iconPlay" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" class="hidden" aria-hidden="true">
-                <polygon points="5 3 19 12 5 21 5 3"/>
-              </svg>
-              <svg id="iconPause" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
-                <rect x="6" y="4" width="4" height="16"/>
-                <rect x="14" y="4" width="4" height="16"/>
-              </svg>
-            </button>
-            <button id="btnSeekForward" class="btn-ctrl" type="button" aria-label="Forward 5 seconds" title="Forward 5 seconds">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <polyline points="13 17 18 12 13 7"/>
-                <polyline points="6 17 11 12 6 7"/>
-              </svg>
-            </button>
-            <!-- Re-sync Audio Recognition Button -->
-            <button id="btnResync" class="btn-ctrl btn-resync" type="button" aria-label="Re-sync room audio" title="Re-sync room audio (detect song or correct drift)">
-              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
-              </svg>
-              <span class="btn-resync-label">Re-sync</span>
-            </button>
-            <!-- Share Song Button -->
-            <button id="btnShareSong" class="btn-ctrl" type="button" aria-label="Share song link" title="Share deep link to song">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="18" cy="5" r="3"/>
-                <circle cx="6" cy="12" r="3"/>
-                <circle cx="18" cy="19" r="3"/>
-                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-              </svg>
-            </button>
-          </div>
-        </div>
+  <!-- ===================================================================
+       STAGE (Now Playing). Direct child of <body>: opened with body.stage-open, collapsed to #miniPlayer.
+       The lyric reel is the hero; the full synced lyric list sits below it.
+       =================================================================== -->
+  <section id="activePlaybackView" class="active-playback-view stage hidden" aria-label="Now playing">
 
-        <!-- Interactive Progress Scrubber -->
-        <div class="scrubber-container">
-          <div class="progress-bar-track" id="progressTrack" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0">
-            <div id="progressBarFill" class="progress-bar-fill"></div>
-          </div>
-          <div class="time-display">
-            <span id="timeElapsed" class="time-label">0:00</span>
-            <span id="timeDuration" class="time-label">0:00</span>
-          </div>
-        </div>
+    <header class="stage-header">
+      <button id="btnStageCollapse" class="stage-collapse" type="button" aria-label="Minimize" title="Minimize (Esc)"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-chevron-down"/></svg></button>
+      <div class="stage-art">
+        <img id="trackArt" class="hidden" alt="" width="56" height="56" decoding="async">
+        <div id="artPlaceholder" class="art-placeholder" aria-hidden="true"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-music"/></svg></div>
+      </div>
+      <div class="stage-meta">
+        <h2 id="trackTitle" class="stage-title" title="">Song Title</h2>
+        <p id="trackArtist" class="stage-artist">Artist Name</p>
+        <p id="trackAlbum" class="stage-album hidden"></p>
+      </div>
+      <span class="source-chip">
+        <span id="playStateDot" class="status-dot"></span>
+        <span id="trackSourceBadge">Live</span>
+        <span id="playStateText" class="sr-only">Playing</span>
+      </span>
+    </header>
 
-        <!-- ===================================================================
-             OLED Lyrics Reel Visualizer
-             =================================================================== -->
-        <div id="reelContainer" class="reel-container" aria-label="OLED Lyrics Reel">
-          
-          <!-- Reel Toolbar: Theme, Word-by-Word Toggle, Fullscreen -->
-          <div class="reel-toolbar">
-            <div class="reel-theme-selector" role="radiogroup" aria-label="Visual Theme Selector">
-              <button type="button" role="radio" aria-checked="false" class="btn-theme-pill" data-theme="adaptive" aria-label="Album Adaptive Theme" title="Album Adaptive: Colors extracted from cover art">Adaptive</button>
-              <button type="button" role="radio" aria-checked="true" class="btn-theme-pill active" data-theme="aurora" aria-label="Aurora Theme" title="Aurora: Deep indigo & mint">Aurora</button>
-              <button type="button" role="radio" aria-checked="false" class="btn-theme-pill" data-theme="vinyl" aria-label="Vinyl Theme" title="Vinyl: Charcoal & warm amber serif">Vinyl</button>
-              <button type="button" role="radio" aria-checked="false" class="btn-theme-pill" data-theme="paper" aria-label="Paper Theme" title="Paper: High-contrast light mode">Paper</button>
-              <button type="button" role="radio" aria-checked="false" class="btn-theme-pill" data-theme="neon" aria-label="Neon Theme" title="Neon: Cyan glow & magenta wave">Neon</button>
-            </div>
+    <!-- Hero: the OLED lyric reel -->
+    <div class="stage-hero">
+      <div id="reelContainer" class="reel-container" data-anim="pulse" aria-label="OLED Lyrics Reel">
+        <button id="btnReelExitFs" class="reel-fs-exit hidden" type="button" aria-label="Exit fullscreen"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
 
-            <div class="reel-actions">
-              <button id="btnToggleWordMode" class="btn-tool active" type="button" aria-pressed="true" aria-label="Toggle Word-by-Word Reveal Mode" title="Toggle Word-by-Word Reveal Mode">
-                <span class="tool-dot" aria-hidden="true"></span>
-                <span>Word Reveal</span>
-              </button>
+        <!-- Animated sine waves canvas + centered OLED line box -->
+        <div class="reel-stage" id="reelStage">
+          <!-- Subtle blurred cover-art backdrop for Album Adaptive theme -->
+          <div id="stageArtBackdrop" class="stage-art-backdrop hidden" aria-hidden="true"></div>
+          <canvas id="reelCanvas" class="reel-canvas"></canvas>
 
-              <button id="btnFullscreen" class="btn-tool btn-fs" type="button" aria-label="Toggle Fullscreen Mode" title="Enter Fullscreen Mode (F)">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
-                </svg>
-                <span id="fsLabel">Fullscreen</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Animated Sine Waves Canvas Background -->
-          <div class="reel-stage" id="reelStage">
-            <!-- Subtle blurred cover-art backdrop for Album Adaptive theme -->
-            <div id="stageArtBackdrop" class="stage-art-backdrop hidden" aria-hidden="true"></div>
-            <canvas id="reelCanvas" class="reel-canvas"></canvas>
-
-            <!-- Centered OLED Bordered Line Box -->
-            <div class="reel-box-anchor">
-              <div id="reelLineBox" class="reel-line-box">
-                <div id="reelLineText" class="reel-line-text">
-                  <span class="reel-placeholder-text">♫ Waiting for music...</span>
-                </div>
+          <div class="reel-box-anchor">
+            <div id="reelLineBox" class="reel-line-box">
+              <div id="reelLineText" class="reel-line-text">
+                <span class="reel-placeholder-text">♫ Waiting for music...</span>
               </div>
             </div>
-
-            <!-- Subtle Previous / Next Line Hints -->
-            <div id="reelPrevLine" class="reel-ambient-line reel-prev-line"></div>
-            <div id="reelNextLine" class="reel-ambient-line reel-next-line"></div>
           </div>
 
+          <!-- Subtle previous / next line hints -->
+          <div id="reelPrevLine" class="reel-ambient-line reel-prev-line"></div>
+          <div id="reelNextLine" class="reel-ambient-line reel-next-line"></div>
         </div>
+      </div>
+    </div>
 
-        <!-- Synced Lyrics Section (Scrolling View) -->
-        <div class="lyrics-card">
-          <div class="lyrics-topbar">
-            <div class="lyrics-status-wrap">
-              <span id="lyricsStatusBadge" class="lyrics-badge">
-                <span class="lyrics-badge-dot"></span>
-                <span id="lyricsStatusText">Searching lyrics...</span>
-              </span>
-            </div>
+    <!-- Control dock (thumb zone) -->
+    <div class="control-dock">
+      <div class="dock-progress">
+        <div class="progress-bar-track" id="progressTrack" role="slider" aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0:00" tabindex="0">
+          <div id="progressBarFill" class="progress-bar-fill"></div>
+        </div>
+        <div class="time-display">
+          <span id="timeElapsed" class="time-label">0:00</span>
+          <span id="timeDuration" class="time-label">0:00</span>
+        </div>
+      </div>
 
-            <!-- Controls Group: On-stage Sync Nudge, Auto Re-listen, Offset Toggle, Shortcuts -->
-            <div class="lyrics-topbar-controls">
-              <!-- On-Stage Live Sync Nudge -->
-              <div class="on-stage-nudge-group" role="group" aria-label="Sync calibration nudge">
-                <button id="btnNudgeMinus" class="btn-nudge" type="button" aria-label="Nudge lyrics earlier 0.1s" title="Nudge lyrics earlier (-0.1s) [↓]">−0.1s</button>
-                <button id="btnNudgeReset" class="btn-nudge btn-nudge-reset" type="button" aria-label="Reset sync offset" title="Reset sync offset">
-                  <span id="onStageOffsetLabel">0.0s</span>
-                </button>
-                <button id="btnNudgePlus" class="btn-nudge" type="button" aria-label="Nudge lyrics later 0.1s" title="Nudge lyrics later (+0.1s) [↑]">+0.1s</button>
+      <div class="dock-row" role="group" aria-label="Playback controls">
+        <button id="btnNudgeMinus" class="dock-btn dock-nudge" type="button" aria-label="Nudge lyrics earlier 0.1 seconds" title="Lyrics earlier (&minus;0.1s) [&darr;]">&minus;0.1s</button>
+        <button id="btnSeekBack" class="dock-btn" type="button" aria-label="Rewind 5 seconds" title="Rewind 5 seconds"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-rewind-5"/></svg></button>
+        <button id="btnPlayPause" class="dock-btn dock-btn--primary" type="button" aria-label="Pause" title="Play / Pause (Space)">
+          <svg id="iconPlay" class="icon hidden" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-play"/></svg>
+          <svg id="iconPause" class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-pause"/></svg>
+        </button>
+        <button id="btnSeekForward" class="dock-btn" type="button" aria-label="Forward 5 seconds" title="Forward 5 seconds"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-forward-5"/></svg></button>
+        <button id="btnNudgePlus" class="dock-btn dock-nudge" type="button" aria-label="Nudge lyrics later 0.1 seconds" title="Lyrics later (+0.1s) [&uarr;]">+0.1s</button>
+        <button id="btnMoreSheet" class="dock-btn dock-more" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="moreSheet" aria-label="More options" title="More options"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-more-horizontal"/></svg></button>
+      </div>
+    </div>
+
+    <!-- Full synced lyrics list (scrolls below the hero) -->
+    <div class="lyrics-card">
+      <div class="lyrics-topbar">
+        <div class="lyrics-status-wrap">
+          <span id="lyricsStatusBadge" class="lyrics-badge">
+            <span class="lyrics-badge-dot"></span>
+            <span id="lyricsStatusText">Searching lyrics...</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Tap the line you're hearing banner -->
+      <div id="tapLineBanner" class="tap-line-banner hidden" role="note">
+        <span class="tap-line-icon" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-pointer"/></svg></span>
+        <span class="tap-line-text">Tap the line you're hearing right now to lock lyric sync!</span>
+        <button id="btnDismissTapBanner" class="btn-dismiss-tap" type="button" aria-label="Dismiss banner"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
+      </div>
+
+      <!-- Lyrics viewport -->
+      <div id="lyricsViewport" class="lyrics-viewport" tabindex="0" role="region" aria-label="Song Lyrics">
+        <div id="lyricsContent" class="lyrics-content"></div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ===================================================================
+       MINI PLAYER: shown when a track exists and the stage is collapsed
+       =================================================================== -->
+  <div id="miniPlayer" class="mini-player hidden" role="region" aria-label="Now playing">
+    <div class="mini-art">
+      <img id="miniArt" class="hidden" alt="" width="40" height="40" decoding="async">
+      <span id="miniArtPlaceholder" class="art-placeholder" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-music"/></svg></span>
+    </div>
+    <button id="btnMiniOpen" class="mini-meta mini-open" type="button" aria-label="Open now playing">
+      <span id="miniTitle" class="mini-title">Song Title</span>
+      <span id="miniArtist" class="mini-artist">Artist</span>
+    </button>
+    <button id="btnMiniPlay" class="mini-play" type="button" aria-label="Pause">
+      <svg id="miniPlayIcon" class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use id="miniPlayUse" href="#i-pause"/></svg>
+    </button>
+    <div class="mini-progress" aria-hidden="true"><div id="miniProgressFill" class="mini-progress-fill"></div></div>
+  </div>
+
+  <!-- ===================================================================
+       MORE SHEET (bottom sheet opened from the dock)
+       =================================================================== -->
+  <div id="moreSheetBackdrop" class="modal-backdrop hidden" aria-hidden="true">
+    <div id="moreSheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="moreSheetTitle">
+      <div id="moreSheetHandle" class="modal-drag-handle" aria-hidden="true">
+        <span class="drag-bar"></span>
+      </div>
+      <div class="sheet-header">
+        <h2 id="moreSheetTitle" class="sheet-title">More</h2>
+        <button id="btnCloseMoreSheet" class="btn-close-modal" type="button" aria-label="Close"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
+      </div>
+
+      <div class="sheet-body">
+
+        <section class="sheet-section" aria-labelledby="sheetThemeTitle">
+          <h3 id="sheetThemeTitle" class="sheet-section-title">Theme</h3>
+          <div class="theme-grid" role="radiogroup" aria-labelledby="sheetThemeTitle">
+            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="adaptive">
+              <div class="theme-swatch-preview preview-adaptive">
+                <span class="theme-preview-dot dot-adaptive"></span>
+                <span class="theme-preview-lyric lyric-adaptive">♫ Adaptive Art</span>
               </div>
+              <div class="theme-swatch-meta">
+                <span class="theme-swatch-name">Adaptive</span>
+                <span class="theme-swatch-desc">Album colors</span>
+              </div>
+              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
+            </button>
 
-              <button id="btnToggleAutoRelisten" class="btn-offset-toggle" type="button" aria-label="Toggle auto re-listen every 2 minutes" title="Auto re-listen every 2 minutes to check for song change">
-                <span id="autoRelistenDot" class="status-dot paused" aria-hidden="true"></span>
-                <span>Auto:</span>
-                <strong id="autoRelistenLabel">Off</strong>
-              </button>
+            <button type="button" role="radio" aria-checked="true" class="theme-swatch-card active" data-theme-card="aurora">
+              <div class="theme-swatch-preview preview-aurora">
+                <span class="theme-preview-dot dot-aurora"></span>
+                <span class="theme-preview-lyric lyric-aurora">♫ Indigo Mint</span>
+              </div>
+              <div class="theme-swatch-meta">
+                <span class="theme-swatch-name">Aurora</span>
+                <span class="theme-swatch-desc">Indigo &amp; mint</span>
+              </div>
+              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
+            </button>
 
-              <!-- Latency Offset Toggle Button (Drawer) -->
-              <button id="btnToggleOffset" class="btn-offset-toggle" type="button" aria-expanded="false" aria-controls="offsetDrawer" aria-label="Toggle latency calibration drawer" title="Adjust latency offset">
-                <span><span aria-hidden="true">⏱️</span> Details</span>
-              </button>
+            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="vinyl">
+              <div class="theme-swatch-preview preview-vinyl">
+                <span class="theme-preview-dot dot-vinyl"></span>
+                <span class="theme-preview-lyric lyric-vinyl">♫ Amber Serif</span>
+              </div>
+              <div class="theme-swatch-meta">
+                <span class="theme-swatch-name">Vinyl</span>
+                <span class="theme-swatch-desc">Warm charcoal</span>
+              </div>
+              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
+            </button>
 
-              <!-- Keyboard Shortcuts Guide Trigger -->
-              <button id="btnOpenShortcuts" class="btn-offset-toggle btn-icon-only" type="button" aria-label="Keyboard Shortcuts Cheat-sheet" title="Keyboard Shortcuts (?)">
-                <span aria-hidden="true">⌨️</span>
-              </button>
-            </div>
+            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="paper">
+              <div class="theme-swatch-preview preview-paper">
+                <span class="theme-preview-dot dot-paper"></span>
+                <span class="theme-preview-lyric lyric-paper">♫ Ink Minimal</span>
+              </div>
+              <div class="theme-swatch-meta">
+                <span class="theme-swatch-name">Paper</span>
+                <span class="theme-swatch-desc">Clean light</span>
+              </div>
+              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
+            </button>
+
+            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="neon">
+              <div class="theme-swatch-preview preview-neon">
+                <span class="theme-preview-dot dot-neon"></span>
+                <span class="theme-preview-lyric lyric-neon">♫ Cyan Glow</span>
+              </div>
+              <div class="theme-swatch-meta">
+                <span class="theme-swatch-name">Neon</span>
+                <span class="theme-swatch-desc">High contrast</span>
+              </div>
+              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
+            </button>
+
+            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="pixel">
+              <div class="theme-swatch-preview preview-pixel">
+                <span class="theme-preview-dot dot-pixel"></span>
+                <span class="theme-preview-lyric lyric-pixel">♫ 8-bit Beat</span>
+              </div>
+              <div class="theme-swatch-meta">
+                <span class="theme-swatch-name">Pixel</span>
+                <span class="theme-swatch-desc">Retro arcade</span>
+              </div>
+              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
+            </button>
+
+            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="minimal">
+              <div class="theme-swatch-preview preview-minimal">
+                <span class="theme-preview-dot dot-minimal"></span>
+                <span class="theme-preview-lyric lyric-minimal">♫ Quiet Type</span>
+              </div>
+              <div class="theme-swatch-meta">
+                <span class="theme-swatch-name">Minimal</span>
+                <span class="theme-swatch-desc">Calm &amp; simple</span>
+              </div>
+              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
+            </button>
+
+            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="sunset">
+              <div class="theme-swatch-preview preview-sunset">
+                <span class="theme-preview-dot dot-sunset"></span>
+                <span class="theme-preview-lyric lyric-sunset">♫ Golden Hour</span>
+              </div>
+              <div class="theme-swatch-meta">
+                <span class="theme-swatch-name">Sunset</span>
+                <span class="theme-swatch-desc">Warm gradient</span>
+              </div>
+              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
+            </button>
+
+            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="ocean">
+              <div class="theme-swatch-preview preview-ocean">
+                <span class="theme-preview-dot dot-ocean"></span>
+                <span class="theme-preview-lyric lyric-ocean">♫ Teal Tide</span>
+              </div>
+              <div class="theme-swatch-meta">
+                <span class="theme-swatch-name">Ocean</span>
+                <span class="theme-swatch-desc">Deep blue</span>
+              </div>
+              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
+            </button>
+
+            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="sakura">
+              <div class="theme-swatch-preview preview-sakura">
+                <span class="theme-preview-dot dot-sakura"></span>
+                <span class="theme-preview-lyric lyric-sakura">♫ Cherry Bloom</span>
+              </div>
+              <div class="theme-swatch-meta">
+                <span class="theme-swatch-name">Sakura</span>
+                <span class="theme-swatch-desc">Soft pink</span>
+              </div>
+              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
+            </button>
+
+            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="mono">
+              <div class="theme-swatch-preview preview-mono">
+                <span class="theme-preview-dot dot-mono"></span>
+                <span class="theme-preview-lyric lyric-mono">♫ Pure White</span>
+              </div>
+              <div class="theme-swatch-meta">
+                <span class="theme-swatch-name">Mono</span>
+                <span class="theme-swatch-desc">True black OLED</span>
+              </div>
+              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
+            </button>
+
+            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="synthwave">
+              <div class="theme-swatch-preview preview-synthwave">
+                <span class="theme-preview-dot dot-synthwave"></span>
+                <span class="theme-preview-lyric lyric-synthwave">♫ Neon Grid</span>
+              </div>
+              <div class="theme-swatch-meta">
+                <span class="theme-swatch-name">Synthwave</span>
+                <span class="theme-swatch-desc">Pink &amp; purple</span>
+              </div>
+              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
+            </button>
+
+            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="forest">
+              <div class="theme-swatch-preview preview-forest">
+                <span class="theme-preview-dot dot-forest"></span>
+                <span class="theme-preview-lyric lyric-forest">♫ Moss Light</span>
+              </div>
+              <div class="theme-swatch-meta">
+                <span class="theme-swatch-name">Forest</span>
+                <span class="theme-swatch-desc">Calm greens</span>
+              </div>
+              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
+            </button>
+          </div>
+        </section>
+
+        <section class="sheet-section" aria-labelledby="sheetAnimTitle">
+          <h3 id="sheetAnimTitle" class="sheet-section-title">Lyric animation</h3>
+          <div class="anim-style-options" role="radiogroup" aria-labelledby="sheetAnimTitle">
+            <button type="button" role="radio" aria-checked="true" class="anim-style-btn active" data-anim-style="pulse">
+              <span class="anim-style-name">Pulse</span>
+              <span class="anim-style-desc">Moves with the beat</span>
+            </button>
+            <button type="button" role="radio" aria-checked="false" class="anim-style-btn" data-anim-style="reveal">
+              <span class="anim-style-name">Reveal</span>
+              <span class="anim-style-desc">Word by word</span>
+            </button>
+            <button type="button" role="radio" aria-checked="false" class="anim-style-btn" data-anim-style="karaoke">
+              <span class="anim-style-name">Karaoke</span>
+              <span class="anim-style-desc">Smooth word fill</span>
+            </button>
+            <button type="button" role="radio" aria-checked="false" class="anim-style-btn" data-anim-style="minimal">
+              <span class="anim-style-name">Minimal</span>
+              <span class="anim-style-desc">Static highlight</span>
+            </button>
           </div>
 
-          <!-- Tap the line you're hearing Banner (Shown when no offset is returned or user requests manual alignment) -->
-          <div id="tapLineBanner" class="tap-line-banner hidden" role="note">
-            <span class="tap-line-icon">👆</span>
-            <span class="tap-line-text">Tap the line you're hearing right now to lock lyric sync!</span>
-            <button id="btnDismissTapBanner" class="btn-dismiss-tap" type="button" aria-label="Dismiss banner">✕</button>
+          <div class="sheet-row sheet-row--static" id="beatSyncRow">
+            <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-wave"/></svg>
+            <span class="sheet-row-label">Beat sync</span>
+            <span id="beatSyncStatus" class="sheet-row-value" role="status" aria-live="polite">Off</span>
           </div>
+          <p id="beatSyncHint" class="sheet-hint">Pulse and Karaoke follow the beat and the vocals.</p>
+          <button id="btnEnableAudioMode" class="sheet-row hidden" type="button">
+            <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-headphones"/></svg>
+            <span class="sheet-row-label">Enable audio mode</span>
+            <span class="sheet-row-hint">Listens to the music playing on this phone. Nothing is recorded or stored.</span>
+          </button>
+        </section>
 
-          <!-- Latency Calibration Drawer -->
+        <section class="sheet-section" aria-labelledby="sheetDisplayTitle">
+          <h3 id="sheetDisplayTitle" class="sheet-section-title">Display</h3>
+          <button id="btnToggleWordMode" class="sheet-row sheet-toggle active" type="button" aria-pressed="true" aria-label="Toggle word-by-word reveal" title="Toggle word-by-word reveal">
+            <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-sparkles"/></svg>
+            <span class="sheet-row-label">Word reveal</span>
+            <span id="wordModeValue" class="sheet-row-value">On</span>
+          </button>
+          <button id="btnFullscreen" class="sheet-row" type="button" aria-label="Toggle fullscreen mode" title="Fullscreen (F)">
+            <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-maximize"/></svg>
+            <span id="fsLabel" class="sheet-row-label">Fullscreen</span>
+          </button>
+        </section>
+
+        <section class="sheet-section" aria-labelledby="sheetTrackTitle">
+          <h3 id="sheetTrackTitle" class="sheet-section-title">This song</h3>
+          <button id="btnShareSong" class="sheet-row" type="button" aria-label="Share song link" title="Copy a link to this song">
+            <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-share"/></svg>
+            <span class="sheet-row-label">Share</span>
+          </button>
+          <button id="btnResync" class="sheet-row btn-resync hidden" type="button" aria-label="Re-sync room audio" title="Re-sync room audio (detect song or correct drift)">
+            <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-refresh"/></svg>
+            <span class="sheet-row-label btn-resync-label">Re-sync</span>
+          </button>
+          <button id="btnListenAgain" class="sheet-row" type="button" aria-label="Listen again with microphone" title="Listen again">
+            <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-mic"/></svg>
+            <span class="sheet-row-label">Listen again</span>
+          </button>
+          <button id="btnToggleAutoRelisten" class="sheet-row hidden" type="button" aria-label="Toggle auto re-listen every 2 minutes" title="Auto re-listen every 2 minutes to check for song change">
+            <span id="autoRelistenDot" class="status-dot paused" aria-hidden="true"></span>
+            <span class="sheet-row-label">Auto re-listen</span>
+            <strong id="autoRelistenLabel" class="sheet-row-value">Off</strong>
+          </button>
+        </section>
+
+        <section class="sheet-section" aria-labelledby="sheetSyncTitle">
+          <h3 id="sheetSyncTitle" class="sheet-section-title">Sync</h3>
+          <button id="btnNudgeReset" class="sheet-row" type="button" aria-label="Reset sync offset" title="Reset sync offset">
+            <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-timer"/></svg>
+            <span class="sheet-row-label">Sync offset (tap to reset)</span>
+            <span id="onStageOffsetLabel" class="sheet-row-value">0.0s</span>
+          </button>
+          <button id="btnToggleOffset" class="sheet-row" type="button" aria-expanded="false" aria-controls="offsetDrawer" aria-label="Toggle latency calibration drawer" title="Adjust latency offset">
+            <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-sliders"/></svg>
+            <span class="sheet-row-label">Fine-tune sync</span>
+            <svg class="icon icon--sm sheet-row-chevron" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-chevron-down"/></svg>
+          </button>
+
+          <!-- Latency calibration drawer -->
           <div id="offsetDrawer" class="offset-drawer hidden">
             <div class="offset-header">
               <span class="offset-title">Latency Calibration</span>
               <span class="offset-help">Adjust if lyrics lead or lag behind what you hear</span>
             </div>
             <div class="offset-controls-row">
-              <button id="btnOffsetMinus" class="btn-step" type="button" title="Shift earlier (-0.1s)">−0.1s</button>
+              <button id="btnOffsetMinus" class="btn-step" type="button" title="Shift earlier (-0.1s)">&minus;0.1s</button>
               <input id="offsetSlider" type="range" min="-5000" max="5000" step="100" value="0" class="offset-slider" aria-label="Lyric latency offset in milliseconds">
               <button id="btnOffsetPlus" class="btn-step" type="button" title="Shift later (+0.1s)">+0.1s</button>
               <button id="btnOffsetReset" class="btn-reset" type="button" title="Reset offset to 0">Reset</button>
@@ -746,17 +921,22 @@
               <span class="offset-hint">(Saved automatically)</span>
             </div>
           </div>
+        </section>
 
-          <!-- Lyrics Viewport Container -->
-          <div id="lyricsViewport" class="lyrics-viewport" tabindex="0" role="region" aria-label="Song Lyrics">
-            <div id="lyricsContent" class="lyrics-content"></div>
-          </div>
-        </div>
+        <section class="sheet-section" aria-labelledby="sheetAppTitle">
+          <h3 id="sheetAppTitle" class="sheet-section-title">App</h3>
+          <button id="btnMoreOpenSettings" class="sheet-row" type="button">
+            <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-settings"/></svg>
+            <span class="sheet-row-label">Preferences</span>
+          </button>
+          <button id="btnOpenShortcuts" class="sheet-row" type="button" aria-label="Keyboard shortcuts cheat-sheet" title="Keyboard Shortcuts (?)">
+            <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-keyboard"/></svg>
+            <span class="sheet-row-label">Keyboard shortcuts</span>
+          </button>
+        </section>
 
-      </section>
-
-    </main>
-
+      </div>
+    </div>
   </div>
 
   <!-- ===================================================================
@@ -773,7 +953,7 @@
           <h2 id="settingsTitle" class="modal-title">Preferences</h2>
           <span class="modal-subtitle">Customize visual theme, typography & sync timing</span>
         </div>
-        <button id="btnCloseSettings" class="btn-close-modal" type="button" aria-label="Close preferences">&times;</button>
+        <button id="btnCloseSettings" class="btn-close-modal" type="button" aria-label="Close preferences"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
       </div>
 
       <div class="modal-body settings-grid-body" id="settingsAccordion">
@@ -781,7 +961,7 @@
         <!-- Section 1: Appearance & Theme -->
         <div class="settings-card" id="secAppearance">
           <div class="settings-card-header">
-            <span class="settings-card-icon">🎨</span>
+            <span class="settings-card-icon" aria-hidden="true"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-palette"/></svg></span>
             <div>
               <h3 class="settings-card-title">Appearance</h3>
               <p class="settings-card-subtitle">Select visual theme and lyrics scale</p>
@@ -789,12 +969,10 @@
           </div>
           <div class="settings-card-body">
             
-            <!-- Theme Swatch Grid (Aligned 5-theme cards) -->
+            <!-- Theme Swatch Grid (all 13 themes) -->
             <div class="settings-row-group">
               <label class="settings-label" id="lblThemePicker">Theme Preset</label>
               <div class="theme-swatch-grid" role="radiogroup" aria-labelledby="lblThemePicker">
-                
-                <!-- Swatch 1: Album Adaptive -->
                 <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="adaptive">
                   <div class="theme-swatch-preview preview-adaptive">
                     <span class="theme-preview-dot dot-adaptive"></span>
@@ -804,10 +982,9 @@
                     <span class="theme-swatch-name">Adaptive</span>
                     <span class="theme-swatch-desc">Album colors</span>
                   </div>
-                  <span class="theme-swatch-check" aria-hidden="true">✓</span>
+                  <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
                 </button>
 
-                <!-- Swatch 2: Aurora -->
                 <button type="button" role="radio" aria-checked="true" class="theme-swatch-card active" data-theme-card="aurora">
                   <div class="theme-swatch-preview preview-aurora">
                     <span class="theme-preview-dot dot-aurora"></span>
@@ -815,12 +992,11 @@
                   </div>
                   <div class="theme-swatch-meta">
                     <span class="theme-swatch-name">Aurora</span>
-                    <span class="theme-swatch-desc">Indigo & mint</span>
+                    <span class="theme-swatch-desc">Indigo &amp; mint</span>
                   </div>
-                  <span class="theme-swatch-check" aria-hidden="true">✓</span>
+                  <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
                 </button>
 
-                <!-- Swatch 3: Vinyl -->
                 <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="vinyl">
                   <div class="theme-swatch-preview preview-vinyl">
                     <span class="theme-preview-dot dot-vinyl"></span>
@@ -830,10 +1006,9 @@
                     <span class="theme-swatch-name">Vinyl</span>
                     <span class="theme-swatch-desc">Warm charcoal</span>
                   </div>
-                  <span class="theme-swatch-check" aria-hidden="true">✓</span>
+                  <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
                 </button>
 
-                <!-- Swatch 4: Paper -->
                 <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="paper">
                   <div class="theme-swatch-preview preview-paper">
                     <span class="theme-preview-dot dot-paper"></span>
@@ -843,10 +1018,9 @@
                     <span class="theme-swatch-name">Paper</span>
                     <span class="theme-swatch-desc">Clean light</span>
                   </div>
-                  <span class="theme-swatch-check" aria-hidden="true">✓</span>
+                  <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
                 </button>
 
-                <!-- Swatch 5: Neon -->
                 <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="neon">
                   <div class="theme-swatch-preview preview-neon">
                     <span class="theme-preview-dot dot-neon"></span>
@@ -856,9 +1030,104 @@
                     <span class="theme-swatch-name">Neon</span>
                     <span class="theme-swatch-desc">High contrast</span>
                   </div>
-                  <span class="theme-swatch-check" aria-hidden="true">✓</span>
+                  <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
                 </button>
 
+                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="pixel">
+                  <div class="theme-swatch-preview preview-pixel">
+                    <span class="theme-preview-dot dot-pixel"></span>
+                    <span class="theme-preview-lyric lyric-pixel">♫ 8-bit Beat</span>
+                  </div>
+                  <div class="theme-swatch-meta">
+                    <span class="theme-swatch-name">Pixel</span>
+                    <span class="theme-swatch-desc">Retro arcade</span>
+                  </div>
+                  <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
+                </button>
+
+                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="minimal">
+                  <div class="theme-swatch-preview preview-minimal">
+                    <span class="theme-preview-dot dot-minimal"></span>
+                    <span class="theme-preview-lyric lyric-minimal">♫ Quiet Type</span>
+                  </div>
+                  <div class="theme-swatch-meta">
+                    <span class="theme-swatch-name">Minimal</span>
+                    <span class="theme-swatch-desc">Calm &amp; simple</span>
+                  </div>
+                  <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
+                </button>
+
+                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="sunset">
+                  <div class="theme-swatch-preview preview-sunset">
+                    <span class="theme-preview-dot dot-sunset"></span>
+                    <span class="theme-preview-lyric lyric-sunset">♫ Golden Hour</span>
+                  </div>
+                  <div class="theme-swatch-meta">
+                    <span class="theme-swatch-name">Sunset</span>
+                    <span class="theme-swatch-desc">Warm gradient</span>
+                  </div>
+                  <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
+                </button>
+
+                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="ocean">
+                  <div class="theme-swatch-preview preview-ocean">
+                    <span class="theme-preview-dot dot-ocean"></span>
+                    <span class="theme-preview-lyric lyric-ocean">♫ Teal Tide</span>
+                  </div>
+                  <div class="theme-swatch-meta">
+                    <span class="theme-swatch-name">Ocean</span>
+                    <span class="theme-swatch-desc">Deep blue</span>
+                  </div>
+                  <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
+                </button>
+
+                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="sakura">
+                  <div class="theme-swatch-preview preview-sakura">
+                    <span class="theme-preview-dot dot-sakura"></span>
+                    <span class="theme-preview-lyric lyric-sakura">♫ Cherry Bloom</span>
+                  </div>
+                  <div class="theme-swatch-meta">
+                    <span class="theme-swatch-name">Sakura</span>
+                    <span class="theme-swatch-desc">Soft pink</span>
+                  </div>
+                  <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
+                </button>
+
+                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="mono">
+                  <div class="theme-swatch-preview preview-mono">
+                    <span class="theme-preview-dot dot-mono"></span>
+                    <span class="theme-preview-lyric lyric-mono">♫ Pure White</span>
+                  </div>
+                  <div class="theme-swatch-meta">
+                    <span class="theme-swatch-name">Mono</span>
+                    <span class="theme-swatch-desc">True black OLED</span>
+                  </div>
+                  <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
+                </button>
+
+                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="synthwave">
+                  <div class="theme-swatch-preview preview-synthwave">
+                    <span class="theme-preview-dot dot-synthwave"></span>
+                    <span class="theme-preview-lyric lyric-synthwave">♫ Neon Grid</span>
+                  </div>
+                  <div class="theme-swatch-meta">
+                    <span class="theme-swatch-name">Synthwave</span>
+                    <span class="theme-swatch-desc">Pink &amp; purple</span>
+                  </div>
+                  <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
+                </button>
+
+                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="forest">
+                  <div class="theme-swatch-preview preview-forest">
+                    <span class="theme-preview-dot dot-forest"></span>
+                    <span class="theme-preview-lyric lyric-forest">♫ Moss Light</span>
+                  </div>
+                  <div class="theme-swatch-meta">
+                    <span class="theme-swatch-name">Forest</span>
+                    <span class="theme-swatch-desc">Calm greens</span>
+                  </div>
+                  <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
+                </button>
               </div>
             </div>
 
@@ -882,7 +1151,7 @@
         <!-- Section 2: Display & Playback Behavior -->
         <div class="settings-card" id="secLyrics">
           <div class="settings-card-header">
-            <span class="settings-card-icon">📜</span>
+            <span class="settings-card-icon" aria-hidden="true"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-sparkles"/></svg></span>
             <div>
               <h3 class="settings-card-title">Display & Behavior</h3>
               <p class="settings-card-subtitle">Real-time word animation and timing</p>
@@ -901,13 +1170,24 @@
               </label>
             </div>
 
+            <div class="settings-card-item-row">
+              <div class="settings-item-info">
+                <label class="settings-label" for="settingHaptics">Haptic Feedback</label>
+                <span class="settings-helper-text">Subtle vibration on controls (Android app)</span>
+              </div>
+              <label class="switch">
+                <input id="settingHaptics" type="checkbox" checked>
+                <span class="slider-round"></span>
+              </label>
+            </div>
+
           </div>
         </div>
 
         <!-- Section 3: Sync Calibration -->
         <div class="settings-card" id="secSync">
           <div class="settings-card-header">
-            <span class="settings-card-icon">⏱️</span>
+            <span class="settings-card-icon" aria-hidden="true"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-timer"/></svg></span>
             <div>
               <h3 class="settings-card-title">Sync Calibration</h3>
               <p class="settings-card-subtitle">Compensate audio hardware latency and drift</p>
@@ -942,7 +1222,7 @@
         <!-- Section 4: Advanced Engine -->
         <div class="settings-card" id="secAdvanced">
           <div class="settings-card-header">
-            <span class="settings-card-icon">⚙️</span>
+            <span class="settings-card-icon" aria-hidden="true"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-settings"/></svg></span>
             <div>
               <h3 class="settings-card-title">Advanced Settings</h3>
               <p class="settings-card-subtitle">Recognition engine, diagnostics & privacy</p>
@@ -999,8 +1279,8 @@
             <!-- Privacy Policy & Reset Controls -->
             <div class="settings-footer-action-row">
               <a href="./privacy.html" class="settings-privacy-link" target="_blank" rel="noopener">
-                <span>🔒 Privacy &amp; Data Policy</span>
-                <span aria-hidden="true">↗</span>
+                <span><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-lock"/></svg> Privacy &amp; Data Policy</span>
+                <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-external-link"/></svg>
               </a>
               <button id="btnResetDefaults" class="btn-reset-defaults" type="button">Reset Defaults</button>
               <button id="btnClearAllData" class="btn-reset-defaults btn-danger-outline" type="button" aria-describedby="clearAllDataHint">Clear All Data</button>
@@ -1029,10 +1309,10 @@
     <div class="modal-dialog modal-dialog--sm">
       <div class="modal-header">
         <h3 id="micConsentTitle" class="modal-title">
-          <span aria-hidden="true">🎙️</span>
+          <svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-mic"/></svg>
           <span>Microphone Privacy &amp; Audio Use</span>
         </h3>
-        <button id="btnCloseMicConsent" class="btn-close-modal" type="button" aria-label="Close dialog">✕</button>
+        <button id="btnCloseMicConsent" class="btn-close-modal" type="button" aria-label="Close dialog"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
       </div>
 
       <div class="modal-body">
@@ -1065,10 +1345,10 @@
     <div class="modal-dialog modal-dialog--sm">
       <div class="modal-header">
         <h3 id="shortcutsTitle" class="modal-title">
-          <span aria-hidden="true">⌨️</span>
+          <svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-keyboard"/></svg>
           <span>Keyboard Shortcuts</span>
         </h3>
-        <button id="btnCloseShortcuts" class="btn-close-modal" type="button" aria-label="Close shortcuts">✕</button>
+        <button id="btnCloseShortcuts" class="btn-close-modal" type="button" aria-label="Close shortcuts"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
       </div>
 
       <div class="modal-body">
@@ -1131,10 +1411,10 @@
       </div>
       <div class="modal-header">
         <h3 id="authModalTitle" class="modal-title">
-          <span aria-hidden="true">👤</span>
+          <svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-user"/></svg>
           <span id="authHeaderLabel">Log In to LyricWave</span>
         </h3>
-        <button id="btnCloseAuth" class="btn-close-modal" type="button" aria-label="Close dialog">&times;</button>
+        <button id="btnCloseAuth" class="btn-close-modal" type="button" aria-label="Close dialog"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
       </div>
 
       <div class="modal-body">
@@ -1185,7 +1465,7 @@
           </div>
 
           <p class="auth-note">
-            ✓ Your preferences, themes and timing offsets are saved to this profile <strong>on this device only</strong>. Nothing is uploaded, so the profile does not sync to other devices and is removed if you clear the app's data.
+            <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg> Your preferences, themes and timing offsets are saved to this profile <strong>on this device only</strong>. Nothing is uploaded, so the profile does not sync to other devices and is removed if you clear the app's data.
           </p>
 
           <div class="btn-row">

@@ -11,8 +11,8 @@ android {
         minSdk 21
         // Google Play requires targetSdk 36 for new apps and updates from Aug 31, 2026.
         targetSdk 36
-        versionCode 2
-        versionName "1.0.1"
+        versionCode 3
+        versionName "1.1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders = [
@@ -80,7 +80,7 @@ dependencies {
 // also removes stale files that are no longer in the list.
 def webAppFiles = [
     'index.html', 'privacy.html', 'styles.css', 'manifest.webmanifest',
-    'app.js', 'auth.js', 'config.js', 'engine.js', 'lastfm.js', 'lyrics.js',
+    'app.js', 'audio-reactive.js', 'auth.js', 'config.js', 'engine.js', 'lastfm.js', 'lyrics.js',
     'mic.js', 'phone-source.js', 'reel.js', 'search.js', 'spotify-source.js', 'types.js', 'user-auth.js'
 ]
 

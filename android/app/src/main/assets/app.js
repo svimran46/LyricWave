@@ -27,6 +27,7 @@ import { LastFmSource } from './lastfm.js';
 import { PhoneMediaSource } from './phone-source.js';
 import { UnifiedSyncEngine } from './engine.js';
 import { ReelVisualizer } from './reel.js';
+import { AudioReactive } from './audio-reactive.js';
 import { signUp, logIn, logOut, getCurrentUser, updateUserPreferences, deleteCurrentAccount } from './user-auth.js';
 
 // DOM Elements: Navigation Tabs
@@ -54,11 +55,8 @@ const subPanels = {
   spotify: document.getElementById('panelSpotify')
 };
 
-// DOM Elements: Now Playing Compact Bar & Recent Songs
-const compactSourceBar = document.getElementById('compactSourceBar');
-const btnListenAgain = document.getElementById('btnListenAgain');
-const btnSwitchSourceCompact = document.getElementById('btnSwitchSourceCompact');
-const compactSourceLabel = document.getElementById('compactSourceLabel');
+// DOM Elements: Recent Songs
+const appContainer = document.querySelector('.container');
 const recentSongsList = document.getElementById('recentSongsList');
 const btnClearRecent = document.getElementById('btnClearRecent');
 
@@ -149,8 +147,30 @@ const userName = document.getElementById('userName');
 const userAvatar = document.getElementById('userAvatar');
 const avatarFallback = document.getElementById('avatarFallback');
 
-// DOM Elements: Shared Active Playback View
+// DOM Elements: Stage (Now Playing), Mini player & More sheet
 const activePlaybackView = document.getElementById('activePlaybackView');
+const btnStageCollapse = document.getElementById('btnStageCollapse');
+const btnMoreSheet = document.getElementById('btnMoreSheet');
+const miniPlayer = document.getElementById('miniPlayer');
+const btnMiniOpen = document.getElementById('btnMiniOpen');
+const btnMiniPlay = document.getElementById('btnMiniPlay');
+const miniPlayUse = document.getElementById('miniPlayUse');
+const miniTitle = document.getElementById('miniTitle');
+const miniArtist = document.getElementById('miniArtist');
+const miniArt = document.getElementById('miniArt');
+const miniArtPlaceholder = document.getElementById('miniArtPlaceholder');
+const miniProgressFill = document.getElementById('miniProgressFill');
+const moreSheetBackdrop = document.getElementById('moreSheetBackdrop');
+const moreSheet = document.getElementById('moreSheet');
+const moreSheetHandle = document.getElementById('moreSheetHandle');
+const btnCloseMoreSheet = document.getElementById('btnCloseMoreSheet');
+const btnMoreOpenSettings = document.getElementById('btnMoreOpenSettings');
+const animStyleButtons = document.querySelectorAll('.anim-style-btn');
+const beatSyncStatus = document.getElementById('beatSyncStatus');
+const beatSyncHint = document.getElementById('beatSyncHint');
+const btnEnableAudioMode = document.getElementById('btnEnableAudioMode');
+const btnReelExitFs = document.getElementById('btnReelExitFs');
+const wordModeValue = document.getElementById('wordModeValue');
 const trackArt = document.getElementById('trackArt');
 const artPlaceholder = document.getElementById('artPlaceholder');
 const playStateDot = document.getElementById('playStateDot');
@@ -165,6 +185,7 @@ const iconPause = document.getElementById('iconPause');
 const btnSeekBack = document.getElementById('btnSeekBack');
 const btnSeekForward = document.getElementById('btnSeekForward');
 const btnResync = document.getElementById('btnResync');
+const btnListenAgain = document.getElementById('btnListenAgain');
 const btnShareSong = document.getElementById('btnShareSong');
 const firstRunHint = document.getElementById('firstRunHint');
 const btnDismissFirstRun = document.getElementById('btnDismissFirstRun');
@@ -183,7 +204,7 @@ const reelNextLine = document.getElementById('reelNextLine');
 const btnToggleWordMode = document.getElementById('btnToggleWordMode');
 const btnFullscreen = document.getElementById('btnFullscreen');
 const fsLabel = document.getElementById('fsLabel');
-const themePills = document.querySelectorAll('.btn-theme-pill');
+const themePills = document.querySelectorAll('.btn-theme-pill'); // legacy pills (themes now live in the More sheet / Settings swatches)
 const stageArtBackdrop = document.getElementById('stageArtBackdrop');
 
 // DOM Elements: Synced Lyrics View
@@ -208,11 +229,12 @@ const btnDismissTapBanner = document.getElementById('btnDismissTapBanner');
 const settingsBackdrop = document.getElementById('settingsBackdrop');
 const btnCloseSettings = document.getElementById('btnCloseSettings');
 const btnDoneSettings = document.getElementById('btnDoneSettings');
-const settingThemeSelect = document.getElementById('settingThemeSelect');
+const settingThemeSelect = document.getElementById('settingThemeSelect'); // optional <select>; swatch cards are the primary picker
 const themeCards = document.querySelectorAll('.theme-swatch-card');
 const settingFontSize = document.getElementById('settingFontSize');
 const lblFontSize = document.getElementById('lblFontSize');
 const settingWordMode = document.getElementById('settingWordMode');
+const settingHaptics = document.getElementById('settingHaptics');
 const settingOffsetSlider = document.getElementById('settingOffsetSlider');
 const settingRecognitionProvider = document.getElementById('settingRecognitionProvider');
 const btnSettingsOffsetMinus = document.getElementById('btnSettingsOffsetMinus');
@@ -235,7 +257,14 @@ const STORAGE_LAST_SOURCE_KEY = 'lyricwave_last_source';
 const STORAGE_RECENT_SONGS_KEY = 'lyricwave_recent_songs';
 const STORAGE_FIRST_RUN_DISMISSED_KEY = 'lyricwave_first_run_dismissed';
 const STORAGE_DISCOVER_VIEW_KEY = 'lyricwave_discover_view';
+const STORAGE_ANIM_KEY = 'lyricwave_lyric_anim';
+const STORAGE_HAPTICS_KEY = 'lyricwave_haptics';
 const MAX_RECENT_SONGS = 10;
+
+/** Every theme the UI offers (order = swatch order). Light themes tell the system bars to use dark icons. */
+const THEME_IDS = ['adaptive', 'aurora', 'vinyl', 'paper', 'neon', 'pixel', 'minimal', 'sunset', 'ocean', 'sakura', 'mono', 'synthwave', 'forest'];
+const ANIM_STYLES = ['pulse', 'reveal', 'karaoke', 'minimal'];
+const DEFAULT_ANIM_STYLE = 'pulse';
 
 function getDefaultTheme() {
   if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
@@ -244,10 +273,19 @@ function getDefaultTheme() {
   return 'aurora';
 }
 
+function safeGet(key) {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+function safeSet(key, value) {
+  try { localStorage.setItem(key, value); } catch {}
+}
+
 // Application State
 let activeTab = localStorage.getItem(STORAGE_LAST_SOURCE_KEY) || 'mic';
 let isOffsetDrawerOpen = false;
-let currentTheme = localStorage.getItem(STORAGE_THEME_KEY) || getDefaultTheme();
+let currentTheme = THEME_IDS.includes(localStorage.getItem(STORAGE_THEME_KEY)) ? localStorage.getItem(STORAGE_THEME_KEY) : getDefaultTheme();
+let currentAnimStyle = ANIM_STYLES.includes(safeGet(STORAGE_ANIM_KEY)) ? safeGet(STORAGE_ANIM_KEY) : DEFAULT_ANIM_STYLE;
+let hapticsEnabled = safeGet(STORAGE_HAPTICS_KEY) !== 'false';
 let isWordMode = localStorage.getItem(STORAGE_WORD_MODE_KEY) !== 'false';
 let currentFontScale = parseInt(localStorage.getItem(STORAGE_FONT_SCALE_KEY) || '100', 10);
 let deferredInstallPrompt = null;
@@ -283,6 +321,55 @@ function setNativeKeepScreenOn(on) {
       window.LyricWaveNative.setKeepScreenOn(Boolean(on));
     }
   } catch {}
+}
+
+// =====================================================================
+// Icons (inline SVG sprite in index.html), haptics & system-bar colour
+// =====================================================================
+
+/** Markup for a sprite icon. `name` is always a trusted literal. */
+function icon(name, size = '') {
+  const px = size === 'sm' ? 18 : (size === 'lg' ? 28 : 24);
+  return `<svg class="icon${size ? ` icon--${size}` : ''}" width="${px}" height="${px}" aria-hidden="true" focusable="false"><use href="#i-${name}"/></svg>`;
+}
+
+/** Swap the glyph of an existing <use> element. */
+function setUseIcon(useEl, name) {
+  if (useEl) useEl.setAttribute('href', `#i-${name}`);
+}
+
+/** Native haptic tick (Android app only; the bridge does not exist on the web). kind: light | confirm | success | reject */
+function haptic(kind = 'light') {
+  if (!hapticsEnabled) return;
+  try { window.LyricWaveNative?.haptic?.(kind); } catch {}
+}
+
+let chromeProbe = null;
+/** Resolve the current --bg token to an opaque #rrggbb (computed colours come back as rgb()/rgba()). */
+function readThemeBackground() {
+  try {
+    if (!chromeProbe) {
+      chromeProbe = document.createElement('i');
+      chromeProbe.setAttribute('aria-hidden', 'true');
+      chromeProbe.style.cssText = 'display:none;background-color:var(--bg)';
+      document.body.appendChild(chromeProbe);
+    }
+    const m = getComputedStyle(chromeProbe).backgroundColor.match(/\d+(\.\d+)?/g);
+    if (m && m.length >= 3) {
+      const [r, g, b] = m.slice(0, 3).map(Number);
+      const alpha = m.length > 3 ? Number(m[3]) : 1;
+      if (alpha > 0.5) return { hex: rgbToHex(r, g, b), r, g, b };
+    }
+  } catch {}
+  return { hex: '#0a0c10', r: 10, g: 12, b: 16 };
+}
+
+/** Tell the OS (Android system bars, browser theme-color) about the background behind them. */
+function syncChromeColor() {
+  const { hex, r, g, b } = readThemeBackground();
+  const isLight = getLuminance(r, g, b) > 0.4;
+  try { window.LyricWaveNative?.setChromeColor?.(hex, isLight); } catch {}
+  try { document.querySelector('meta[name="theme-color"]')?.setAttribute('content', hex); } catch {}
 }
 
 // =====================================================================
@@ -355,7 +442,7 @@ function renderRecentSongs() {
     const cleanArt = sanitizeUrl(song.albumArt);
     const artHtml = cleanArt
       ? `<img class="recent-song-art" src="${cleanArt}" alt="" width="32" height="32" loading="lazy" decoding="async">`
-      : `<div class="recent-song-art recent-song-art--empty" aria-hidden="true">🎵</div>`;
+      : `<div class="recent-song-art recent-song-art--empty" aria-hidden="true">${icon('music', 'sm')}</div>`;
 
     btn.innerHTML = `
       ${artHtml}
@@ -512,59 +599,174 @@ const reel = new ReelVisualizer(reelCanvas, reelContainer, {
   wordByWordMode: isWordMode
 });
 
+// Beat / vocal sync: native audio analysis in the Android app, lyric-rhythm estimate everywhere else.
+const audioReactive = new AudioReactive();
+reel.setAnimationStyle(currentAnimStyle);
+reel.setAudioReactive(audioReactive);
+reelContainer.dataset.anim = currentAnimStyle;
+
+// Stage / mini player state
+let stageOpen = false;          // the full-screen Now Playing stage is showing
+let hasTrack = false;           // the engine has a current track (mini player or stage visible)
+let stageDismissedByUser = false; // user collapsed the stage: background sources (phone/Last.fm/Spotify) won't re-open it
+let sheetOpen = false;          // More sheet
+let audioDesired = false;       // audioReactive.enable() has been requested for this stage session
+let miniUpdatedAt = 0;
+let miniRatio = -1;
+let shownElapsedText = '';
+let shownDurationText = '';
+let shownProgressInt = -1;
+let reelWordStates = [];        // per reel word: 0 upcoming, 1 current, 2 revealed (-1 = not applied yet)
+let shownWordIdx = -2;
+let shownWordProgress = -1;
+const reelVarCache = { beat: -1, vocal: -1, energy: -1 };
+const AUTONOMOUS_SOURCES = new Set(['phone', 'lastfm', 'spotify']);
+
+const clamp01 = (n) => (Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0);
+
+/** Set a 0..1 CSS variable on the reel only when it moved by more than 0.01 (or settled to 0). */
+function setReelVar(name, key, value) {
+  const v = clamp01(value);
+  if (Math.abs(v - reelVarCache[key]) > 0.01 || (v === 0 && reelVarCache[key] !== 0)) {
+    reelVarCache[key] = v;
+    reelContainer.style.setProperty(name, v.toFixed(2));
+  }
+}
+
+/** Per-frame DOM work for the stage: word states plus the C4 CSS hooks (--beat/--vocal/--energy/--word-progress, data-anim). */
+function applyReelState(state, effectiveMs) {
+  const style = currentAnimStyle;
+  if (reelContainer.dataset.anim !== style) reelContainer.dataset.anim = style;
+
+  const wordMode = Boolean(state.wordByWordMode) && style !== 'minimal';
+  const currentIdx = state.currentWordIndex;
+
+  for (let i = 0; i < reelWordElements.length; i++) {
+    const want = !wordMode ? 2 : (i < currentIdx ? 2 : (i === currentIdx ? 1 : 0));
+    if (reelWordStates[i] === want) continue;
+    reelWordStates[i] = want;
+    const el = reelWordElements[i];
+    el.className = want === 2 ? 'reel-word revealed' : (want === 1 ? 'reel-word current' : 'reel-word');
+    el.style.setProperty('--word-progress', want === 2 ? '1' : '0');
+    if (want === 1) shownWordProgress = -1;
+  }
+
+  if (wordMode && currentIdx >= 0 && reelWordElements[currentIdx]) {
+    let wp = state.wordProgress;
+    if (typeof wp !== 'number') {
+      const w = reel.activeWords && reel.activeWords[currentIdx];
+      wp = w && w.endMs > w.startMs ? (effectiveMs - w.startMs) / (w.endMs - w.startMs) : 0;
+    }
+    wp = clamp01(wp);
+    if (currentIdx !== shownWordIdx || Math.abs(wp - shownWordProgress) > 0.01) {
+      shownWordIdx = currentIdx;
+      shownWordProgress = wp;
+      reelWordElements[currentIdx].style.setProperty('--word-progress', wp.toFixed(2));
+    }
+  }
+
+  const reactive = style === 'pulse' || style === 'karaoke';
+  setReelVar('--beat', 'beat', reactive ? Number(state.beat) : 0);
+  setReelVar('--vocal', 'vocal', reactive ? Number(state.vocal) : 0);
+  setReelVar('--energy', 'energy', reactive ? Number(state.energy) : 0);
+}
+
+/** Stage-only tick work (skipped while the stage is collapsed to the mini player). */
+function updateStageTick(tick) {
+  const elapsedText = formatMs(tick.positionMs);
+  const durationText = formatMs(tick.durationMs);
+  if (elapsedText !== shownElapsedText) {
+    shownElapsedText = elapsedText;
+    timeElapsed.textContent = elapsedText;
+  }
+  if (durationText !== shownDurationText) {
+    shownDurationText = durationText;
+    timeDuration.textContent = durationText;
+  }
+  progressBarFill.style.width = `${tick.progressPercent.toFixed(2)}%`;
+  const progressInt = Math.round(tick.progressPercent);
+  if (progressInt !== shownProgressInt) {
+    shownProgressInt = progressInt;
+    progressTrack.setAttribute('aria-valuenow', progressInt);
+    progressTrack.setAttribute('aria-valuetext', `${elapsedText} of ${durationText}`);
+  }
+  applyReelState(reel.render(tick.effectiveMs, tick.isPlaying), tick.effectiveMs);
+}
+
+/** Artwork for the stage header and the mini player, with a glyph fallback when missing or broken. */
+function setArtwork(url) {
+  const clean = sanitizeUrl(url);
+  [[trackArt, artPlaceholder], [miniArt, miniArtPlaceholder]].forEach(([img, placeholder]) => {
+    if (!img) return;
+    if (clean) {
+      img.onerror = () => {
+        img.classList.add('hidden');
+        placeholder?.classList.remove('hidden');
+      };
+      img.src = clean;
+      img.classList.remove('hidden');
+      placeholder?.classList.add('hidden');
+    } else {
+      img.onerror = null;
+      img.removeAttribute('src');
+      img.classList.add('hidden');
+      placeholder?.classList.remove('hidden');
+    }
+  });
+  return clean;
+}
+
 const engine = new UnifiedSyncEngine({
   onTrackChange: (track) => {
-    activePlaybackView.classList.remove('hidden');
+    hasTrack = true;
     // The welcome hint has done its job once lyrics are on screen.
     if (firstRunHint && !firstRunHint.classList.contains('hidden')) {
       firstRunHint.classList.add('hidden');
       try { localStorage.setItem(STORAGE_FIRST_RUN_DISMISSED_KEY, 'true'); } catch {}
     }
-    // Re-sync records a new mic sample; it makes no sense when following a phone app.
-    btnResync?.classList.toggle('hidden', track.source === 'phone');
+    // Re-sync / auto re-listen record a new mic sample: only meaningful for songs the mic identified.
+    const fromMic = track.source === 'mic';
+    btnResync?.classList.toggle('hidden', !fromMic);
+    btnToggleAutoRelisten?.classList.toggle('hidden', !fromMic);
+
+    const artistText = track.artists || track.artist || '';
     trackTitle.textContent = track.title;
     trackTitle.title = track.title;
-    trackArtist.textContent = track.artists || track.artist;
+    trackArtist.textContent = artistText;
     trackAlbum.textContent = track.album || '';
+    trackAlbum.classList.toggle('hidden', !track.album);
+    if (miniTitle) miniTitle.textContent = track.title;
+    if (miniArtist) miniArtist.textContent = artistText;
+    btnMiniOpen?.setAttribute('aria-label', `Open now playing: ${track.title}${artistText ? ` by ${artistText}` : ''}`);
+
     if (track.isApproximate || track.source === 'lastfm') {
       trackSourceBadge.textContent = 'APPROXIMATE';
-      trackSourceBadge.title = 'Last.fm sync starts at 0s on track change. Use the offset control below to calibrate.';
+      trackSourceBadge.title = 'Last.fm sync starts at 0s on track change. Use the sync offset in the More sheet to calibrate.';
     } else {
       trackSourceBadge.textContent = track.source?.toUpperCase() || 'LIVE';
       trackSourceBadge.title = '';
     }
 
-    if (track.albumArt) {
-      trackArt.src = track.albumArt;
-      trackArt.classList.remove('hidden');
-      artPlaceholder.classList.add('hidden');
-      // If user is on Album Adaptive theme, extract and apply palette immediately
-      if (currentTheme === 'adaptive') {
-        applyAlbumAdaptivePalette(track.albumArt);
-      }
-    } else {
-      trackArt.classList.add('hidden');
-      artPlaceholder.classList.remove('hidden');
-      if (currentTheme === 'adaptive') {
-        applyAlbumAdaptivePalette(null);
-      }
+    const cleanArt = setArtwork(track.albumArt);
+    // If user is on Album Adaptive theme, extract and apply palette immediately
+    if (currentTheme === 'adaptive') {
+      applyAlbumAdaptivePalette(cleanArt || null);
     }
 
-    // "Now Playing" state transition:
-    // Hero lyrics stage fills the view; hide the large source panels (Microphone hero, search panel, connect panel)
-    Object.keys(tabPanels).forEach(key => {
-      if (tabPanels[key]) {
-        tabPanels[key].classList.add('hidden');
-      }
-    });
+    updateOffsetUI();
+    miniRatio = -1;
+    shownElapsedText = '';
+    shownDurationText = '';
+    shownProgressInt = -1;
+    audioReactive.setPlaying(Boolean(engine.isPlaying));
 
-    // Update compact switcher label & display compact source bar
-    if (compactSourceBar) {
-      compactSourceBar.classList.remove('hidden');
-    }
-    if (compactSourceLabel) {
-      const srcName = track.source ? track.source.charAt(0).toUpperCase() + track.source.slice(1) : 'Live';
-      compactSourceLabel.textContent = `${srcName} Source`;
+    // A new track opens the stage. Background sources (phone / Last.fm / Spotify) only do so until the
+    // user has collapsed it once, so the next song never yanks the UI back open.
+    if (!stageOpen) {
+      const userDriven = !AUTONOMOUS_SOURCES.has(track.source);
+      if (userDriven) stageDismissedByUser = false;
+      if (userDriven || !stageDismissedByUser) openStage({ auto: true });
+      else updateStageChrome();
     }
 
     // Persist song to recently identified list
@@ -595,12 +797,18 @@ const engine = new UnifiedSyncEngine({
       iconPause.classList.add('hidden');
       releaseWakeLock();
     }
+    btnPlayPause?.setAttribute('aria-label', isPlaying ? 'Pause' : 'Play');
+    btnMiniPlay?.setAttribute('aria-label', isPlaying ? 'Pause' : 'Play');
+    setUseIcon(miniPlayUse, isPlaying ? 'pause' : 'play');
+    audioReactive.setPlaying(isPlaying);
 
     updateMediaSessionPlaybackState(isPlaying);
   },
 
   onLyricsLoaded: (lyrics) => {
     renderLyricsState(lyrics);
+    audioReactive.setLyrics(lyrics && lyrics.status === 'synced' ? lyrics.syncedLines : []);
+    updateBeatSyncUI();
   },
 
   onLineChange: (lineIndex, line) => {
@@ -616,48 +824,26 @@ const engine = new UnifiedSyncEngine({
       }
     }
 
-    if (lineIndex >= 0 && lineElements[lineIndex] && lyricsViewport) {
-      // Scroll only inside the lyricsViewport container so the window / page does not jump away from the animated reel
-      const el = lineElements[lineIndex];
-      const targetScroll = el.offsetTop - (lyricsViewport.clientHeight / 2) + (el.clientHeight / 2);
-      lyricsViewport.scrollTo({
-        top: Math.max(0, targetScroll),
-        behavior: 'smooth'
-      });
-    }
+    if (stageOpen) centerActiveLine(prefersReducedMotion() ? 'auto' : 'smooth');
 
     // 2. Update OLED Reel Centered Box
     updateReelLine(lineIndex);
   },
 
   onTick: (tick) => {
-    timeElapsed.textContent = formatMs(tick.positionMs);
-    timeDuration.textContent = formatMs(tick.durationMs);
-    progressBarFill.style.width = `${tick.progressPercent.toFixed(2)}%`;
-    progressTrack.setAttribute('aria-valuenow', Math.round(tick.progressPercent));
-
-    // Word reveal animation in reel
-    if (reelWordElements.length > 0) {
-      const reelState = reel.render(tick.effectiveMs, tick.isPlaying);
-      if (reelState.wordByWordMode) {
-        const currentIdx = reelState.currentWordIndex;
-        for (let i = 0; i < reelWordElements.length; i++) {
-          const el = reelWordElements[i];
-          if (i < currentIdx) {
-            el.className = 'reel-word revealed';
-          } else if (i === currentIdx) {
-            el.className = 'reel-word current';
-          } else {
-            el.className = 'reel-word';
-          }
-        }
-      } else {
-        for (let i = 0; i < reelWordElements.length; i++) {
-          reelWordElements[i].className = 'reel-word revealed';
-        }
+    // Mini player progress line: ~4 updates per second is plenty for a 2px bar.
+    const now = performance.now();
+    if (hasTrack && now - miniUpdatedAt >= 250) {
+      miniUpdatedAt = now;
+      const ratio = clamp01(tick.progressPercent / 100);
+      if (Math.abs(ratio - miniRatio) > 0.0005) {
+        miniRatio = ratio;
+        miniProgressFill?.style.setProperty('--p', ratio.toFixed(4));
       }
-    } else {
-      reel.render(tick.effectiveMs, tick.isPlaying);
+    }
+
+    if (stageOpen || document.fullscreenElement) {
+      updateStageTick(tick);
     }
 
     // Developer Mode Diagnostics (localhost or ?dev=1)
@@ -681,12 +867,13 @@ const engine = new UnifiedSyncEngine({
   },
 
   onIdle: () => {
-    activePlaybackView.classList.add('hidden');
-    if (compactSourceBar) compactSourceBar.classList.add('hidden');
-    // Restore active source panel view
-    if (tabPanels[activeTab]) {
-      tabPanels[activeTab].classList.remove('hidden');
-    }
+    hasTrack = false;
+    miniRatio = -1;
+    audioReactive.setPlaying(false);
+    if (stageOpen) closeStage({ restoreFocus: false });
+    else updateStageChrome();
+    // Make sure the panel for the active tab is showing again.
+    showActivePanels();
     releaseWakeLock();
     updateMediaSessionMetadata(null);
   },
@@ -711,6 +898,295 @@ const engine = new UnifiedSyncEngine({
 
 // Start the engine loop
 engine.start();
+
+// =====================================================================
+// Stage (Now Playing) / Mini player / More sheet
+// =====================================================================
+
+/** Scroll the full lyrics list so the active line is centred (inside the list only; the page never jumps). */
+function centerActiveLine(behavior = 'auto') {
+  const idx = engine.activeLineIndex;
+  const el = idx >= 0 ? lineElements[idx] : null;
+  if (!el || !lyricsViewport || !lyricsViewport.clientHeight) return;
+  const targetScroll = el.offsetTop - (lyricsViewport.clientHeight / 2) + (el.clientHeight / 2);
+  lyricsViewport.scrollTo({ top: Math.max(0, targetScroll), behavior });
+}
+
+/** Mirror stageOpen / hasTrack into the DOM: stage visibility, mini player, body hooks, background inertness. */
+function updateStageChrome() {
+  const showMini = hasTrack && !stageOpen;
+  activePlaybackView.classList.toggle('hidden', !stageOpen);
+  activePlaybackView.classList.toggle('is-open', stageOpen);
+  miniPlayer?.classList.toggle('hidden', !showMini);
+  document.body.classList.toggle('stage-open', stageOpen);
+  document.body.classList.toggle('has-mini-player', showMini);
+  // Everything behind the stage is out of reach for keyboard and screen readers while it is open.
+  if (appContainer && 'inert' in appContainer) appContainer.inert = stageOpen;
+  btnMoreSheet?.setAttribute('aria-expanded', sheetOpen ? 'true' : 'false');
+}
+
+/** Show only the panel(s) that belong to the active tab (used when the stage collapses or playback ends). */
+function showActivePanels() {
+  if (stageOpen) return;
+  Object.keys(tabPanels).forEach((key) => {
+    const el = tabPanels[key];
+    if (!el) return;
+    let visible = key === activeTab;
+    if (key === 'lastfm' || key === 'spotify') visible = activeTab === 'connect' && key === activeConnectSubTab;
+    el.classList.toggle('hidden', !visible);
+  });
+}
+
+// --- History integration: Android Back (WebView goBack) closes the sheet, then the stage, then leaves the app.
+const navStack = [];
+let navIgnore = 0;
+
+function pushNav(name) {
+  try {
+    history.pushState({ lwNav: name }, '');
+    navStack.push(name);
+  } catch {}
+}
+
+/** Remove the history entries from `name` upwards (used when closing programmatically). */
+function unwindNav(name) {
+  const idx = navStack.lastIndexOf(name);
+  if (idx < 0) return;
+  const n = navStack.length - idx;
+  navStack.length = idx;
+  navIgnore++;
+  try {
+    history.go(-n);
+  } catch {
+    navIgnore--;
+  }
+}
+
+window.addEventListener('popstate', () => {
+  if (navIgnore > 0) {
+    navIgnore--;
+    return;
+  }
+  const top = navStack.pop();
+  if (top === 'sheet' || (!top && sheetOpen)) {
+    closeMoreSheet({ fromHistory: true });
+  } else if (top === 'stage' || (!top && stageOpen)) {
+    closeStage({ fromHistory: true, userInitiated: true });
+  }
+});
+
+function openStage({ auto = false, focus = true } = {}) {
+  if (!hasTrack || stageOpen) return;
+  stageOpen = true;
+  stageDismissedByUser = false;
+  Object.values(tabPanels).forEach((el) => el?.classList.add('hidden'));
+  updateStageChrome();
+  pushNav('stage');
+  shownElapsedText = '';
+  shownDurationText = '';
+  shownProgressInt = -1;
+  reelWordStates.fill(-1);
+  requestAnimationFrame(() => {
+    reel.resizeCanvas();
+    centerActiveLine('auto');
+  });
+  syncAudioReactive();
+  if (focus) btnStageCollapse?.focus({ preventScroll: true });
+}
+
+function closeStage({ restoreFocus = true, fromHistory = false, userInitiated = false } = {}) {
+  if (!stageOpen) return;
+  if (sheetOpen) closeMoreSheet({ restoreFocus: false, skipHistory: true });
+  if (document.fullscreenElement) {
+    try { document.exitFullscreen?.()?.catch?.(() => {}); } catch {}
+  }
+  stageOpen = false;
+  if (userInitiated) stageDismissedByUser = true;
+  showActivePanels();
+  updateStageChrome();
+  syncAudioReactive();
+  if (!fromHistory) unwindNav('stage');
+  if (restoreFocus && hasTrack) btnMiniOpen?.focus({ preventScroll: true });
+}
+
+btnStageCollapse?.addEventListener('click', () => {
+  haptic('light');
+  closeStage({ userInitiated: true });
+});
+// Tapping anywhere on the mini player (art, text, empty space) opens the stage; Enter/Space work via #btnMiniOpen.
+miniPlayer?.addEventListener('click', (e) => {
+  if (e.target.closest('.mini-play')) return;
+  openStage();
+});
+btnMiniPlay?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  haptic('light');
+  engine.togglePlay();
+});
+
+// --- Audio-reactive lifecycle: on while the stage is open (and the app visible) for beat-synced styles.
+function wantAudioReactive() {
+  return stageOpen && !document.hidden && (currentAnimStyle === 'pulse' || currentAnimStyle === 'karaoke');
+}
+
+/** Start/stop audio-reactive analysis to match the UI state. Resolves to the resulting mode. */
+function syncAudioReactive({ requestPermission = false } = {}) {
+  if (!wantAudioReactive()) {
+    if (audioDesired) {
+      audioDesired = false;
+      audioReactive.disable();
+    }
+    updateBeatSyncUI();
+    return Promise.resolve(audioReactive.mode);
+  }
+  if (audioDesired && !requestPermission) return Promise.resolve(audioReactive.mode);
+  audioDesired = true;
+  // Without requestPermission this only goes native when Android already granted RECORD_AUDIO (no prompt);
+  // otherwise it runs on the lyric rhythm until the user taps "Enable audio mode".
+  return audioReactive.enable({ requestPermission })
+    .catch(() => audioReactive.mode)
+    .then((mode) => {
+      updateBeatSyncUI();
+      return mode;
+    });
+}
+
+audioReactive.onModeChange = () => updateBeatSyncUI();
+
+document.addEventListener('visibilitychange', () => {
+  syncAudioReactive();
+});
+
+function updateBeatSyncUI() {
+  const mode = audioReactive.mode;
+  const reactiveStyle = currentAnimStyle === 'pulse' || currentAnimStyle === 'karaoke';
+  const nativeOk = AudioReactive.isNativeAvailable();
+  if (beatSyncStatus) {
+    beatSyncStatus.textContent = mode === 'audio' ? 'Following the music'
+      : (mode === 'lyrics' ? 'Following lyric rhythm' : 'Off');
+  }
+  if (beatSyncHint) {
+    let hint;
+    if (!reactiveStyle) hint = 'Pulse and Karaoke follow the beat and the vocals. Pick one of them to turn beat sync on.';
+    else if (mode === 'audio') hint = 'Reacting to the music playing on this phone. Audio is analysed live and never recorded.';
+    else if (nativeOk) hint = 'Using the lyric timing as a stand-in. Enable audio mode to follow the real music.';
+    else hint = 'Using the lyric timing to estimate the beat. Audio mode is available in the Android app.';
+    beatSyncHint.textContent = hint;
+  }
+  btnEnableAudioMode?.classList.toggle('hidden', !(reactiveStyle && nativeOk && mode !== 'audio'));
+}
+
+// --- Lyric animation style
+function setAnimStyle(style, { persist = true } = {}) {
+  if (!ANIM_STYLES.includes(style)) style = DEFAULT_ANIM_STYLE;
+  currentAnimStyle = style;
+  if (persist) safeSet(STORAGE_ANIM_KEY, style);
+  reel.setAnimationStyle(style);
+  reelContainer.dataset.anim = style;
+  animStyleButtons.forEach((btn) => {
+    const on = btn.dataset.animStyle === style;
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
+  reelWordStates.fill(-1); // re-apply word states (Minimal shows the whole line)
+  syncAudioReactive();
+  updateBeatSyncUI();
+}
+
+animStyleButtons.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    haptic('light');
+    setAnimStyle(btn.dataset.animStyle);
+  });
+});
+
+btnEnableAudioMode?.addEventListener('click', async () => {
+  haptic('light');
+  btnEnableAudioMode.disabled = true;
+  try {
+    const mode = await syncAudioReactive({ requestPermission: true });
+    if (mode === 'audio') showAlert('Audio mode is on. Lyrics now follow the music.', 'success');
+    else showAlert('Audio mode is not available right now, so beat sync follows the lyric rhythm.', 'warning');
+  } finally {
+    btnEnableAudioMode.disabled = false;
+    updateBeatSyncUI();
+  }
+});
+
+// --- More sheet
+function trapFocusVisible(container, event) {
+  if (event.key !== 'Tab') return;
+  const focusables = Array.from(container.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+    .filter((el) => el.offsetParent !== null);
+  if (focusables.length === 0) return;
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+  if (!container.contains(document.activeElement)) {
+    event.preventDefault();
+    (event.shiftKey ? last : first).focus();
+  } else if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+function openMoreSheet() {
+  if (sheetOpen || !stageOpen || !moreSheetBackdrop) return;
+  sheetOpen = true;
+  moreSheetBackdrop.classList.remove('hidden');
+  moreSheetBackdrop.setAttribute('aria-hidden', 'false');
+  btnMoreSheet?.setAttribute('aria-expanded', 'true');
+  if ('inert' in activePlaybackView) activePlaybackView.inert = true;
+  updateBeatSyncUI();
+  updateOffsetUI();
+  pushNav('sheet');
+  setTimeout(() => { if (sheetOpen) btnCloseMoreSheet?.focus(); }, 50);
+}
+
+function closeMoreSheet({ restoreFocus = true, skipHistory = false, fromHistory = false } = {}) {
+  if (!sheetOpen) return;
+  sheetOpen = false;
+  moreSheetBackdrop.classList.add('hidden');
+  moreSheetBackdrop.setAttribute('aria-hidden', 'true');
+  btnMoreSheet?.setAttribute('aria-expanded', 'false');
+  if ('inert' in activePlaybackView) activePlaybackView.inert = false;
+  if (!skipHistory && !fromHistory) unwindNav('sheet');
+  if (restoreFocus && stageOpen) btnMoreSheet?.focus({ preventScroll: true });
+}
+
+btnMoreSheet?.addEventListener('click', openMoreSheet); // haptic tick comes from the dock listener
+btnCloseMoreSheet?.addEventListener('click', () => closeMoreSheet());
+moreSheetBackdrop?.addEventListener('click', (e) => {
+  if (e.target === moreSheetBackdrop) closeMoreSheet();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Tab' && sheetOpen && moreSheet) trapFocusVisible(moreSheet, e);
+});
+
+// Swipe the sheet's handle down to dismiss it
+if (moreSheetHandle && moreSheet) {
+  let startY = 0;
+  let currentY = 0;
+  moreSheetHandle.addEventListener('touchstart', (e) => {
+    startY = e.touches[0].clientY;
+    currentY = startY;
+  }, { passive: true });
+  moreSheetHandle.addEventListener('touchmove', (e) => {
+    currentY = e.touches[0].clientY;
+    const deltaY = currentY - startY;
+    if (deltaY > 0) moreSheet.style.transform = `translateY(${deltaY}px)`;
+  }, { passive: true });
+  moreSheetHandle.addEventListener('touchend', () => {
+    const deltaY = currentY - startY;
+    moreSheet.style.transform = '';
+    if (deltaY > 60) closeMoreSheet();
+    startY = 0;
+    currentY = 0;
+  });
+}
 
 // =====================================================================
 // Input Source 1: Microphone Recognition
@@ -789,16 +1265,14 @@ const mic = new MicSource({
   onIdentified: (track) => {
     micStatusTitle.textContent = 'Found!';
     micStatusSubtitle.textContent = `Found: ${track.title} - ${track.artist || track.artists}`;
+    haptic('success');
 
     // Route mic results into the sync engine. start:false — connecting must never
     // start another recording (that used to double-record every identification).
     if (engine.currentSource !== mic) {
       engine.connectSource(mic, { start: false, syncCurrent: false });
     }
-    if (activePlaybackView) {
-      activePlaybackView.classList.remove('hidden');
-      activePlaybackView.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    // The engine's onTrackChange opens the stage for the identified song.
   },
 
   onError: (errMsg, errorType) => {
@@ -819,7 +1293,7 @@ const mic = new MicSource({
       }
       if (micActionRow) {
         micActionRow.classList.remove('hidden');
-        micActionRow.innerHTML = `<button id="btnMicRetryPermission" class="btn btn-sm btn-spotify" type="button">↻ Retry Mic</button>`;
+        micActionRow.innerHTML = `<button id="btnMicRetryPermission" class="btn btn-sm btn-spotify" type="button">${icon('refresh', 'sm')} Retry Mic</button>`;
         const btnRetry = document.getElementById('btnMicRetryPermission');
         if (btnRetry) {
           btnRetry.addEventListener('click', () => {
@@ -900,6 +1374,8 @@ micConsentBackdrop.addEventListener('click', (e) => {
 // Re-sync Button (Acoustic re-anchor / song change detection)
 if (btnResync) {
   btnResync.addEventListener('click', async () => {
+    haptic('light');
+    closeMoreSheet();
     btnResync.classList.add('syncing');
     btnResync.disabled = true;
     showAlert('Re-listening to room audio to re-sync lyrics...', 'info');
@@ -965,7 +1441,7 @@ searchInput.addEventListener('input', (e) => {
     searchRequestSeq++;
     searchResults.innerHTML = `
       <div class="search-prompt">
-        <span class="search-prompt-icon" aria-hidden="true">🔍</span>
+        <span class="search-prompt-icon" aria-hidden="true">${icon('search', 'lg')}</span>
         <p>Type any song name above to find synced lyrics directly on LRCLIB.</p>
       </div>
     `;
@@ -1003,7 +1479,7 @@ btnClearSearch.addEventListener('click', () => {
   btnClearSearch.classList.add('hidden');
   searchResults.innerHTML = `
     <div class="search-prompt">
-      <span class="search-prompt-icon" aria-hidden="true">🔍</span>
+      <span class="search-prompt-icon" aria-hidden="true">${icon('search', 'lg')}</span>
       <p>Type any song name above to find synced lyrics directly on LRCLIB.</p>
     </div>
   `;
@@ -1035,7 +1511,7 @@ function renderSearchResults(tracks) {
       </div>
       <div class="search-item-action">
         <button class="btn-start-track" type="button" aria-label="Start lyrics playback for ${escapeHtml(track.title)}">
-          <span>▶ Start</span>
+          ${icon('play', 'sm')}<span>Start</span>
         </button>
       </div>
     `;
@@ -1174,11 +1650,12 @@ function loadingStateHtml(message) {
   `;
 }
 
-function stateWithActionHtml(message, buttonId, buttonLabel, role) {
+/** Empty / error state with one action button. `msgIcon` / `btnIcon` are optional sprite icon names. */
+function stateWithActionHtml(message, buttonId, buttonLabel, role, msgIcon, btnIcon) {
   return `
     <div class="charts-empty-state"${role ? ` role="${role}"` : ''}>
-      <p>${escapeHtml(message)}</p>
-      <button id="${buttonId}" class="btn btn-sm btn-ghost" type="button">${escapeHtml(buttonLabel)}</button>
+      <p>${msgIcon ? `${icon(msgIcon, 'sm')} ` : ''}${escapeHtml(message)}</p>
+      <button id="${buttonId}" class="btn btn-sm btn-ghost" type="button">${btnIcon ? `${icon(btnIcon, 'sm')} ` : ''}${escapeHtml(buttonLabel)}</button>
     </div>
   `;
 }
@@ -1304,7 +1781,7 @@ async function loadCharts(genre = 'all', forceRefresh = false) {
   } catch (err) {
     console.warn('Charts backend load error:', err);
 
-    chartsListContainer.innerHTML = stateWithActionHtml('⚠️ Unable to load charts right now.', 'btnRetryCharts', '↻ Try Again', 'alert');
+    chartsListContainer.innerHTML = stateWithActionHtml('Unable to load charts right now.', 'btnRetryCharts', 'Try Again', 'alert', 'alert', 'refresh');
     const btnRetry = document.getElementById('btnRetryCharts');
     if (btnRetry) {
       btnRetry.addEventListener('click', () => loadCharts(genre, true));
@@ -1331,7 +1808,10 @@ function renderCharts(songs) {
     chartsListContainer.innerHTML = stateWithActionHtml(
       filtered ? 'No tracks found for this genre. Check back shortly!' : 'No chart tracks right now. Check back shortly!',
       'btnChartsEmptyAction',
-      filtered ? 'Show all genres' : '↻ Refresh'
+      filtered ? 'Show all genres' : 'Refresh',
+      undefined,
+      undefined,
+      filtered ? undefined : 'refresh'
     );
     document.getElementById('btnChartsEmptyAction')?.addEventListener('click', () => {
       if (filtered) {
@@ -1357,13 +1837,13 @@ function renderCharts(songs) {
     const tagRow = (showGenreTag || rank <= 5)
       ? `<div class="chart-song-tag-row">
           ${showGenreTag ? `<span class="chart-genre-tag">${escapeHtml(song.genre)}</span>` : ''}
-          ${rank <= 5 ? '<span class="chart-fire-tag">🔥 Trending</span>' : ''}
+          ${rank <= 5 ? `<span class="chart-fire-tag">${icon('flame', 'sm')} Trending</span>` : ''}
         </div>`
       : '';
 
     card.innerHTML = `
       <div class="chart-rank-number">#${rank}</div>
-      ${mediaThumbHtml(song.albumArt, 'chart', '🎵', 48, 48)}
+      ${mediaThumbHtml(song.albumArt, 'chart', icon('music'), 48, 48)}
       <div class="chart-song-meta">
         <div class="chart-song-title" title="${escapeHtml(song.title)}">${escapeHtml(song.title)}</div>
         <div class="chart-song-artist" title="${escapeHtml(song.artist)}">${escapeHtml(song.artist)}</div>
@@ -1371,7 +1851,7 @@ function renderCharts(songs) {
       </div>
       <div class="chart-song-action">
         <button class="btn-chart-play btn-chart-play--icon" type="button" aria-label="Play synced lyrics for #${rank}: ${escapeHtml(song.title)} by ${escapeHtml(song.artist)}">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><polygon points="7 4 20 12 7 20 7 4"/></svg>
+          ${icon('play', 'sm')}
           <span class="btn-label">Play</span>
         </button>
       </div>
@@ -1393,10 +1873,7 @@ function renderCharts(songs) {
         durationEstimated: true,
         source: 'chart'
       }, true);
-      showAlert(`▶ Lyrics for #${rank}: "${song.title}"`, 'success');
-      if (activePlaybackView) {
-        activePlaybackView.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
-      }
+      showAlert(`Lyrics for #${rank}: "${song.title}"`, 'success');
     };
 
     // Pointer users can tap anywhere on the row; keyboard / screen-reader users use the Play button
@@ -1486,7 +1963,7 @@ async function loadNews(sourceFilter = 'all', forceRefresh = false) {
     renderNews(data.articles || [], sourceFilter);
   } catch (err) {
     console.warn('News load error:', err);
-    newsListContainer.innerHTML = stateWithActionHtml('⚠️ Unable to load music news right now.', 'btnRetryNews', '↻ Try Again', 'alert');
+    newsListContainer.innerHTML = stateWithActionHtml('Unable to load music news right now.', 'btnRetryNews', 'Try Again', 'alert', 'alert', 'refresh');
     const btnRetry = document.getElementById('btnRetryNews');
     if (btnRetry) {
       btnRetry.addEventListener('click', () => loadNews(sourceFilter, true));
@@ -1517,7 +1994,10 @@ function renderNews(articles, sourceFilter = 'all') {
     newsListContainer.innerHTML = stateWithActionHtml(
       narrowed ? 'No headlines found for this publication. Check back soon!' : 'No headlines right now. Check back soon!',
       'btnNewsEmptyAction',
-      narrowed ? 'Show all stories' : '↻ Refresh'
+      narrowed ? 'Show all stories' : 'Refresh',
+      undefined,
+      undefined,
+      narrowed ? undefined : 'refresh'
     );
     document.getElementById('btnNewsEmptyAction')?.addEventListener('click', () => {
       if (narrowed) {
@@ -1553,7 +2033,7 @@ function renderNews(articles, sourceFilter = 'all') {
     }
 
     card.innerHTML = `
-      ${cleanImg ? mediaThumbHtml(cleanImg, 'news', '📰', 96, 60) : ''}
+      ${cleanImg ? mediaThumbHtml(cleanImg, 'news', icon('newspaper'), 96, 60) : ''}
       <div class="news-article-content">
         <div>
           <div class="news-article-badge-row">
@@ -1873,27 +2353,38 @@ function activateTab(targetTab) {
     t.setAttribute('aria-selected', isCurrent ? 'true' : 'false');
   });
 
-  Object.keys(tabPanels).forEach(key => {
-    if (tabPanels[key]) {
-      tabPanels[key].classList.toggle('hidden', key !== targetTab);
-    }
-  });
+  // While the stage is open the tab panels stay hidden underneath it; collapsing the stage shows them again.
+  if (stageOpen) {
+    Object.values(tabPanels).forEach((el) => el?.classList.add('hidden'));
+  } else {
+    Object.keys(tabPanels).forEach(key => {
+      if (tabPanels[key]) {
+        tabPanels[key].classList.toggle('hidden', key !== targetTab);
+      }
+    });
+  }
+
+  // Browsing (Listen / Search / Discover) must not end the song shown in the mini player: the source that
+  // owns the live track keeps running. Phone and Connect tabs deliberately hand over to their own source.
+  const browsing = ['mic', 'search', 'charts', 'news'].includes(targetTab);
+  const keepLive = Boolean(engine.track) && browsing;
+  const liveOwner = keepLive ? engine.currentSource : null;
 
   // Tear down previous sources
   if (targetTab !== 'mic') {
     // Also cancels a pending upload and the auto re-listen timer.
     mic.stop();
   }
-  if (targetTab !== 'connect' && targetTab !== 'spotify' && spotifySource.isRunning) {
+  if (targetTab !== 'connect' && targetTab !== 'spotify' && spotifySource.isRunning && liveOwner !== spotifySource) {
     spotifySource.stop();
   }
-  if (targetTab !== 'connect' && targetTab !== 'lastfm' && lastfm.isRunning) {
+  if (targetTab !== 'connect' && targetTab !== 'lastfm' && lastfm.isRunning && liveOwner !== lastfm) {
     lastfm.stop();
   }
-  if (targetTab !== 'search' && searchSource.isPlaying) {
+  if (targetTab !== 'search' && searchSource.isPlaying && liveOwner !== searchSource) {
     searchSource.stop();
   }
-  if (targetTab !== 'phone' && phoneSource.isRunning) {
+  if (targetTab !== 'phone' && phoneSource.isRunning && liveOwner !== phoneSource) {
     phoneSource.stop();
   }
 
@@ -1916,27 +2407,36 @@ function activateTab(targetTab) {
     engine.loadOffsetForSource('lastfm');
     updateOffsetUI();
   } else if (targetTab === 'search') {
-    engine.connectSource(searchSource);
-    engine.loadOffsetForSource('search');
-    updateOffsetUI();
+    // Every "play" action connects searchSource itself, so a live track on another source is left alone.
+    if (!keepLive) {
+      engine.connectSource(searchSource);
+      engine.loadOffsetForSource('search');
+      updateOffsetUI();
+    }
   } else if (targetTab === 'charts') {
-    engine.connectSource(searchSource);
-    engine.loadOffsetForSource('search');
-    updateOffsetUI();
+    if (!keepLive) {
+      engine.connectSource(searchSource);
+      engine.loadOffsetForSource('search');
+      updateOffsetUI();
+    }
     if (!cachedChartData) {
       loadCharts(currentChartGenre);
     }
   } else if (targetTab === 'news') {
-    engine.connectSource(searchSource);
-    engine.loadOffsetForSource('search');
-    updateOffsetUI();
+    if (!keepLive) {
+      engine.connectSource(searchSource);
+      engine.loadOffsetForSource('search');
+      updateOffsetUI();
+    }
     if (!cachedNewsData) {
       loadNews(currentNewsSource);
     }
   } else if (targetTab === 'mic') {
-    engine.connectSource(null);
-    engine.loadOffsetForSource('mic');
-    updateOffsetUI();
+    if (!keepLive) {
+      engine.connectSource(null);
+      engine.loadOffsetForSource('mic');
+      updateOffsetUI();
+    }
   }
 }
 
@@ -1958,10 +2458,11 @@ discoverButtons.forEach((btn) => {
 
 document.querySelectorAll('.segmented[role="tablist"]').forEach(enableTablistKeys);
 
-// Now Playing compact bar interactions:
-// 1. Listen again: triggers microphone listening immediately
+// "Listen again" (More sheet): collapse the stage, go to the Listen tab and start the microphone immediately.
 if (btnListenAgain) {
   btnListenAgain.addEventListener('click', () => {
+    haptic('light');
+    closeStage({ restoreFocus: false }); // also closes the sheet
     const micTab = document.getElementById('tabMic');
     if (micTab) micTab.click();
     if (!mic.isListening) {
@@ -1970,17 +2471,6 @@ if (btnListenAgain) {
       } else {
         mic.start();
       }
-    }
-  });
-}
-
-// 2. Switch source from compact bar: reveals full source nav or cycles
-if (btnSwitchSourceCompact) {
-  btnSwitchSourceCompact.addEventListener('click', () => {
-    // Show active tab panel if hidden
-    const activePanel = tabPanels[activeTab] || tabPanels.mic;
-    if (activePanel) {
-      activePanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   });
 }
@@ -2018,6 +2508,11 @@ btnPlayPause.addEventListener('click', () => {
   engine.togglePlay();
 });
 
+// Light haptic tick on every dock button (play/pause, seek, nudge, more)
+document.querySelector('.control-dock')?.addEventListener('click', (e) => {
+  if (e.target.closest('.dock-btn')) haptic('light');
+});
+
 btnSeekBack.addEventListener('click', () => {
   engine.seekBy(-5);
 });
@@ -2051,9 +2546,15 @@ progressTrack.addEventListener('keydown', (e) => {
 // Lyrics & OLED Reel Display Rendering
 // =====================================================================
 
+/** Lyrics status badge text with a sprite icon in front. */
+function setLyricsStatus(iconName, text) {
+  lyricsStatusText.innerHTML = `${icon(iconName, 'sm')} ${escapeHtml(text)}`;
+}
+
 function renderLyricsState(lyrics) {
   lineElements = [];
   reelWordElements = [];
+  reelWordStates = [];
   lyricsContent.innerHTML = '';
   lyricsStatusBadge.className = 'lyrics-badge';
 
@@ -2076,7 +2577,7 @@ function renderLyricsState(lyrics) {
 
   if (lyrics.status === 'synced' && lyrics.syncedLines.length > 0) {
     lyricsStatusBadge.classList.add('synced');
-    lyricsStatusText.textContent = '✨ Synced Lyrics';
+    setLyricsStatus('sparkles', 'Synced Lyrics');
 
     // If no offset was returned by provider, show "Tap the line you're hearing" banner
     if (tapLineBanner) {
@@ -2111,7 +2612,7 @@ function renderLyricsState(lyrics) {
 
   } else if (lyrics.status === 'plain' && lyrics.plainLyrics) {
     lyricsStatusBadge.classList.add('plain');
-    lyricsStatusText.textContent = '📄 Plain Lyrics';
+    setLyricsStatus('file-text', 'Plain Lyrics');
     lyricsContent.innerHTML = `<div class="plain-lyrics-wrap">${escapeHtml(lyrics.plainLyrics)}</div>`;
     reelLineText.innerHTML = '<span class="reel-placeholder-text">Plain lyrics (scroll below)</span>';
     reelPrevLine.textContent = '';
@@ -2119,15 +2620,15 @@ function renderLyricsState(lyrics) {
 
   } else if (lyrics.status === 'instrumental') {
     lyricsStatusBadge.classList.add('instrumental');
-    lyricsStatusText.textContent = '🎷 Instrumental';
+    setLyricsStatus('music', 'Instrumental');
     lyricsContent.innerHTML = `
       <div class="lyrics-empty-state">
-        <div class="lyrics-empty-icon">🎷</div>
+        <div class="lyrics-empty-icon">${icon('music', 'lg')}</div>
         <div class="lyrics-empty-msg">Instrumental Track</div>
         <p class="lyrics-empty-sub">This recording is registered as instrumental with no spoken lyrics. Enjoy the music!</p>
       </div>
     `;
-    reelLineText.innerHTML = '<span class="reel-placeholder-text">🎷 Instrumental</span>';
+    reelLineText.innerHTML = '<span class="reel-placeholder-text">♪ Instrumental</span>';
     reelPrevLine.textContent = '';
     reelNextLine.textContent = '';
 
@@ -2135,7 +2636,9 @@ function renderLyricsState(lyrics) {
     lyricsStatusBadge.classList.add('plain');
     const isOffline = !navigator.onLine;
     const isQuota = lyrics.status === 'quota' || (lyrics.message && lyrics.message.includes('429'));
-    lyricsStatusText.textContent = isOffline ? '⚠️ Offline' : (isQuota ? '⏳ Provider Busy' : '⚠️ Lyric Error');
+    if (isOffline) setLyricsStatus('wifi-off', 'Offline');
+    else if (isQuota) setLyricsStatus('clock', 'Provider Busy');
+    else setLyricsStatus('alert', 'Lyric Error');
     
     let errorTitle = 'Unable to Load Lyrics';
     let errorDesc = escapeHtml(lyrics.message || 'Check your internet connection or try searching again.');
@@ -2149,12 +2652,12 @@ function renderLyricsState(lyrics) {
 
     lyricsContent.innerHTML = `
       <div class="lyrics-empty-state">
-        <div class="lyrics-empty-icon">${isOffline ? '📡' : (isQuota ? '⏳' : '⚠️')}</div>
+        <div class="lyrics-empty-icon">${icon(isOffline ? 'wifi-off' : (isQuota ? 'clock' : 'alert'), 'lg')}</div>
         <div class="lyrics-empty-msg">${errorTitle}</div>
         <p class="lyrics-empty-sub">${errorDesc}</p>
         <div class="lyrics-empty-actions">
           <button id="btnRetryLyrics" class="btn btn-sm btn-spotify" type="button">
-            ↻ Try Again
+            ${icon('refresh', 'sm')} Try Again
           </button>
         </div>
       </div>
@@ -2178,20 +2681,22 @@ function renderLyricsState(lyrics) {
     const fromMic = t.source === 'mic';
     lyricsContent.innerHTML = `
       <div class="lyrics-empty-state">
-        <div class="lyrics-empty-icon">📝</div>
+        <div class="lyrics-empty-icon">${icon('file-text', 'lg')}</div>
         <div class="lyrics-empty-msg">No lyrics for this song yet</div>
         ${songLabel ? `<p class="lyrics-empty-song">${escapeHtml(songLabel)}</p>` : ''}
         <p class="lyrics-empty-sub">${fromMic
           ? 'Wrong song? Listen again near the speaker. Right song? Search other versions below.'
           : 'LRCLIB has no lyrics for this release. Try searching another version of the song.'}</p>
         <div class="lyrics-empty-actions">
-          <button id="btnSearchLyricsManual" class="btn btn-sm btn-spotify" type="button">🔍 Search other versions</button>
-          ${fromMic ? '<button id="btnRelistenFromEmpty" class="btn btn-sm btn-ghost" type="button">🎙️ Listen again</button>' : ''}
+          <button id="btnSearchLyricsManual" class="btn btn-sm btn-spotify" type="button">${icon('search', 'sm')} Search other versions</button>
+          ${fromMic ? `<button id="btnRelistenFromEmpty" class="btn btn-sm btn-ghost" type="button">${icon('mic', 'sm')} Listen again</button>` : ''}
         </div>
       </div>
     `;
     document.getElementById('btnSearchLyricsManual')?.addEventListener('click', () => {
       // Open Search pre-filled with the identified song and run it straight away.
+      // The stage collapses to the mini player so the Search tab is actually visible.
+      closeStage({ restoreFocus: false });
       const query = `${t.artist && t.artist !== 'Unknown Artist' ? t.artist + ' ' : ''}${cleanTitleForSearch(t.title || '')}`.trim();
       document.getElementById('tabSearch')?.click();
       if (searchInput && query) {
@@ -2219,6 +2724,7 @@ function updateReelLine(lineIndex) {
     reelPrevLine.textContent = '';
     reelNextLine.textContent = lines[0]?.text || '';
     reelWordElements = [];
+    reelWordStates = [];
     reel.setActiveLine(null, -1);
     return;
   }
@@ -2244,6 +2750,9 @@ function updateReelLine(lineIndex) {
   const rawWords = currentLine.text.trim().split(/\s+/).filter(Boolean);
   reelLineText.innerHTML = '';
   reelWordElements = [];
+  reelWordStates = [];
+  shownWordIdx = -2;
+  shownWordProgress = -1;
 
   if (rawWords.length === 0) {
     reelLineText.innerHTML = '<span class="reel-placeholder-text">♪</span>';
@@ -2257,6 +2766,7 @@ function updateReelLine(lineIndex) {
     span.textContent = word;
     fragment.appendChild(span);
     reelWordElements.push(span);
+    reelWordStates.push(-1);
   });
   reelLineText.appendChild(fragment);
 }
@@ -2289,6 +2799,8 @@ if (btnToggleOffset) {
   btnToggleOffset.addEventListener('click', () => {
     isOffsetDrawerOpen = !isOffsetDrawerOpen;
     offsetDrawer.classList.toggle('hidden', !isOffsetDrawerOpen);
+    btnToggleOffset.setAttribute('aria-expanded', isOffsetDrawerOpen ? 'true' : 'false');
+    btnToggleOffset.classList.toggle('active', isOffsetDrawerOpen);
   });
 }
 
@@ -2442,13 +2954,17 @@ async function applyAlbumAdaptivePalette(imgSrc) {
       stageArtBackdrop.style.backgroundImage = `url("${imgSrc}")`;
       stageArtBackdrop.classList.remove('hidden');
     }
+
+    // The adaptive palette may have shifted the background tokens: refresh the system bars.
+    syncChromeColor();
   };
 }
 
 function applyTheme(themeName) {
+  if (!THEME_IDS.includes(themeName)) themeName = getDefaultTheme();
   currentTheme = themeName;
   document.documentElement.setAttribute('data-theme', themeName);
-  localStorage.setItem(STORAGE_THEME_KEY, themeName);
+  safeSet(STORAGE_THEME_KEY, themeName);
   reel.setTheme(themeName);
 
   // Clear or apply adaptive properties
@@ -2488,6 +3004,9 @@ function applyTheme(themeName) {
   }
 
   if (settingThemeSelect) settingThemeSelect.value = themeName;
+
+  // System bars / browser chrome follow the theme background (read after the new data-theme resolved).
+  syncChromeColor();
 }
 
 function applyFontScale(percent) {
@@ -2503,17 +3022,27 @@ function setWordMode(enabled) {
   localStorage.setItem(STORAGE_WORD_MODE_KEY, enabled.toString());
   reel.setWordByWordMode(enabled);
   btnToggleWordMode.classList.toggle('active', enabled);
+  btnToggleWordMode.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+  if (wordModeValue) wordModeValue.textContent = enabled ? 'On' : 'Off';
   if (settingWordMode) settingWordMode.checked = enabled;
+  reelWordStates.fill(-1);
 }
 
 function toggleFullscreen() {
-  if (!document.fullscreenElement) {
-    if (reelContainer.requestFullscreen) reelContainer.requestFullscreen();
-    else if (reelContainer.webkitRequestFullscreen) reelContainer.webkitRequestFullscreen();
-  } else {
-    if (document.exitFullscreen) document.exitFullscreen();
-    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-  }
+  try {
+    if (!document.fullscreenElement) {
+      if (!stageOpen) return; // the reel is only on screen while the stage is open
+      const req = reelContainer.requestFullscreen
+        ? reelContainer.requestFullscreen()
+        : (reelContainer.webkitRequestFullscreen ? reelContainer.webkitRequestFullscreen() : null);
+      req?.catch?.(() => {});
+    } else {
+      const ex = document.exitFullscreen
+        ? document.exitFullscreen()
+        : (document.webkitExitFullscreen ? document.webkitExitFullscreen() : null);
+      ex?.catch?.(() => {});
+    }
+  } catch {}
 }
 
 function trapFocus(modalElement, event) {
@@ -2536,7 +3065,10 @@ function trapFocus(modalElement, event) {
   }
 }
 
+let settingsOpener = null;
+
 function openSettings() {
+  settingsOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   settingsBackdrop.classList.remove('hidden');
   settingsBackdrop.setAttribute('aria-hidden', 'false');
   // Focus the close button or first actionable element
@@ -2548,8 +3080,13 @@ function openSettings() {
 function closeSettings() {
   settingsBackdrop.classList.add('hidden');
   settingsBackdrop.setAttribute('aria-hidden', 'true');
-  // Always return focus to the gear button on close
-  btnOpenSettings?.focus();
+  // Return focus to whatever opened the dialog; the header gear when that is gone (or inert behind the stage).
+  const opener = settingsOpener;
+  settingsOpener = null;
+  const usable = opener && opener.isConnected && opener.offsetParent !== null && !opener.closest('[inert]');
+  if (usable) opener.focus();
+  else if (stageOpen) btnMoreSheet?.focus({ preventScroll: true });
+  else btnOpenSettings?.focus();
 }
 
 btnOpenSettings.addEventListener('click', openSettings);
@@ -2584,10 +3121,18 @@ function closeShortcuts() {
   if (shortcutsBackdrop) {
     shortcutsBackdrop.classList.add('hidden');
     shortcutsBackdrop.setAttribute('aria-hidden', 'true');
+    if (stageOpen) btnMoreSheet?.focus({ preventScroll: true });
   }
 }
 
-if (btnOpenShortcuts) btnOpenShortcuts.addEventListener('click', openShortcuts);
+if (btnOpenShortcuts) btnOpenShortcuts.addEventListener('click', () => {
+  closeMoreSheet({ restoreFocus: false });
+  openShortcuts();
+});
+btnMoreOpenSettings?.addEventListener('click', () => {
+  closeMoreSheet({ restoreFocus: false });
+  openSettings();
+});
 if (btnCloseShortcuts) btnCloseShortcuts.addEventListener('click', closeShortcuts);
 if (btnDoneShortcuts) btnDoneShortcuts.addEventListener('click', closeShortcuts);
 if (shortcutsBackdrop) {
@@ -2644,18 +3189,42 @@ window.addEventListener('keydown', (e) => {
       micConsentBackdrop.classList.add('hidden');
       return;
     }
+    if (sheetOpen) {
+      closeMoreSheet();
+      return;
+    }
     if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => {});
+      return;
+    }
+    // Escape collapses the stage to the mini player.
+    if (stageOpen) {
+      closeStage({ userInitiated: true });
       return;
     }
   }
 
   if (isInputActive) return;
+  if (e.defaultPrevented) return; // a focused control (e.g. the seek slider) already handled this key
 
-  // 'Space': Toggle microphone listening (or play/pause if playing a search track)
+  // 'Space': play / pause on the stage; otherwise toggle microphone listening (or play/pause a search track)
   if (e.code === 'Space' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    const overlayOpen = sheetOpen
+      || !settingsBackdrop.classList.contains('hidden')
+      || (shortcutsBackdrop && !shortcutsBackdrop.classList.contains('hidden'))
+      || (micConsentBackdrop && !micConsentBackdrop.classList.contains('hidden'));
+    if (overlayOpen) return;
+    // On the stage, real controls keep their native Space behaviour (except the collapse button, which has
+    // focus right after the stage opens); elsewhere Space keeps meaning "listen" as before.
+    if (stageOpen) {
+      const control = e.target instanceof Element
+        ? e.target.closest('button, a[href], [role="tab"], [role="radio"], [role="slider"], summary')
+        : null;
+      if (control && control !== btnStageCollapse) return;
+    }
     e.preventDefault();
-    if (searchSource.isPlaying) {
+    if (stageOpen || searchSource.isPlaying) {
+      haptic('light');
       engine.togglePlay();
     } else {
       btnMicListen?.click();
@@ -2741,13 +3310,21 @@ themePills.forEach((btn) => {
   btn.addEventListener('click', () => applyTheme(btn.dataset.theme));
 });
 
-btnToggleWordMode.addEventListener('click', () => setWordMode(!isWordMode));
-btnFullscreen.addEventListener('click', toggleFullscreen);
+btnToggleWordMode.addEventListener('click', () => {
+  haptic('light');
+  setWordMode(!isWordMode);
+});
+btnFullscreen.addEventListener('click', () => {
+  closeMoreSheet({ restoreFocus: false });
+  toggleFullscreen();
+});
+btnReelExitFs?.addEventListener('click', toggleFullscreen);
 
 document.addEventListener('fullscreenchange', () => {
   const isFs = Boolean(document.fullscreenElement);
   document.body.classList.toggle('fullscreen-reel-mode', isFs);
-  fsLabel.textContent = isFs ? 'Exit' : 'Fullscreen';
+  fsLabel.textContent = isFs ? 'Exit fullscreen' : 'Fullscreen';
+  btnReelExitFs?.classList.toggle('hidden', !isFs);
   resetCursorIdleTimer();
   reel.resizeCanvas();
 
@@ -2764,6 +3341,7 @@ if (themeCards && themeCards.length > 0) {
     card.addEventListener('click', () => {
       const theme = card.dataset.themeCard;
       if (theme) {
+        haptic('confirm');
         applyTheme(theme);
       }
     });
@@ -2778,6 +3356,14 @@ if (settingFontSize) {
 }
 if (settingWordMode) {
   settingWordMode.addEventListener('change', (e) => setWordMode(e.target.checked));
+}
+if (settingHaptics) {
+  settingHaptics.checked = hapticsEnabled;
+  settingHaptics.addEventListener('change', (e) => {
+    hapticsEnabled = e.target.checked;
+    safeSet(STORAGE_HAPTICS_KEY, hapticsEnabled ? 'true' : 'false');
+    if (hapticsEnabled) haptic('confirm'); // let the user feel what they just turned on
+  });
 }
 if (settingOffsetSlider) {
   settingOffsetSlider.addEventListener('input', (e) => setOffset(parseInt(e.target.value, 10)));
@@ -2878,6 +3464,12 @@ if (btnResetDefaults) {
     // 4. Reset sync latency offset to 0
     setOffset(0);
 
+    // 4b. Lyric animation back to Pulse, haptics back on
+    setAnimStyle(DEFAULT_ANIM_STYLE);
+    hapticsEnabled = true;
+    safeSet(STORAGE_HAPTICS_KEY, 'true');
+    if (settingHaptics) settingHaptics.checked = true;
+
     // 5. Turn off debug diagnostics
     if (settingDebugMode) {
       settingDebugMode.checked = false;
@@ -2951,7 +3543,7 @@ function setupNetworkMonitoring() {
     } else {
       if (!offlineBanner.classList.contains('hidden')) {
         offlineBanner.classList.add('recovered');
-        offlineBannerText.textContent = '✓ Back online!';
+        offlineBannerText.textContent = 'Back online!';
         setTimeout(() => offlineBanner.classList.add('hidden'), 3000);
       }
     }
@@ -2967,10 +3559,10 @@ function setupNetworkMonitoring() {
  * warning after 6s, danger stays until closed. Timers pause while the toast is hovered or focused.
  */
 const TOAST_ICONS = {
-  info: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
-  success: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
-  warning: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
-  danger: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
+  info: icon('info'),
+  success: icon('check'),
+  warning: icon('alert'),
+  danger: icon('alert')
 };
 const TOAST_DURATION_MS = { info: 3500, success: 3500, warning: 6000, danger: 0 };
 const TOAST_EXIT_MS = 300;
@@ -3103,6 +3695,7 @@ async function init() {
   applyTheme(currentTheme);
   applyFontScale(currentFontScale);
   setWordMode(isWordMode);
+  setAnimStyle(currentAnimStyle, { persist: false });
   updateOffsetUI();
   renderRecentSongs();
 
@@ -3113,14 +3706,14 @@ async function init() {
 
     if (isConfigured) {
       devClientIdStatus.className = 'dev-status-row ok';
-      devClientIdStatus.innerHTML = '<span>✓ Client ID: Configured</span>';
+      devClientIdStatus.innerHTML = `<span>${icon('check', 'sm')} Client ID: Configured</span>`;
     } else {
       devClientIdStatus.className = 'dev-status-row warn';
-      devClientIdStatus.innerHTML = '<span>⚠️ Client ID: Unconfigured in config.js</span>';
+      devClientIdStatus.innerHTML = `<span>${icon('alert', 'sm')} Client ID: Unconfigured in config.js</span>`;
     }
 
     devRedirectStatus.className = 'dev-status-row ok';
-    devRedirectStatus.innerHTML = `<span>✓ Redirect URI: ${escapeHtml(CONFIG.REDIRECT_URI)}</span>`;
+    devRedirectStatus.innerHTML = `<span>${icon('check', 'sm')} Redirect URI: ${escapeHtml(CONFIG.REDIRECT_URI)}</span>`;
   } else {
     devModeBanner.classList.add('hidden');
   }
@@ -3165,6 +3758,8 @@ async function init() {
   // 7. Share Button: Copies a deep link (?q=artist+title)
   if (btnShareSong) {
     btnShareSong.addEventListener('click', async () => {
+      haptic('light');
+      closeMoreSheet();
       const track = engine.track;
       if (!track || !track.title) {
         showAlert('No track is currently loaded to share.', 'warning');

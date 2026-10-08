@@ -132,6 +132,18 @@
     </section>
 
     <section>
+      <h2>2b. Beat Sync (Android app, optional)</h2>
+      <p>
+        The "Pulse" lyric animation can react to the beat and vocals of the music playing on your phone. To do this, LyricWave uses Android's audio visualizer to read the <strong>loudness levels</strong> (a frequency spectrum) of the audio output, about 20 times per second.
+      </p>
+      <ul>
+        <li>Android requires the <strong>microphone/audio permission</strong> for this, but the microphone is not used and <strong>no sound is recorded</strong>.</li>
+        <li>Only a handful of numbers (bass, vocal and overall levels, and beat timing) are calculated on your device to animate the lyrics. Nothing is stored or sent anywhere.</li>
+        <li>It only runs while the lyrics screen is open and the app is on screen. If you don't grant the permission, the animation follows the rhythm of the lyrics instead.</li>
+      </ul>
+    </section>
+
+    <section>
       <h2>3. Third-Party Services</h2>
       <ul>
         <li><strong>Spotify (optional):</strong> connects through Spotify's OAuth 2.0 PKCE flow and requests <code>user-read-currently-playing</code>, <code>user-read-playback-state</code> and <code>user-read-private</code> (used to show your display name and profile picture). Access and refresh tokens and your cached Spotify profile are stored in this app's <strong>local storage on your device</strong>; they are sent only to Spotify, never to LyricWave servers. You can disconnect in the app or revoke access in your Spotify account settings.</li>
