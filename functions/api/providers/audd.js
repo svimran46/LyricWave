@@ -180,6 +180,17 @@ export class AudDProvider extends RecognitionProvider {
     // Extract Spotify track ID if available
     const spotifyTrackId = target.spotify?.id || null;
 
+    // Canonical names from linked catalogs help lyric lookup (see acrcloud.js).
+    const lookupCandidates = [];
+    const addCand = (t, a) => {
+      if (t && !lookupCandidates.some(c => c.title === t && c.artist === (a || ''))) {
+        lookupCandidates.push({ title: String(t), artist: String(a || ''), duration });
+      }
+    };
+    addCand(target.spotify?.name, (target.spotify?.artists || []).map(x => x?.name).filter(Boolean).join(', '));
+    addCand(target.apple_music?.name, target.apple_music?.artistName);
+    addCand(title, artist);
+
     return {
       success: true,
       title,
@@ -189,6 +200,7 @@ export class AudDProvider extends RecognitionProvider {
       offsetMs,
       confidence,
       provider: this.name,
+      lookupCandidates,
       raw: {
         songLink: target.song_link || null,
         releaseDate: target.release_date || null,

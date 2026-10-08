@@ -2017,23 +2017,36 @@ function renderLyricsState(lyrics) {
 
   } else {
     lyricsStatusText.textContent = 'No Lyrics';
+    const t = engine.track || {};
+    const songLabel = t.title ? `${t.title}${t.artist ? ' — ' + t.artist : ''}` : '';
+    const fromMic = t.source === 'mic';
     lyricsContent.innerHTML = `
       <div class="lyrics-empty-state">
         <div class="lyrics-empty-icon">📝</div>
-        <div class="lyrics-empty-msg">No Synced Lyrics Found</div>
-        <p class="lyrics-empty-sub">We could not locate synchronized words for this specific release on LRCLIB yet.</p>
-        <button id="btnSearchLyricsManual" class="btn btn-sm btn-ghost" type="button" style="border:1px solid var(--border);width:auto;margin-top:0.4rem;">
-          🔍 Search Alternative Title
-        </button>
+        <div class="lyrics-empty-msg">No lyrics for this song yet</div>
+        ${songLabel ? `<p class="lyrics-empty-song">${escapeHtml(songLabel)}</p>` : ''}
+        <p class="lyrics-empty-sub">${fromMic
+          ? 'Wrong song? Listen again near the speaker. Right song? Search other versions below.'
+          : 'LRCLIB has no lyrics for this release. Try searching another version of the song.'}</p>
+        <div class="lyrics-empty-actions">
+          <button id="btnSearchLyricsManual" class="btn btn-sm btn-spotify" type="button">🔍 Search other versions</button>
+          ${fromMic ? '<button id="btnRelistenFromEmpty" class="btn btn-sm btn-ghost" type="button">🎙️ Listen again</button>' : ''}
+        </div>
       </div>
     `;
-    const searchAltBtn = document.getElementById('btnSearchLyricsManual');
-    if (searchAltBtn) {
-      searchAltBtn.addEventListener('click', () => {
-        const searchTab = document.getElementById('tabSearch');
-        if (searchTab) searchTab.click();
-      });
-    }
+    document.getElementById('btnSearchLyricsManual')?.addEventListener('click', () => {
+      // Open Search pre-filled with the identified song and run it straight away.
+      const query = `${t.artist && t.artist !== 'Unknown Artist' ? t.artist + ' ' : ''}${cleanTitleForSearch(t.title || '')}`.trim();
+      document.getElementById('tabSearch')?.click();
+      if (searchInput && query) {
+        searchInput.value = query;
+        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        searchInput.focus({ preventScroll: true });
+      }
+    });
+    document.getElementById('btnRelistenFromEmpty')?.addEventListener('click', () => {
+      btnListenAgain?.click();
+    });
     reelLineText.innerHTML = '<span class="reel-placeholder-text">No lyrics found on LRCLIB</span>';
     reelPrevLine.textContent = '';
     reelNextLine.textContent = '';
@@ -2810,6 +2823,15 @@ function formatMs(ms) {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+/** Drop "(Remastered 2011)", "- Live", "feat. X" etc. so the search finds every version. */
+function cleanTitleForSearch(title) {
+  return String(title || '')
+    .replace(/\s*[\(\[].*?[\)\]]/g, '')
+    .replace(/\s+-\s+.*$/, '')
+    .replace(/\s*(feat\.|ft\.|featuring)\s.*$/i, '')
+    .trim() || String(title || '');
 }
 
 function escapeHtml(str) {

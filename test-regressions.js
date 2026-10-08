@@ -232,5 +232,59 @@ console.log('--- 9. SpotifySource drops responses that arrive after stop() ---')
   globalThis.fetch = realFetch;
 }
 
+// 10. Lyric lookup falls back to recognizer candidates / duration-matched title search ---
+console.log('--- 10. Lyric lookup fallbacks after a mic match ---');
+{
+  const { fetchLyrics, titlesMatch } = await import('./lyrics.js');
+  assert(titlesMatch('Get Lucky', 'Get Lucky (Radio Edit)') === true, 'titlesMatch tolerates suffixes');
+  assert(titlesMatch('Hello', 'Hello Kitty Song') === true, 'titlesMatch containment on word boundary');
+  assert(titlesMatch('Go', 'Gone') === false, 'titlesMatch rejects short partial words');
+
+  const calls = [];
+  const lrc = '[00:01.00]first line\n[00:05.00]second line';
+  globalThis.fetch = async (url) => {
+    const u = new URL(url);
+    calls.push(u.pathname + '?' + u.searchParams.toString());
+    const q = Object.fromEntries(u.searchParams);
+    // Only the canonical (Spotify) spelling exists on LRCLIB.
+    if (u.pathname === '/api/get' && q.track_name === 'Gangnam Style' && q.artist_name === 'PSY') {
+      return { ok: true, status: 200, json: async () => ({ id: 7, trackName: 'Gangnam Style', artistName: 'PSY', duration: 219, syncedLyrics: lrc }) };
+    }
+    if (u.pathname === '/api/search') return { ok: true, status: 200, json: async () => [] };
+    return { ok: false, status: 404, json: async () => ({}) };
+  };
+  const res = await fetchLyrics({
+    id: 'mic-acr-1', title: '강남스타일', artist: '싸이', durationMs: 219000,
+    lookupCandidates: [{ title: 'Gangnam Style', artist: 'PSY', duration: 219 }]
+  });
+  assert(res.status === 'synced' && res.syncedLines.length === 2, 'Localized ACRCloud title resolved via canonical candidate');
+
+  globalThis.fetch = async (url) => {
+    const u = new URL(url);
+    if (u.pathname === '/api/search' && u.searchParams.get('track_name') === 'Blinding Lights' && !u.searchParams.get('artist_name')) {
+      return { ok: true, status: 200, json: async () => [
+        { id: 1, trackName: 'Blinding Lights', artistName: 'Some Cover Band', duration: 150, syncedLyrics: '[00:01.00]cover' },
+        { id: 2, trackName: 'Blinding Lights', artistName: 'The Weeknd', duration: 200, syncedLyrics: lrc }
+      ] };
+    }
+    if (u.pathname === '/api/search') return { ok: true, status: 200, json: async () => [] };
+    return { ok: false, status: 404, json: async () => ({}) };
+  };
+  const res2 = await fetchLyrics({ id: 'mic-acr-2', title: 'Blinding Lights', artist: 'Weeknd, The', durationMs: 201000 });
+  assert(res2.status === 'synced' && res2.lrclibId === 2, 'Title-only search picks the version whose length matches (±3s)');
+
+  globalThis.fetch = async (url) => {
+    const u = new URL(url);
+    if (u.pathname === '/api/search' && u.searchParams.get('q')) {
+      return { ok: true, status: 200, json: async () => [{ id: 9, trackName: 'A Different Song', artistName: 'Adele', duration: 250, syncedLyrics: lrc }] };
+    }
+    if (u.pathname === '/api/search') return { ok: true, status: 200, json: async () => [] };
+    return { ok: false, status: 404, json: async () => ({}) };
+  };
+  const res3 = await fetchLyrics({ id: 'mic-acr-3', title: 'Hello', artist: 'Adele', durationMs: 295000 });
+  assert(res3.status === 'not_found', "Never shows another song's lyrics just because the artist matches");
+  globalThis.fetch = realFetch;
+}
+
 console.log(`\nRegression results: ${passed} passed, ${failed} failed.`);
 process.exit(failed > 0 ? 1 : 0);

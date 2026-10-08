@@ -391,7 +391,9 @@ export class MicSource {
           source: 'mic',
           confidence: result.confidence,
           hasOffset,
-          spotifyId: result.raw?.spotifyTrackId || null
+          spotifyId: result.raw?.spotifyTrackId || null,
+          // Canonical / alternative names from the recognizer, used if LRCLIB misses the main title.
+          lookupCandidates: Array.isArray(result.lookupCandidates) ? result.lookupCandidates : []
         });
 
         this.currentTrack = track;
