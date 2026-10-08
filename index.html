@@ -68,6 +68,15 @@
             <span>Install</span>
           </button>
 
+          <!-- User Account Button -->
+          <button id="btnOpenAuth" class="btn-header-tool" type="button" aria-haspopup="dialog" aria-label="User Account" title="Log In / Sign Up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;" aria-hidden="true">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <span id="userAccountBtnLabel">Log In</span>
+          </button>
+
           <!-- Settings Button -->
           <button id="btnOpenSettings" class="btn-header-tool" type="button" aria-haspopup="dialog" aria-label="Open Preferences Settings" title="Preferences">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;" aria-hidden="true">
@@ -1063,6 +1072,81 @@
         <button id="btnDoneShortcuts" class="btn btn-primary btn-sm" type="button" style="width:auto;padding:0.4rem 1.2rem;">
           Got it
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================
+       User Account (Log In / Sign Up) Modal Dialog
+       =================================================================== -->
+  <div id="authBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
+    <div class="modal-dialog" style="max-width: 420px;">
+      <!-- Mobile Bottom-Sheet Drag Handle -->
+      <div class="modal-drag-handle" aria-hidden="true">
+        <span class="drag-bar"></span>
+      </div>
+      <div class="modal-header">
+        <h3 id="authModalTitle" class="modal-title" style="display:flex;align-items:center;gap:0.5rem;">
+          <span>👤</span>
+          <span id="authHeaderLabel">Log In to LyricWave</span>
+        </h3>
+        <button id="btnCloseAuth" class="btn-close-modal" type="button" aria-label="Close dialog">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 1.25rem 1.4rem;">
+        
+        <!-- Logged Out View: Tabs for Log In vs Sign Up -->
+        <div id="authLoggedOutView">
+          <div class="auth-tabs" role="tablist" style="display:flex;background:rgba(255,255,255,0.06);border-radius:var(--radius-full);padding:3px;margin-bottom:1.25rem;">
+            <button id="authTabLogin" class="auth-tab-btn active" type="button" role="tab" style="flex:1;border:none;background:var(--accent);color:var(--accent-contrast);padding:0.45rem;border-radius:var(--radius-full);font-size:0.8rem;font-weight:600;cursor:pointer;">Log In</button>
+            <button id="authTabSignup" class="auth-tab-btn" type="button" role="tab" style="flex:1;border:none;background:transparent;color:var(--text-muted);padding:0.45rem;border-radius:var(--radius-full);font-size:0.8rem;font-weight:600;cursor:pointer;">Sign Up</button>
+          </div>
+
+          <div id="authErrorMsg" class="auth-error-banner hidden" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;padding:0.5rem 0.75rem;border-radius:var(--radius-sm);font-size:0.78rem;margin-bottom:1rem;"></div>
+
+          <form id="authForm" onsubmit="return false;">
+            <div id="authNameGroup" class="settings-group hidden" style="margin-bottom:0.85rem;">
+              <label class="settings-label" for="authInputName" style="font-size:0.78rem;color:var(--text-muted);display:block;margin-bottom:0.35rem;">Display Name</label>
+              <input id="authInputName" type="text" class="input-text" placeholder="Your Name" autocomplete="name" style="width:100%;box-sizing:border-box;">
+            </div>
+
+            <div class="settings-group" style="margin-bottom:0.85rem;">
+              <label class="settings-label" for="authInputEmail" style="font-size:0.78rem;color:var(--text-muted);display:block;margin-bottom:0.35rem;">Email Address</label>
+              <input id="authInputEmail" type="email" class="input-text" placeholder="you@example.com" required autocomplete="email" style="width:100%;box-sizing:border-box;">
+            </div>
+
+            <div class="settings-group" style="margin-bottom:1.25rem;">
+              <label class="settings-label" for="authInputPassword" style="font-size:0.78rem;color:var(--text-muted);display:block;margin-bottom:0.35rem;">Password</label>
+              <input id="authInputPassword" type="password" class="input-text" placeholder="At least 6 characters" required autocomplete="current-password" style="width:100%;box-sizing:border-box;">
+            </div>
+
+            <button id="btnSubmitAuth" class="btn btn-primary" type="submit" style="width:100%;justify-content:center;padding:0.65rem 1rem;font-size:0.88rem;font-weight:600;">
+              Log In
+            </button>
+          </form>
+        </div>
+
+        <!-- Logged In View -->
+        <div id="authLoggedInView" class="hidden">
+          <div style="display:flex;align-items:center;gap:0.85rem;margin-bottom:1.25rem;padding:0.75rem;background:rgba(255,255,255,0.04);border-radius:var(--radius-md);border:1px solid var(--border);">
+            <div style="width:44px;height:44px;border-radius:50%;background:var(--accent);color:var(--accent-contrast);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.1rem;" id="userProfileInitial">
+              U
+            </div>
+            <div>
+              <div id="userProfileName" style="font-weight:600;font-size:0.95rem;color:var(--text);">User</div>
+              <div id="userProfileEmail" style="font-size:0.75rem;color:var(--text-muted);">user@example.com</div>
+            </div>
+          </div>
+
+          <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1.25rem;line-height:1.5;">
+            ✓ Your preferences, favorite themes, and custom timing offsets are saved to your account.
+          </div>
+
+          <button id="btnUserLogOut" class="btn btn-sm btn-ghost" type="button" style="width:100%;justify-content:center;color:#ef4444;border-color:rgba(239,68,68,0.25);">
+            Log Out
+          </button>
+        </div>
+
       </div>
     </div>
   </div>

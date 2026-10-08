@@ -26,6 +26,7 @@ import { searchTracks, SearchSource } from './search.js';
 import { LastFmSource } from './lastfm.js';
 import { UnifiedSyncEngine } from './engine.js';
 import { ReelVisualizer } from './reel.js';
+import { signUp, logIn, logOut, getCurrentUser, updateUserPreferences } from './user-auth.js';
 
 // DOM Elements: Navigation Tabs
 const sourceNav = document.getElementById('sourceNav');
@@ -2750,6 +2751,133 @@ async function init() {
       tabToRestore.click();
     }
   }
+
+  // 10. User Account Management (Sign Up / Log In)
+  setupUserAuth();
+}
+
+function setupUserAuth() {
+  const btnOpenAuth = document.getElementById('btnOpenAuth');
+  const authBackdrop = document.getElementById('authBackdrop');
+  const btnCloseAuth = document.getElementById('btnCloseAuth');
+  const userAccountBtnLabel = document.getElementById('userAccountBtnLabel');
+  
+  const authLoggedOutView = document.getElementById('authLoggedOutView');
+  const authLoggedInView = document.getElementById('authLoggedInView');
+  const authTabLogin = document.getElementById('authTabLogin');
+  const authTabSignup = document.getElementById('authTabSignup');
+  const authNameGroup = document.getElementById('authNameGroup');
+  const authModalTitle = document.getElementById('authHeaderLabel');
+  const authErrorMsg = document.getElementById('authErrorMsg');
+  const authForm = document.getElementById('authForm');
+  const authInputName = document.getElementById('authInputName');
+  const authInputEmail = document.getElementById('authInputEmail');
+  const authInputPassword = document.getElementById('authInputPassword');
+  const btnSubmitAuth = document.getElementById('btnSubmitAuth');
+  
+  const userProfileInitial = document.getElementById('userProfileInitial');
+  const userProfileName = document.getElementById('userProfileName');
+  const userProfileEmail = document.getElementById('userProfileEmail');
+  const btnUserLogOut = document.getElementById('btnUserLogOut');
+
+  let isSignUpMode = false;
+
+  function updateAuthUI() {
+    const user = getCurrentUser();
+    if (user) {
+      if (userAccountBtnLabel) userAccountBtnLabel.textContent = user.displayName || 'Account';
+      authLoggedOutView?.classList.add('hidden');
+      authLoggedInView?.classList.remove('hidden');
+      if (userProfileInitial) userProfileInitial.textContent = (user.displayName || user.email || 'U')[0].toUpperCase();
+      if (userProfileName) userProfileName.textContent = user.displayName || 'User';
+      if (userProfileEmail) userProfileEmail.textContent = user.email || '';
+    } else {
+      if (userAccountBtnLabel) userAccountBtnLabel.textContent = 'Log In';
+      authLoggedOutView?.classList.remove('hidden');
+      authLoggedInView?.classList.add('hidden');
+    }
+  }
+
+  function setMode(signUpMode) {
+    isSignUpMode = signUpMode;
+    authErrorMsg?.classList.add('hidden');
+    if (isSignUpMode) {
+      authTabSignup?.style.setProperty('background', 'var(--accent)');
+      authTabSignup?.style.setProperty('color', 'var(--accent-contrast)');
+      authTabLogin?.style.setProperty('background', 'transparent');
+      authTabLogin?.style.setProperty('color', 'var(--text-muted)');
+      authNameGroup?.classList.remove('hidden');
+      if (authModalTitle) authModalTitle.textContent = 'Create LyricWave Account';
+      if (btnSubmitAuth) btnSubmitAuth.textContent = 'Sign Up';
+    } else {
+      authTabLogin?.style.setProperty('background', 'var(--accent)');
+      authTabLogin?.style.setProperty('color', 'var(--accent-contrast)');
+      authTabSignup?.style.setProperty('background', 'transparent');
+      authTabSignup?.style.setProperty('color', 'var(--text-muted)');
+      authNameGroup?.classList.add('hidden');
+      if (authModalTitle) authModalTitle.textContent = 'Log In to LyricWave';
+      if (btnSubmitAuth) btnSubmitAuth.textContent = 'Log In';
+    }
+  }
+
+  btnOpenAuth?.addEventListener('click', () => {
+    updateAuthUI();
+    authBackdrop?.classList.remove('hidden');
+  });
+
+  btnCloseAuth?.addEventListener('click', () => {
+    authBackdrop?.classList.add('hidden');
+  });
+
+  authBackdrop?.addEventListener('click', (e) => {
+    if (e.target === authBackdrop) authBackdrop.classList.add('hidden');
+  });
+
+  authTabLogin?.addEventListener('click', () => setMode(false));
+  authTabSignup?.addEventListener('click', () => setMode(true));
+
+  btnSubmitAuth?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (authErrorMsg) authErrorMsg.classList.add('hidden');
+    const email = authInputEmail?.value.trim() || '';
+    const password = authInputPassword?.value || '';
+    const name = authInputName?.value.trim() || '';
+
+    btnSubmitAuth.disabled = true;
+    const origText = btnSubmitAuth.textContent;
+    btnSubmitAuth.textContent = isSignUpMode ? 'Creating account...' : 'Logging in...';
+
+    try {
+      if (isSignUpMode) {
+        const user = await signUp({ name, email, password });
+        showAlert(`Welcome to LyricWave, ${user.displayName}!`, 'info');
+      } else {
+        const user = await logIn({ email, password });
+        showAlert(`Welcome back, ${user.displayName}!`, 'info');
+      }
+      authInputPassword.value = '';
+      updateAuthUI();
+      authBackdrop?.classList.add('hidden');
+    } catch (err) {
+      if (authErrorMsg) {
+        authErrorMsg.textContent = err.message;
+        authErrorMsg.classList.remove('hidden');
+      }
+    } finally {
+      btnSubmitAuth.disabled = false;
+      btnSubmitAuth.textContent = origText;
+    }
+  });
+
+  btnUserLogOut?.addEventListener('click', () => {
+    logOut();
+    updateAuthUI();
+    showAlert('Logged out successfully.', 'info');
+  });
+
+  // Initial check on load
+  updateAuthUI();
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
