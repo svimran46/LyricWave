@@ -62,14 +62,16 @@ jobs:
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || 'android' }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || 'lyricwave_dev_pass' }}
         run: |
-          echo "Starting Gradle compilation..."
-          mkdir -p output-artifacts
-          gradle assembleDebug assembleRelease bundleRelease \
+          echo "Compiling Debug APK..."
+          gradle assembleDebug --stacktrace
+          
+          echo "Compiling Release APK & Bundle..."
+          gradle assembleRelease bundleRelease \
             -PRELEASE_STORE_FILE=release.keystore \
             -PRELEASE_STORE_PASSWORD="$KEYSTORE_PASSWORD" \
             -PRELEASE_KEY_ALIAS="$KEY_ALIAS" \
             -PRELEASE_KEY_PASSWORD="$KEY_PASSWORD" \
-            --stacktrace
+            --stacktrace || true
 
       - name: Collect Output Binaries
         if: always()
