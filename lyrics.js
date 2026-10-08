@@ -189,7 +189,8 @@ export async function fetchLyrics(track) {
     return { status: 'none', message: 'No track provided' };
   }
 
-  const primaryArtist = track.artists?.split(',')[0]?.trim() || track.artist || '';
+  const rawArtistStr = String(track.artists || track.artist || '').trim();
+  const primaryArtist = rawArtistStr.split(/,|\band\b|&|\bfeat\b\.?|\bwith\b/i)[0].trim() || rawArtistStr;
   const idbKey = normalizeLyricCacheKey(primaryArtist, track.title);
   const cacheKey = `${track.id || track.title}__${track.artists || track.artist}`.toLowerCase();
 
@@ -273,7 +274,7 @@ export async function fetchLyrics(track) {
       );
     }
 
-    // Query 3: Search fallback via /api/search
+    // Query 3: Search fallback via /api/search with primary artist
     const searchParams = new URLSearchParams({
       track_name: cleanedTitle || track.title,
       artist_name: primaryArtist
@@ -296,6 +297,28 @@ export async function fetchLyrics(track) {
         })
         .catch(() => null)
     );
+
+    // Query 4: Search fallback with full raw artist (if raw artist differs from primaryArtist)
+    const rawArtist = (track.artist || track.artists || '').trim();
+    if (rawArtist && rawArtist !== primaryArtist) {
+      const rawSearchParams = new URLSearchParams({
+        track_name: cleanedTitle || track.title,
+        artist_name: rawArtist
+      });
+      queries.push(
+        fetch(`${LRCLIB_SEARCH_URL}?${rawSearchParams.toString()}`, { signal: fetchSignal })
+          .then(r => r.ok ? r.json() : null)
+          .then(results => {
+            if (Array.isArray(results) && results.length > 0) {
+              return results.find(r => r.syncedLyrics)
+                || results.find(r => r.plainLyrics)
+                || results[0];
+            }
+            return null;
+          })
+          .catch(() => null)
+      );
+    }
 
     const outcomes = await Promise.allSettled(queries);
     if (fetchTimer) clearTimeout(fetchTimer);

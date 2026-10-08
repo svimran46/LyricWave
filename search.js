@@ -155,8 +155,9 @@ export class SearchSource {
         this.initAudio(track.previewUrl, autoStart);
       } else if (track.title && track.artist) {
         // Asynchronously discover preview URL if not yet resolved
+        const selectedId = this.currentTrack.id;
         this.discoverPreviewUrl(track.artist, track.title).then(purl => {
-          if (purl && this.currentTrack && this.currentTrack.id === this.currentTrack.id) {
+          if (purl && this.currentTrack && this.currentTrack.id === selectedId) {
             this.currentTrack.previewUrl = purl;
             this.initAudio(purl, this.isPlaying);
           }

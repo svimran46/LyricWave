@@ -49,6 +49,7 @@ export class UnifiedSyncEngine {
     this.offsetMs = getStoredOffsetMs();
     this.lyricsData = null;
     this.activeLineIndex = -1;
+    this._lyricsReqId = 0;
 
     // Current source connection
     this.currentSource = null;
@@ -150,7 +151,9 @@ export class UnifiedSyncEngine {
       this.onTrackChange(this.track);
       this.onPlaybackChange(this.isPlaying);
 
-      // Fetch synced lyrics via LRCLIB
+      // Track request monotonically so rapid track/playback updates cannot orphan or freeze lyrics
+      const currentReqId = ++this._lyricsReqId;
+
       try {
         this.lyricsData = { status: 'loading' };
         this.onLyricsLoaded(this.lyricsData);
@@ -164,13 +167,21 @@ export class UnifiedSyncEngine {
           durationMs: this.durationSec * 1000
         });
 
-        if (this.track && this.track.id === normalized.id) {
-          this.lyricsData = lyrics;
+        // Accept lyrics if this is still the active request OR track title/artist match
+        if (currentReqId === this._lyricsReqId || 
+            (this.track && this.track.title.toLowerCase() === normalized.title.toLowerCase() && 
+             this.track.artist.toLowerCase() === normalized.artist.toLowerCase())) {
+          this.lyricsData = lyrics || {
+            status: 'not_found',
+            message: 'No synced lyrics found on LRCLIB.'
+          };
           this.onLyricsLoaded(this.lyricsData);
         }
       } catch (err) {
-        this.lyricsData = { status: 'error', message: 'Unable to load lyrics.' };
-        this.onLyricsLoaded(this.lyricsData);
+        if (currentReqId === this._lyricsReqId) {
+          this.lyricsData = { status: 'error', message: 'Unable to load lyrics.' };
+          this.onLyricsLoaded(this.lyricsData);
+        }
       }
     } else {
       this.onPlaybackChange(this.isPlaying);
@@ -184,7 +195,10 @@ export class UnifiedSyncEngine {
     if (!trackData) return;
     const normalized = normalizeNowPlaying(trackData);
 
-    if (!this.track || this.track.id !== normalized.id) {
+    if (!this.track || 
+        (this.track.id !== normalized.id && 
+         (this.track.title.toLowerCase() !== normalized.title.toLowerCase() || 
+          this.track.artist.toLowerCase() !== normalized.artist.toLowerCase()))) {
       this.setTrack(normalized, normalized.isPlaying);
       return;
     }
