@@ -580,10 +580,13 @@ const engine = new UnifiedSyncEngine({
       }
     }
 
-    if (lineIndex >= 0 && lineElements[lineIndex]) {
-      lineElements[lineIndex].scrollIntoView({
-        behavior: 'smooth',
-        block: 'center'
+    if (lineIndex >= 0 && lineElements[lineIndex] && lyricsViewport) {
+      // Scroll only inside the lyricsViewport container so the window / page does not jump away from the animated reel
+      const el = lineElements[lineIndex];
+      const targetScroll = el.offsetTop - (lyricsViewport.clientHeight / 2) + (el.clientHeight / 2);
+      lyricsViewport.scrollTo({
+        top: Math.max(0, targetScroll),
+        behavior: 'smooth'
       });
     }
 

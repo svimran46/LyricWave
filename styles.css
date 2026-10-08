@@ -2512,6 +2512,14 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.lyrics-topbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
 }
 
 .lyrics-badge {
@@ -2525,6 +2533,8 @@ body {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--border-subtle);
   color: var(--text-secondary);
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .lyrics-badge.synced {
@@ -2567,6 +2577,10 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
   transition: all var(--transition-fast);
 }
 
@@ -3872,6 +3886,10 @@ input:checked + .slider-round:before {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
   transition: all var(--transition-fast);
 }
 
@@ -4020,9 +4038,42 @@ body.fullscreen-reel-mode.cursor-idle * {
     display: none; /* Hide sidebar recent on mobile, available via search */
   }
 
-  /* Mobile Fullscreen Lyrics Stage */
+  /* Mobile Lyrics Stage & Controls */
   .reel-stage {
     min-height: 230px;
+  }
+
+  .lyrics-topbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+
+  .lyrics-status-wrap {
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  .lyrics-topbar-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 0.35rem;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+
+  .on-stage-nudge-group {
+    flex-shrink: 0;
+  }
+
+  .btn-offset-toggle {
+    flex-shrink: 0;
+    padding: 0.35rem 0.6rem;
+    font-size: 0.75rem;
   }
 
   .lyrics-viewport {
