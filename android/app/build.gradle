@@ -58,6 +58,19 @@ android {
 }
 
 dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.webkit:webkit:1.11.0'
+    implementation 'androidx.core:core:1.13.1'
+    implementation 'androidx.activity:activity:1.9.0'
     implementation 'androidx.browser:browser:1.8.0'
-    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
 }
+
+task copyWebAssets(type: Copy) {
+    from(rootDir.parentFile) {
+        include 'index.html', 'styles.css', '*.js', 'manifest.webmanifest'
+        include 'icons/**'
+    }
+    into file("${projectDir}/src/main/assets")
+}
+
+preBuild.dependsOn copyWebAssets

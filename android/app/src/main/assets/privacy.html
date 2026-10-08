@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — LyricWave</title>
+  <link rel="icon" type="image/svg+xml" href="./icons/icon.svg">
+  <style>
+    :root {
+      --bg: #0a0c10;
+      --surface: #12151c;
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #f0f3f6;
+      --text-muted: #8b949e;
+      --accent: #22c55e;
+      --radius: 12px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      margin: 0;
+      padding: 2rem 1.25rem 4rem;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      max-width: 760px;
+      width: 100%;
+    }
+    .header {
+      margin-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+    }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+    }
+    h1 {
+      font-size: 2rem;
+      margin: 0.5rem 0 0.25rem;
+      letter-spacing: -0.02em;
+    }
+    .date-tag {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+    h2 {
+      font-size: 1.25rem;
+      margin-top: 0;
+      margin-bottom: 0.75rem;
+      color: var(--text);
+    }
+    p, li {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+    ul {
+      padding-left: 1.4rem;
+      margin-bottom: 0;
+    }
+    li {
+      margin-bottom: 0.5rem;
+    }
+    strong {
+      color: var(--text);
+    }
+    .contact-card {
+      border-left: 3px solid var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <a href="/" class="back-link">← Return to LyricWave</a>
+      <h1>Privacy Policy</h1>
+      <span class="date-tag">Last updated: October 8, 2026 • Effective immediately</span>
+    </div>
+
+    <section>
+      <h2>1. Overview</h2>
+      <p>
+        LyricWave ("we", "our", or "the app") provides real-time synchronized lyrics, acoustic music recognition, trending charts, and music news. This Privacy Policy discloses our data practices, in strict compliance with Google Play Developer Policies and global privacy regulations.
+      </p>
+    </section>
+
+    <section>
+      <h2>2. Microphone Audio & Acoustic Recognition</h2>
+      <p>
+        LyricWave accesses your device's microphone <strong>only when you explicitly initiate acoustic recognition</strong> (tapping "Tap to Listen" or the microphone orb).
+      </p>
+      <ul>
+        <li><strong>Transient Audio Sampling:</strong> The microphone records a short audio sample (typically 5 to 10 seconds) exclusively to identify the currently playing music.</li>
+        <li><strong>Third-Party Processors:</strong> To identify tracks, the transient audio sample is securely transmitted via HTTPS to our acoustic recognition providers: <strong>ACRCloud</strong> (<a href="https://www.acrcloud.com/privacy" target="_blank" rel="noopener" style="color:var(--accent);">Privacy Policy</a>) and/or <strong>AudD</strong> (<a href="https://audd.io/privacy" target="_blank" rel="noopener" style="color:var(--accent);">Privacy Policy</a>).</li>
+        <li><strong>No Audio Storage:</strong> LyricWave does not record continuously in the background. Audio samples are processed in-memory and are never stored on LyricWave servers or sold to data brokers.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>3. Third-Party Music Connections (Spotify & Last.fm)</h2>
+      <ul>
+        <li><strong>Spotify Integration:</strong> Connects via official Spotify OAuth 2.0 PKCE. LyricWave requests permissions only to read currently playing tracks (`user-read-currently-playing`, `user-read-playback-state`). Access tokens are stored locally on your device in your browser's private session storage. Tokens are never transmitted to our servers and can be revoked at any time via your Spotify Account Dashboard.</li>
+        <li><strong>Last.fm Integration:</strong> Polls your public Last.fm scrobble profile using your chosen username. We store only your username locally on your device to persist your session.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>4. Local On-Device Storage</h2>
+      <p>
+        LyricWave uses your device's `localStorage` solely to enhance your user experience:
+      </p>
+      <ul>
+        <li>Theme preferences (Aurora, Neon, Adaptive, Vinyl, Paper)</li>
+        <li>Lyrics display settings (font scale, sync latency offset, word-by-word reveal)</li>
+        <li>Recently identified track titles and timestamps (up to 10 tracks, stored solely on your device and clearable with one tap)</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>5. Analytics & Diagnostics</h2>
+      <p>
+        LyricWave operates without third-party tracking pixels, biometric trackers, or cross-app advertising SDKs. Core edge delivery performance and anonymous request counts are monitored solely via Cloudflare's privacy-first infrastructure.
+      </p>
+    </section>
+
+    <section class="contact-card">
+      <h2>6. Contact & Data Rights</h2>
+      <p>
+        You have the right to clear all local data at any time via the "Reset to Defaults" button in the app Settings or by clearing your browser/app storage.
+      </p>
+      <p>
+        For inquiries regarding this privacy policy or data processing practices, please contact:
+        <br>
+        <strong>Email:</strong> support@lyricwave.pages.dev
+      </p>
+    </section>
+  </div>
+</body>
+</html>

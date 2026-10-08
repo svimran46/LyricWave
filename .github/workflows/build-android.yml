@@ -6,6 +6,10 @@ on:
     paths:
       - 'android/**'
       - '.github/workflows/build-android.yml'
+      - '*.js'
+      - 'index.html'
+      - 'styles.css'
+      - 'icons/**'
   workflow_dispatch:
 
 permissions:
@@ -47,9 +51,6 @@ jobs:
             -keypass "$KEY_PASSWORD" \
             -dname "CN=LyricWave, OU=App, O=LyricWave, L=Internet, S=Global, C=US"
 
-          echo "Digital Asset Links SHA-256 Fingerprint:"
-          keytool -list -v -keystore release.keystore -alias "$KEY_ALIAS" -storepass "$KEYSTORE_PASSWORD" | grep "SHA256:" || true
-
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
@@ -63,7 +64,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || 'lyricwave_dev_pass' }}
         run: |
           set -euo pipefail
-          echo "Building Android binaries..."
+          echo "Building standalone Android binaries..."
           gradle assembleDebug assembleRelease bundleRelease \
             -PRELEASE_STORE_FILE=release.keystore \
             -PRELEASE_STORE_PASSWORD="$KEYSTORE_PASSWORD" \
@@ -96,12 +97,12 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: twa-latest
-          name: "LyricWave Android APK & Play Store Bundle (Latest)"
+          name: "LyricWave Standalone Android App & Play Store Bundle (Latest)"
           body: |
-            ## 🎵 LyricWave Android Application Package
+            ## 🎵 LyricWave Standalone Android Native App
 
-            - **Target:** Android 5.0 (API 21) up to Android 14, 15, 16, 17 (API 34+)
-            - **Web App Source:** `https://lyricwave.pages.dev/?source=twa`
+            - **App Type:** Standalone Native App (Bundled Offline Assets, 0ms Launch, No URL Bar)
+            - **Target Compatibility:** Android 5.0 (API 21) up to Android 14, 15, 16, 17 (API 34+)
             - **Package Name:** `app.lyricwave.twa`
 
             ### 📦 Downloadable Files

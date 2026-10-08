@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="pixel">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>LyricWave — Live Synced Animated Lyrics</title>
+  <meta name="description" content="Experience synchronized, animated lyrics for whatever music is playing, on any platform, with an OLED reel visualizer.">
+  
+  <!-- PWA & Mobile Meta Tags -->
+  <meta name="theme-color" content="#0a0c10">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+  <!-- Web Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=Fraunces:opsz,wght@9..144,500;9..144,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Offline Status Banner -->
+  <aside id="offlineBanner" class="offline-banner hidden" role="status" aria-live="polite">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+      <line x1="1" y1="1" x2="23" y2="23"></line>
+      <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path>
+      <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path>
+      <path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path>
+      <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path>
+      <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+      <line x1="12" y1="20" x2="12.01" y2="20"></line>
+    </svg>
+    <span id="offlineBannerText">You are offline. Live playback tracking will resume automatically when reconnected.</span>
+  </aside>
+
+  <div class="container">
+    
+    <!-- Brand Header -->
+    <header class="brand">
+      <div class="brand-header-row">
+        <div class="brand-left">
+          <div class="brand-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 10v4" />
+              <path d="M6 7v10" />
+              <path d="M10 4v16" />
+              <path d="M14 6v12" />
+              <path d="M18 8v8" />
+              <path d="M22 11v2" />
+            </svg>
+          </div>
+          <div>
+            <h1 class="brand-title">LyricWave</h1>
+            <p class="brand-subtitle">Real-Time Animated Lyrics Reel</p>
+          </div>
+        </div>
+
+        <div class="brand-actions">
+          <!-- Install App Button (PWA) -->
+          <button id="btnInstallPwa" class="btn-header-tool hidden" type="button" aria-label="Install LyricWave App" title="Install LyricWave App">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Install</span>
+          </button>
+
+          <!-- User Account Button -->
+          <button id="btnOpenAuth" class="btn-header-tool" type="button" aria-haspopup="dialog" aria-label="User Account" title="Log In / Sign Up">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;" aria-hidden="true">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <span id="userAccountBtnLabel">Log In</span>
+          </button>
+
+          <!-- Settings Button -->
+          <button id="btnOpenSettings" class="btn-header-tool" type="button" aria-haspopup="dialog" aria-label="Open Preferences Settings" title="Preferences">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;" aria-hidden="true">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+            <span>Settings</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Consumer Input Source Selector Tabs -->
+      <nav class="source-nav" id="sourceNav" role="tablist" aria-label="Music Sources">
+        <button id="tabMic" class="source-tab active" role="tab" aria-selected="true" data-tab="mic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;" aria-hidden="true">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="22"/>
+          </svg>
+          <span class="tab-label">Listen</span>
+        </button>
+
+        <button id="tabSearch" class="source-tab" role="tab" aria-selected="false" data-tab="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;" aria-hidden="true">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <span class="tab-label">Search</span>
+        </button>
+
+        <button id="tabCharts" class="source-tab" role="tab" aria-selected="false" data-tab="charts">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;" aria-hidden="true">
+            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+            <polyline points="17 6 23 6 23 12"/>
+          </svg>
+          <span class="tab-label">Charts</span>
+          <span class="badge-hot-tag">Hot</span>
+        </button>
+
+        <button id="tabNews" class="source-tab" role="tab" aria-selected="false" data-tab="news">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;" aria-hidden="true">
+            <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>
+            <path d="M18 14h-8"/>
+            <path d="M15 18h-5"/>
+            <path d="M10 6h8v4h-8V6Z"/>
+          </svg>
+          <span class="tab-label">News</span>
+        </button>
+
+        <button id="tabConnect" class="source-tab" role="tab" aria-selected="false" data-tab="connect">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;" aria-hidden="true">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+          </svg>
+          <span class="tab-label">Connect</span>
+        </button>
+      </nav>
+
+
+      <!-- Compact Switcher for "Now Playing" state -->
+      <div id="compactSourceBar" class="compact-source-bar hidden">
+        <button id="btnListenAgain" class="btn-listen-again" type="button" aria-label="Listen again with Microphone" title="Listen again (Space)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="22"/>
+          </svg>
+          <span>Listen again</span>
+        </button>
+        <button id="btnSwitchSourceCompact" class="btn-compact-source" type="button" title="Change Input Source">
+          <span id="compactSourceLabel">Live Source</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Desktop Sidebar: Recently Identified Tracks List -->
+      <section id="sidebarRecentSection" class="sidebar-recent-section" aria-label="Recently Identified Songs">
+        <div class="sidebar-recent-header">
+          <span class="sidebar-recent-title">Recently Identified</span>
+          <button id="btnClearRecent" class="btn-text-link" type="button" style="font-size:0.7rem;">Clear</button>
+        </div>
+        <div id="recentSongsList" class="recent-songs-list">
+          <p class="recent-empty-hint">Identified songs will appear here.</p>
+        </div>
+      </section>
+    </header>
+
+    <!-- Main Content Area / Right Pane -->
+    <main class="card" id="mainCard">
+
+      <!-- Alert Notification Banner Container -->
+      <div id="alertContainer" class="hidden" role="alert" aria-live="polite"></div>
+
+      <!-- First-Run Onboarding Hint Banner -->
+      <div id="firstRunHint" class="first-run-hint hidden" role="note" aria-label="First-time guidance">
+        <div class="first-run-icon">✨</div>
+        <div class="first-run-body">
+          <strong>Welcome to LyricWave!</strong>
+          <p>Last.fm and Spotify accounts sync automatically once connected. If lyrics ever lead or lag slightly behind what you hear, fine-tune timing anytime using the <strong>on-stage sync nudge buttons (−0.1s / +0.1s)</strong> on the lyrics stage.</p>
+        </div>
+        <button id="btnDismissFirstRun" class="btn-dismiss-first-run" type="button" aria-label="Dismiss first-run hint">✕</button>
+      </div>
+
+      <!-- Developer Mode Banner (Shown ONLY on localhost or with ?dev=1) -->
+      <div id="devModeBanner" class="dev-mode-banner hidden" role="region" aria-label="Developer mode">
+        <div class="dev-banner-header">
+          <span class="dev-pill">DEV MODE</span>
+          <span class="dev-title">Developer Diagnostics</span>
+        </div>
+        <div class="dev-banner-body">
+          <div id="devClientIdStatus" class="dev-status-row">Checking Client ID...</div>
+          <div id="devRedirectStatus" class="dev-status-row">Checking Redirect URI...</div>
+          <p class="dev-hint">Setup guides and instructions are located in <code>README.md</code> and <code>SPOTIFY_SETUP.md</code>.</p>
+          <div style="margin-top:0.4rem;">
+            <a href="test-recognition.html?dev=1" target="_blank" class="btn btn-sm btn-outline-debug" style="text-decoration:none; display:inline-flex; align-items:center; gap:0.35rem;">
+              <span>🎙️ Acoustic Recognition Testbed</span>
+              <span style="font-size:0.68rem; opacity:0.7;">↗</span>
+            </a>
+          </div>
+          
+          <!-- Developer Mode Live Position Debug Panel -->
+          <div class="dev-debug-section" style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed rgba(255,255,255,0.15);">
+            <div style="font-weight: 600; font-size: 0.72rem; color: #38bdf8; margin-bottom: 0.35rem; text-transform: uppercase;">Spotify Clock Tracker (Live)</div>
+            <div class="debug-grid">
+              <div class="debug-item">
+                <span class="debug-label">Raw Spotify Ms:</span>
+                <span id="devDbgRawMs" class="debug-val">0 ms</span>
+              </div>
+              <div class="debug-item">
+                <span class="debug-label">Estimated Local Ms:</span>
+                <span id="devDbgEstimatedMs" class="debug-val">0 ms</span>
+              </div>
+              <div class="debug-item">
+                <span class="debug-label">Clock Drift:</span>
+                <span id="devDbgDriftMs" class="debug-val">0 ms</span>
+              </div>
+              <div class="debug-item">
+                <span class="debug-label">Est. Latency:</span>
+                <span id="devDbgLatencyMs" class="debug-val">0 ms</span>
+              </div>
+              <div class="debug-item">
+                <span class="debug-label">Poll Status (3s):</span>
+                <span id="devDbgPollStatus" class="debug-val">Idle</span>
+              </div>
+              <div class="debug-item">
+                <span class="debug-label">Play State:</span>
+                <span id="devDbgPlayState" class="debug-val">IDLE</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================================================================
+           TAB PANELS: INPUT SOURCES
+           =================================================================== -->
+
+      <!-- 1. Microphone Panel (Active Default Source) -->
+      <section id="panelMic" class="tab-panel active" aria-label="Microphone">
+        <div class="mic-hero">
+          
+          <!-- Animated Pulsing Level Orb & 10s Countdown Ring -->
+          <div class="mic-orb-container">
+            <svg class="mic-countdown-ring" viewBox="0 0 110 110" aria-hidden="true">
+              <circle class="countdown-circle-bg" cx="55" cy="55" r="50"></circle>
+              <circle id="micCountdownCircle" class="countdown-circle-progress" cx="55" cy="55" r="50" stroke-dasharray="314.16" stroke-dashoffset="0"></circle>
+            </svg>
+            <div id="micRingPulse" class="mic-ring-pulse"></div>
+            <button id="btnMicListen" class="mic-orb" type="button" aria-label="Start Listening to Music">
+              <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="22"/>
+              </svg>
+            </button>
+          </div>
+
+          <h2 id="micStatusTitle" class="mic-title">Tap to Listen</h2>
+          <p id="micStatusSubtitle" class="mic-desc" aria-live="polite">
+            Identifies any song playing from nearby speakers, radio, TV, or vinyl.
+          </p>
+
+          <!-- 10-Second Live Countdown Badge (Shown when recording) -->
+          <div id="micCountdownWrap" class="mic-countdown-wrap hidden">
+            <span class="mic-rec-dot"></span>
+            <span id="micCountdownText" class="mic-countdown-text">Listening... 10s</span>
+          </div>
+
+          <!-- Live Audio Level Meter Bar -->
+          <div id="micLevelMeterWrap" class="mic-level-wrap hidden" aria-label="Audio level meter">
+            <div class="mic-level-track">
+              <div id="micLevelFill" class="mic-level-fill" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <!-- Action Buttons (Cancel / Retry) -->
+          <div id="micActionRow" class="mic-action-row hidden">
+            <button id="btnMicCancel" class="btn btn-sm btn-ghost" type="button">Cancel</button>
+          </div>
+
+          <!-- Subtle Privacy Disclosure -->
+          <div class="mic-privacy-footnote">
+            <span>🔒 Audio is analyzed in-memory and never stored.</span>
+            <button id="btnShowMicConsent" class="btn-text-link" type="button">Privacy details</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Manual Search Panel (Active Source) -->
+      <section id="panelSearch" class="tab-panel hidden" aria-label="Search">
+        <div class="search-box-wrap">
+          <div class="search-input-row">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input id="searchInput" class="search-input" type="search" placeholder="Search by song title or artist..." autocomplete="off" aria-label="Search song title or artist">
+            <button id="btnClearSearch" class="btn-clear-search hidden" type="button" aria-label="Clear search">✕</button>
+          </div>
+        </div>
+
+        <div id="searchResults" class="search-results-list">
+          <div class="search-prompt">
+            <span class="search-prompt-icon">🔍</span>
+            <p>Type any song name above to find synced lyrics directly on LRCLIB.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Charts Panel: Genius-Inspired Trending Music Section -->
+      <section id="panelCharts" class="tab-panel hidden" aria-label="Top Charts">
+        <div class="charts-hero-card">
+          <div class="charts-header-row">
+            <div>
+              <div class="charts-supertitle">
+                <span class="charts-fire-badge">🔥 TOP TRENDING</span>
+                <span class="charts-updated-tag" id="chartsUpdatedTag">Live Today</span>
+              </div>
+              <h2 class="charts-main-title">LyricWave Charts</h2>
+              <p class="charts-subtitle">
+                The most played songs right now. Tap any track to immediately launch synced lyrics in our visualizer.
+              </p>
+            </div>
+            
+            <button id="btnRefreshCharts" class="btn-refresh-charts" type="button" aria-label="Refresh Charts" title="Refresh Trending Charts">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+              <span>Refresh</span>
+            </button>
+          </div>
+
+          <!-- Genre Filter Pills (Genius Category Tabs) -->
+          <div class="charts-genre-bar" role="tablist" aria-label="Chart Genres">
+            <button class="genre-pill active" type="button" data-genre="all">All Genres</button>
+            <button class="genre-pill" type="button" data-genre="pop">Pop</button>
+            <button class="genre-pill" type="button" data-genre="hip-hop">Hip-Hop/Rap</button>
+            <button class="genre-pill" type="button" data-genre="r&b">R&B</button>
+            <button class="genre-pill" type="button" data-genre="country">Country</button>
+            <button class="genre-pill" type="button" data-genre="latin">Latin</button>
+          </div>
+        </div>
+
+        <!-- Charts Song Ranking List Container -->
+        <div id="chartsListContainer" class="charts-list-wrap">
+          <div class="charts-loading-state">
+            <div class="spinner" style="margin: 0 auto 0.75rem auto;"></div>
+            <p>Loading hot chart songs...</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. Music News Panel: Genius-Themed Headlines & Stories -->
+      <section id="panelNews" class="tab-panel hidden" aria-label="Music News">
+        <div class="news-hero-card">
+          <div class="news-header-row">
+            <div>
+              <div class="charts-supertitle">
+                <span class="charts-fire-badge">📰 MUSIC DISPATCH</span>
+                <span class="charts-updated-tag" id="newsUpdatedTag">Live Today</span>
+              </div>
+              <h2 class="charts-main-title">Music News & Culture</h2>
+              <p class="charts-subtitle">
+                Latest music headlines, album releases, and breaking stories from Rolling Stone & NME.
+              </p>
+            </div>
+
+            <button id="btnRefreshNews" class="btn-refresh-charts" type="button" aria-label="Refresh News" title="Refresh Music News">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+              <span>Refresh</span>
+            </button>
+          </div>
+
+          <!-- News Source / Filter Pills -->
+          <div class="charts-genre-bar" role="tablist" aria-label="News Topics">
+            <button class="news-filter-pill active" type="button" data-source="all">All Stories</button>
+            <button class="news-filter-pill" type="button" data-source="nme">NME</button>
+            <button class="news-filter-pill" type="button" data-source="rolling-stone">Rolling Stone</button>
+          </div>
+        </div>
+
+        <!-- News Articles List Container -->
+        <div id="newsListContainer" class="news-list-wrap">
+          <div class="charts-loading-state">
+            <div class="spinner" style="margin: 0 auto 0.75rem auto;"></div>
+            <p>Loading fresh music headlines...</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. Connect Panel: Internal Segmented Switcher for Connected Accounts (Last.fm & Spotify) -->
+      <section id="panelConnect" class="tab-panel hidden" aria-label="Connected Accounts">
+
+        <div class="connect-segmented-nav" role="tablist" aria-label="Connected services">
+          <button id="btnSubLastfm" class="connect-sub-tab active" type="button" role="tab" aria-selected="true" data-subtab="lastfm">
+            <span>Last.fm (All Players)</span>
+          </button>
+          <button id="btnSubSpotify" class="connect-sub-tab" type="button" role="tab" aria-selected="false" data-subtab="spotify">
+            <span>Spotify (Beta)</span>
+          </button>
+          <button id="btnSubApple" class="connect-sub-tab" type="button" role="tab" aria-selected="false" data-subtab="apple">
+            <span>Apple Music</span>
+          </button>
+        </div>
+
+        <!-- Sub-panel A: Last.fm (kept under panelLastfm ID for compatibility) -->
+        <div id="panelLastfm" class="connect-sub-view" aria-label="Last.fm">
+          <div class="lastfm-card">
+            <div class="lastfm-header">
+              <div class="lastfm-icon-badge">📻</div>
+              <div>
+                <h2 class="lastfm-title">Last.fm Live Scrobble Sync</h2>
+                <div class="lastfm-mode-pill">
+                  <span class="status-dot"></span>
+                  <span>Approximate Mode (Starts at 0s on track change)</span>
+                </div>
+              </div>
+            </div>
+
+            <p class="lastfm-desc">
+              Sync lyrics for Apple Music, YouTube Music, Tidal, Deezer, foobar2000, or any scrobbler. Enter your username (no password needed).
+            </p>
+
+            <form id="formLastfm" class="lastfm-form" onsubmit="return false;">
+              <div class="lastfm-input-row">
+                <input id="lastfmUserInput" class="lastfm-input" type="text" placeholder="Enter Last.fm username..." autocomplete="username" autocapitalize="none" aria-label="Last.fm username">
+                <button id="btnConnectLastfm" class="btn btn-sm btn-spotify" type="submit">Track User</button>
+              </div>
+            </form>
+
+            <div id="lastfmStatusInfo" class="lastfm-status-box hidden">
+              <div class="status-pill">
+                <span id="lastfmStatusDot" class="status-dot"></span>
+                <span id="lastfmStatusMsg">Polling scrobbles every 4s...</span>
+              </div>
+              <button id="btnDisconnectLastfm" class="btn btn-sm btn-ghost" type="button">Stop Tracking</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sub-panel B: Spotify Beta (kept under panelSpotify ID for compatibility) -->
+        <div id="panelSpotify" class="connect-sub-view hidden" aria-label="Spotify Connect">
+          <!-- Logged Out View -->
+          <div id="spotifyLoggedOut" class="spotify-view">
+            <div class="beta-notice">
+              <span class="beta-badge-large">Private Beta</span>
+              <p class="beta-desc">Spotify playback sync is currently available for approved test accounts.</p>
+            </div>
+            <button id="btnLoginSpotify" class="btn btn-spotify" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true" style="width:20px;height:20px;fill:currentColor;">
+                <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.498 17.306c-.215.353-.674.464-1.026.248-2.812-1.718-6.353-2.107-10.523-1.155-.403.092-.803-.16-.895-.563-.092-.403.16-.803.563-.895 4.567-1.043 8.487-.604 11.633 1.339.352.216.463.674.248 1.026zm1.467-3.262c-.27.441-.849.58-1.29.31-3.22-1.978-8.128-2.55-11.936-1.393-.497.151-1.023-.134-1.174-.631-.151-.498.134-1.024.631-1.175 4.354-1.321 9.775-.681 13.459 1.583.441.27.58.849.31 1.29zm.126-3.41c-3.86-2.292-10.228-2.503-13.903-1.388-.592.18-1.217-.154-1.397-.746-.18-.592.154-1.217.746-1.397 4.227-1.284 11.258-1.037 15.707 1.603.534.316.708 1.009.392 1.543-.316.534-1.009.708-1.543.392z"/>
+              </svg>
+              <span>Connect Spotify</span>
+            </button>
+          </div>
+
+          <!-- Logged In View -->
+          <div id="spotifyLoggedIn" class="spotify-view hidden">
+            <div class="profile-card">
+              <img id="userAvatar" class="avatar hidden" src="" alt="Spotify profile">
+              <div id="avatarFallback" class="avatar-fallback" aria-hidden="true">U</div>
+              <div class="profile-info">
+                <span class="profile-label">Authorized Account</span>
+                <div id="userName" class="profile-name">Spotify User</div>
+                <div class="status-pill">
+                  <span class="status-dot"></span>
+                  <span>Active Live Tracking</span>
+                </div>
+              </div>
+              <button id="btnLogoutSpotify" class="btn btn-sm btn-ghost" type="button" title="Disconnect account">
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sub-panel C: Apple Music & Other Platforms Direct Connect -->
+        <div id="panelApple" class="connect-sub-view hidden" aria-label="Apple Music Connect">
+          <div class="coming-soon-card" style="padding: 1.5rem 1rem;">
+            <div class="coming-soon-icon">🍎</div>
+            <h3 class="coming-soon-title">Apple Music Direct Connect</h3>
+            <span class="coming-soon-tag">Developer Restriction Note</span>
+            <p class="coming-soon-desc" style="max-width: 440px; margin: 0.5rem auto; font-size: 0.85rem; line-height: 1.5;">
+              Unlike Spotify which supports free client-side OAuth PKCE, <strong>Apple MusicKit JS</strong> strictly requires an <strong>Apple Developer Program ($99/year)</strong> paid subscription to generate a server-signed JWT MusicKit Developer Token and registered Private Key.
+            </p>
+            <div style="background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.85rem 1rem; max-width: 440px; margin: 0.75rem auto; text-align: left; font-size: 0.82rem;">
+              <strong style="color: var(--text);">How to sync Apple Music right now (Zero cost, no dev key needed):</strong>
+              <p style="color: var(--text-muted); margin: 0.35rem 0 0 0; line-height: 1.5;">
+                1. Install the free <strong>Last.fm Scrobbler app</strong> on iOS/Mac/Android or turn on Apple Music scrobbling.<br>
+                2. Tap the <strong>Last.fm tab</strong> above and enter your username.<br>
+                3. Your live Apple Music playback, YouTube Music, or Deezer streams sync here automatically in real time!
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================================
+           SHARED PLAYBACK & LYRICS DISPLAY AREA
+           (Active for all 4 input sources)
+           =================================================================== -->
+      <section id="activePlaybackView" class="active-playback-view hidden" aria-label="Current Track & Lyrics">
+        
+        <!-- Track Info & Controls Header -->
+        <div class="track-header">
+          <div class="album-art-wrap">
+            <img id="trackArt" class="album-art" src="" alt="Album Artwork">
+            <div id="artPlaceholder" class="album-art-placeholder">🎵</div>
+          </div>
+
+          <div class="track-details">
+            <div class="track-status-badge">
+              <span id="playStateDot" class="status-dot"></span>
+              <span id="playStateText">Playing</span>
+              <span id="trackSourceBadge" class="source-tag">Live</span>
+            </div>
+            <h2 id="trackTitle" class="track-title" title="">Song Title</h2>
+            <p id="trackArtist" class="track-artist">Artist Name</p>
+            <p id="trackAlbum" class="track-album">Album Name</p>
+          </div>
+
+          <!-- Playback Actions (Play/Pause, Rewind, Forward) -->
+          <div class="playback-controls">
+            <button id="btnSeekBack" class="btn-ctrl" type="button" aria-label="Rewind 5 seconds" title="Rewind 5 seconds">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;" aria-hidden="true">
+                <polyline points="11 17 6 12 11 7"/>
+                <polyline points="18 17 13 12 18 7"/>
+              </svg>
+            </button>
+            <button id="btnPlayPause" class="btn-ctrl btn-play-large" type="button" aria-label="Play or Pause playback" title="Play / Pause">
+              <svg id="iconPlay" viewBox="0 0 24 24" fill="currentColor" style="width:20px;height:20px;" class="hidden" aria-hidden="true">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+              <svg id="iconPause" viewBox="0 0 24 24" fill="currentColor" style="width:20px;height:20px;" aria-hidden="true">
+                <rect x="6" y="4" width="4" height="16"/>
+                <rect x="14" y="4" width="4" height="16"/>
+              </svg>
+            </button>
+            <button id="btnSeekForward" class="btn-ctrl" type="button" aria-label="Forward 5 seconds" title="Forward 5 seconds">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;" aria-hidden="true">
+                <polyline points="13 17 18 12 13 7"/>
+                <polyline points="6 17 11 12 6 7"/>
+              </svg>
+            </button>
+            <!-- Re-sync Audio Recognition Button -->
+            <button id="btnResync" class="btn-ctrl btn-resync" type="button" aria-label="Re-sync room audio" title="Re-sync room audio (detect song or correct drift)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;" aria-hidden="true">
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+              </svg>
+              <span class="btn-resync-label">Re-sync</span>
+            </button>
+            <!-- Share Song Button -->
+            <button id="btnShareSong" class="btn-ctrl" type="button" aria-label="Share song link" title="Share deep link to song">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;" aria-hidden="true">
+                <circle cx="18" cy="5" r="3"/>
+                <circle cx="6" cy="12" r="3"/>
+                <circle cx="18" cy="19" r="3"/>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Interactive Progress Scrubber -->
+        <div class="scrubber-container">
+          <div class="progress-bar-track" id="progressTrack" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0">
+            <div id="progressBarFill" class="progress-bar-fill" style="width: 0%;"></div>
+          </div>
+          <div class="time-display">
+            <span id="timeElapsed" class="time-label">0:00</span>
+            <span id="timeDuration" class="time-label">0:00</span>
+          </div>
+        </div>
+
+        <!-- ===================================================================
+             OLED Lyrics Reel Visualizer
+             =================================================================== -->
+        <div id="reelContainer" class="reel-container" aria-label="OLED Lyrics Reel">
+          
+          <!-- Reel Toolbar: Theme, Word-by-Word Toggle, Fullscreen -->
+          <div class="reel-toolbar">
+            <div class="reel-theme-selector" role="radiogroup" aria-label="Visual Theme Selector">
+              <button type="button" role="radio" aria-checked="false" class="btn-theme-pill" data-theme="adaptive" aria-label="Album Adaptive Theme" title="Album Adaptive: Colors extracted from cover art">Adaptive</button>
+              <button type="button" role="radio" aria-checked="true" class="btn-theme-pill active" data-theme="aurora" aria-label="Aurora Theme" title="Aurora: Deep indigo & mint">Aurora</button>
+              <button type="button" role="radio" aria-checked="false" class="btn-theme-pill" data-theme="vinyl" aria-label="Vinyl Theme" title="Vinyl: Charcoal & warm amber serif">Vinyl</button>
+              <button type="button" role="radio" aria-checked="false" class="btn-theme-pill" data-theme="paper" aria-label="Paper Theme" title="Paper: High-contrast light mode">Paper</button>
+              <button type="button" role="radio" aria-checked="false" class="btn-theme-pill" data-theme="neon" aria-label="Neon Theme" title="Neon: Cyan glow & magenta wave">Neon</button>
+            </div>
+
+            <div class="reel-actions">
+              <button id="btnToggleWordMode" class="btn-tool active" type="button" aria-pressed="true" aria-label="Toggle Word-by-Word Reveal Mode" title="Toggle Word-by-Word Reveal Mode">
+                <span class="tool-dot" aria-hidden="true"></span>
+                <span>Word Reveal</span>
+              </button>
+
+              <button id="btnFullscreen" class="btn-tool btn-fs" type="button" aria-label="Toggle Fullscreen Mode" title="Enter Fullscreen Mode (F)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;" aria-hidden="true">
+                  <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+                </svg>
+                <span id="fsLabel">Fullscreen</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Animated Sine Waves Canvas Background -->
+          <div class="reel-stage" id="reelStage">
+            <!-- Subtle blurred cover-art backdrop for Album Adaptive theme -->
+            <div id="stageArtBackdrop" class="stage-art-backdrop hidden" aria-hidden="true"></div>
+            <canvas id="reelCanvas" class="reel-canvas"></canvas>
+
+            <!-- Centered OLED Bordered Line Box -->
+            <div class="reel-box-anchor">
+              <div id="reelLineBox" class="reel-line-box">
+                <div id="reelLineText" class="reel-line-text">
+                  <span class="reel-placeholder-text">♫ Waiting for music...</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Subtle Previous / Next Line Hints -->
+            <div id="reelPrevLine" class="reel-ambient-line reel-prev-line"></div>
+            <div id="reelNextLine" class="reel-ambient-line reel-next-line"></div>
+          </div>
+
+        </div>
+
+        <!-- Synced Lyrics Section (Scrolling View) -->
+        <div class="lyrics-card">
+          <div class="lyrics-topbar">
+            <div class="lyrics-status-wrap">
+              <span id="lyricsStatusBadge" class="lyrics-badge">
+                <span class="lyrics-badge-dot"></span>
+                <span id="lyricsStatusText">Searching lyrics...</span>
+              </span>
+            </div>
+
+            <!-- Controls Group: On-stage Sync Nudge, Auto Re-listen, Offset Toggle, Shortcuts -->
+            <div class="lyrics-topbar-controls">
+              <!-- On-Stage Live Sync Nudge -->
+              <div class="on-stage-nudge-group" role="group" aria-label="Sync calibration nudge">
+                <button id="btnNudgeMinus" class="btn-nudge" type="button" aria-label="Nudge lyrics earlier 0.1s" title="Nudge lyrics earlier (-0.1s) [↓]">−0.1s</button>
+                <button id="btnNudgeReset" class="btn-nudge btn-nudge-reset" type="button" aria-label="Reset sync offset" title="Reset sync offset">
+                  <span id="onStageOffsetLabel">0.0s</span>
+                </button>
+                <button id="btnNudgePlus" class="btn-nudge" type="button" aria-label="Nudge lyrics later 0.1s" title="Nudge lyrics later (+0.1s) [↑]">+0.1s</button>
+              </div>
+
+              <button id="btnToggleAutoRelisten" class="btn-offset-toggle" type="button" aria-label="Toggle auto re-listen every 2 minutes" title="Auto re-listen every 2 minutes to check for song change">
+                <span id="autoRelistenDot" class="status-dot paused" style="width:6px;height:6px;" aria-hidden="true"></span>
+                <span>Auto:</span>
+                <strong id="autoRelistenLabel">Off</strong>
+              </button>
+
+              <!-- Latency Offset Toggle Button (Drawer) -->
+              <button id="btnToggleOffset" class="btn-offset-toggle" type="button" aria-expanded="false" aria-controls="offsetDrawer" aria-label="Toggle latency calibration drawer" title="Adjust latency offset">
+                <span>⏱️ Details</span>
+              </button>
+
+              <!-- Keyboard Shortcuts Guide Trigger -->
+              <button id="btnOpenShortcuts" class="btn-offset-toggle btn-icon-only" type="button" aria-label="Keyboard Shortcuts Cheat-sheet" title="Keyboard Shortcuts (?)">
+                <span>⌨️</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Tap the line you're hearing Banner (Shown when no offset is returned or user requests manual alignment) -->
+          <div id="tapLineBanner" class="tap-line-banner hidden" role="note">
+            <span class="tap-line-icon">👆</span>
+            <span class="tap-line-text">Tap the line you're hearing right now to lock lyric sync!</span>
+            <button id="btnDismissTapBanner" class="btn-dismiss-tap" type="button" aria-label="Dismiss banner">✕</button>
+          </div>
+
+          <!-- Latency Calibration Drawer -->
+          <div id="offsetDrawer" class="offset-drawer hidden">
+            <div class="offset-header">
+              <span class="offset-title">Latency Calibration</span>
+              <span class="offset-help">Adjust if lyrics lead or lag behind what you hear</span>
+            </div>
+            <div class="offset-controls-row">
+              <button id="btnOffsetMinus" class="btn-step" type="button" title="Shift earlier (-0.1s)">−0.1s</button>
+              <input id="offsetSlider" type="range" min="-5000" max="5000" step="100" value="0" class="offset-slider" aria-label="Lyric latency offset in milliseconds">
+              <button id="btnOffsetPlus" class="btn-step" type="button" title="Shift later (+0.1s)">+0.1s</button>
+              <button id="btnOffsetReset" class="btn-reset" type="button" title="Reset offset to 0">Reset</button>
+            </div>
+            <div class="offset-readout">
+              <span>Current Offset: <strong id="offsetValueText">+0.0s (0 ms)</strong></span>
+              <span class="offset-hint">(Saved automatically)</span>
+            </div>
+          </div>
+
+          <!-- Lyrics Viewport Container -->
+          <div id="lyricsViewport" class="lyrics-viewport" tabindex="0" role="region" aria-label="Song Lyrics">
+            <div id="lyricsContent" class="lyrics-content"></div>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- ===================================================================
+       Settings Modal Dialog
+       =================================================================== -->
+  <div id="settingsBackdrop" class="modal-backdrop hidden" aria-hidden="true">
+    <div id="settingsDialog" class="modal-dialog" role="dialog" aria-labelledby="settingsTitle" aria-modal="true">
+      <!-- Mobile Bottom-Sheet Drag Handle -->
+      <div id="settingsDragHandle" class="modal-drag-handle" aria-hidden="true">
+        <span class="drag-bar"></span>
+      </div>
+      <div class="modal-header">
+        <div class="modal-header-meta">
+          <h2 id="settingsTitle" class="modal-title">Preferences</h2>
+          <span class="modal-subtitle">Customize visual theme, typography & sync timing</span>
+        </div>
+        <button id="btnCloseSettings" class="btn-close-modal" type="button" aria-label="Close preferences">&times;</button>
+      </div>
+
+      <div class="modal-body settings-grid-body" id="settingsAccordion">
+        
+        <!-- Section 1: Appearance & Theme -->
+        <div class="settings-card" id="secAppearance">
+          <div class="settings-card-header">
+            <span class="settings-card-icon">🎨</span>
+            <div>
+              <h3 class="settings-card-title">Appearance</h3>
+              <p class="settings-card-subtitle">Select visual theme and lyrics scale</p>
+            </div>
+          </div>
+          <div class="settings-card-body">
+            
+            <!-- Theme Swatch Grid (Aligned 5-theme cards) -->
+            <div class="settings-row-group">
+              <label class="settings-label" id="lblThemePicker">Theme Preset</label>
+              <div class="theme-swatch-grid" role="radiogroup" aria-labelledby="lblThemePicker">
+                
+                <!-- Swatch 1: Album Adaptive -->
+                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="adaptive">
+                  <div class="theme-swatch-preview preview-adaptive">
+                    <span class="theme-preview-dot dot-adaptive"></span>
+                    <span class="theme-preview-lyric lyric-adaptive">♫ Adaptive Art</span>
+                  </div>
+                  <div class="theme-swatch-meta">
+                    <span class="theme-swatch-name">Adaptive</span>
+                    <span class="theme-swatch-desc">Album colors</span>
+                  </div>
+                  <span class="theme-swatch-check" aria-hidden="true">✓</span>
+                </button>
+
+                <!-- Swatch 2: Aurora -->
+                <button type="button" role="radio" aria-checked="true" class="theme-swatch-card active" data-theme-card="aurora">
+                  <div class="theme-swatch-preview preview-aurora">
+                    <span class="theme-preview-dot dot-aurora"></span>
+                    <span class="theme-preview-lyric lyric-aurora">♫ Indigo Mint</span>
+                  </div>
+                  <div class="theme-swatch-meta">
+                    <span class="theme-swatch-name">Aurora</span>
+                    <span class="theme-swatch-desc">Indigo & mint</span>
+                  </div>
+                  <span class="theme-swatch-check" aria-hidden="true">✓</span>
+                </button>
+
+                <!-- Swatch 3: Vinyl -->
+                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="vinyl">
+                  <div class="theme-swatch-preview preview-vinyl">
+                    <span class="theme-preview-dot dot-vinyl"></span>
+                    <span class="theme-preview-lyric lyric-vinyl">♫ Amber Serif</span>
+                  </div>
+                  <div class="theme-swatch-meta">
+                    <span class="theme-swatch-name">Vinyl</span>
+                    <span class="theme-swatch-desc">Warm charcoal</span>
+                  </div>
+                  <span class="theme-swatch-check" aria-hidden="true">✓</span>
+                </button>
+
+                <!-- Swatch 4: Paper -->
+                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="paper">
+                  <div class="theme-swatch-preview preview-paper">
+                    <span class="theme-preview-dot dot-paper"></span>
+                    <span class="theme-preview-lyric lyric-paper">♫ Ink Minimal</span>
+                  </div>
+                  <div class="theme-swatch-meta">
+                    <span class="theme-swatch-name">Paper</span>
+                    <span class="theme-swatch-desc">Clean light</span>
+                  </div>
+                  <span class="theme-swatch-check" aria-hidden="true">✓</span>
+                </button>
+
+                <!-- Swatch 5: Neon -->
+                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="neon">
+                  <div class="theme-swatch-preview preview-neon">
+                    <span class="theme-preview-dot dot-neon"></span>
+                    <span class="theme-preview-lyric lyric-neon">♫ Cyan Glow</span>
+                  </div>
+                  <div class="theme-swatch-meta">
+                    <span class="theme-swatch-name">Neon</span>
+                    <span class="theme-swatch-desc">High contrast</span>
+                  </div>
+                  <span class="theme-swatch-check" aria-hidden="true">✓</span>
+                </button>
+
+              </div>
+            </div>
+
+            <!-- Typography Scale Slider -->
+            <div class="settings-row-group">
+              <div class="settings-label-row">
+                <label class="settings-label" for="settingFontSize">Lyrics Scale</label>
+                <span id="lblFontSize" class="settings-val-badge">100%</span>
+              </div>
+              <div class="settings-range-control-row">
+                <span class="range-boundary">50%</span>
+                <input id="settingFontSize" type="range" min="50" max="200" step="5" value="100" class="offset-slider" aria-label="Lyrics font size scaling percentage">
+                <span class="range-boundary">200%</span>
+              </div>
+              <span class="settings-helper-text">Scales typography across the lyrics viewport and OLED reel.</span>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Section 2: Display & Playback Behavior -->
+        <div class="settings-card" id="secLyrics">
+          <div class="settings-card-header">
+            <span class="settings-card-icon">📜</span>
+            <div>
+              <h3 class="settings-card-title">Display & Behavior</h3>
+              <p class="settings-card-subtitle">Real-time word animation and timing</p>
+            </div>
+          </div>
+          <div class="settings-card-body">
+            
+            <div class="settings-card-item-row">
+              <div class="settings-item-info">
+                <label class="settings-label" for="settingWordMode">Word-by-Word Reveal</label>
+                <span class="settings-helper-text">Progressively reveals words within active lyric lines</span>
+              </div>
+              <label class="switch">
+                <input id="settingWordMode" type="checkbox" checked>
+                <span class="slider-round"></span>
+              </label>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Section 3: Sync Calibration -->
+        <div class="settings-card" id="secSync">
+          <div class="settings-card-header">
+            <span class="settings-card-icon">⏱️</span>
+            <div>
+              <h3 class="settings-card-title">Sync Calibration</h3>
+              <p class="settings-card-subtitle">Compensate audio hardware latency and drift</p>
+            </div>
+          </div>
+          <div class="settings-card-body">
+            
+            <div class="settings-row-group">
+              <div class="settings-label-row">
+                <label class="settings-label" for="settingOffsetSlider">Latency Calibration</label>
+                <span id="lblSettingsOffset" class="settings-val-badge sync-val">+0.0s (0 ms)</span>
+              </div>
+              
+              <div class="settings-range-control-row">
+                <span class="range-boundary">−2.0s</span>
+                <input id="settingOffsetSlider" type="range" min="-2000" max="2000" step="50" value="0" class="offset-slider" aria-label="Latency offset in ms">
+                <span class="range-boundary">+2.0s</span>
+              </div>
+
+              <div class="sync-actions-row">
+                <button id="btnSettingsOffsetMinus" class="btn-step btn-step-tall" type="button" aria-label="Shift earlier 0.1s">−0.1s</button>
+                <button id="btnSettingsOffsetReset" class="btn-reset btn-reset-tall" type="button" aria-label="Reset latency offset">Reset (0s)</button>
+                <button id="btnSettingsOffsetPlus" class="btn-step btn-step-tall" type="button" aria-label="Shift later 0.1s">+0.1s</button>
+              </div>
+
+              <span class="settings-helper-text">Offset persists automatically per audio source.</span>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Section 4: Advanced Engine -->
+        <div class="settings-card" id="secAdvanced">
+          <div class="settings-card-header">
+            <span class="settings-card-icon">⚙️</span>
+            <div>
+              <h3 class="settings-card-title">Advanced Settings</h3>
+              <p class="settings-card-subtitle">Recognition engine, diagnostics & privacy</p>
+            </div>
+          </div>
+          <div class="settings-card-body">
+            
+            <!-- Recognition Provider Selector -->
+            <div class="settings-row-group">
+              <label class="settings-label" for="settingRecognitionProvider">Music Recognition Engine</label>
+              <div class="select-styled-wrap">
+                <select id="settingRecognitionProvider" class="form-select settings-select">
+                  <option value="acrcloud" selected>ACRCloud (Default • acrcloud.com)</option>
+                  <option value="audd">AudD (audd.io API)</option>
+                </select>
+              </div>
+              <span class="settings-helper-text">Engine used when identifying music through the microphone.</span>
+            </div>
+
+            <!-- Audio Diagnostics Toggle -->
+            <div class="settings-card-item-row" style="margin-top:0.4rem; padding-top:0.75rem; border-top:1px solid var(--border-subtle);">
+              <div class="settings-item-info">
+                <label class="settings-label" for="settingDebugMode">Show Diagnostics HUD</label>
+                <span class="settings-helper-text">Displays clock jitter, drift & frame telemetry</span>
+              </div>
+              <label class="switch">
+                <input id="settingDebugMode" type="checkbox">
+                <span class="slider-round"></span>
+              </label>
+            </div>
+
+            <!-- Diagnostics Drawer -->
+            <div id="diagnosticsDrawer" class="debug-panel hidden">
+              <div class="debug-grid">
+                <div class="debug-item">
+                  <span class="debug-label">Clock Position</span>
+                  <span id="dbgPositionMs" class="debug-val">0 ms</span>
+                </div>
+                <div class="debug-item">
+                  <span class="debug-label">Effective Sync</span>
+                  <span id="dbgEffectiveMs" class="debug-val">0 ms</span>
+                </div>
+                <div class="debug-item">
+                  <span class="debug-label">Active Line</span>
+                  <span id="dbgActiveLine" class="debug-val">—</span>
+                </div>
+                <div class="debug-item">
+                  <span class="debug-label">Sync Source</span>
+                  <span id="dbgSource" class="debug-val">Ready</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Privacy Policy & Reset Controls -->
+            <div class="settings-footer-action-row">
+              <a href="./privacy.html" class="settings-privacy-link" target="_blank" rel="noopener">
+                <span>🔒 Privacy & Data Policy</span>
+                <span style="font-size:0.75rem;">↗</span>
+              </a>
+              <button id="btnResetDefaults" class="btn-reset-defaults" type="button">Reset Defaults</button>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button id="btnDoneSettings" class="btn btn-settings-done" type="button">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================
+       MICROPHONE PRIVACY CONSENT MODAL
+       =================================================================== -->
+  <div id="micConsentBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="micConsentTitle">
+    <div class="modal-dialog" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3 id="micConsentTitle" class="modal-title" style="display:flex;align-items:center;gap:0.4rem;">
+          <span>🎙️</span>
+          <span>Microphone Privacy & Audio Use</span>
+        </h3>
+        <button id="btnCloseMicConsent" class="btn-close-modal" type="button" aria-label="Close dialog">✕</button>
+      </div>
+
+      <div class="modal-body" style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.55;">
+        <p style="margin-bottom: 0.75rem;">
+          When you tap <strong>"Listen"</strong>, LyricWave captures a temporary 10-second audio snippet through your microphone to recognize the music playing nearby.
+        </p>
+
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 0.85rem; margin-bottom: 0.85rem;">
+          <ul style="padding-left: 1.1rem; display:flex; flex-direction:column; gap:0.45rem;">
+            <li><strong>In-Memory Processing:</strong> Audio is processed directly in memory to generate an acoustic fingerprint.</li>
+            <li><strong>Never Saved or Stored:</strong> Your recording is never saved to disk, logged, or retained after recognition.</li>
+            <li><strong>Hardware Release:</strong> The microphone hardware stream immediately turns off once the 10-second sample completes.</li>
+          </ul>
+        </div>
+
+        <p style="font-size: 0.8rem; color: var(--text-muted);">
+          Audio samples are encrypted and securely matched against commercial music fingerprint databases (ACRCloud).
+        </p>
+      </div>
+
+      <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.5rem;">
+        <button id="btnCancelMicConsent" class="btn btn-sm btn-ghost" type="button">Cancel</button>
+        <button id="btnAcceptMicConsent" class="btn btn-sm btn-spotify" type="button">I Understand & Continue</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================
+       KEYBOARD SHORTCUTS CHEAT-SHEET MODAL (?)
+       =================================================================== -->
+  <div id="shortcutsBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="shortcutsTitle">
+    <div class="modal-dialog" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3 id="shortcutsTitle" class="modal-title" style="display:flex;align-items:center;gap:0.4rem;">
+          <span>⌨️</span>
+          <span>Keyboard Shortcuts</span>
+        </h3>
+        <button id="btnCloseShortcuts" class="btn-close-modal" type="button" aria-label="Close shortcuts">✕</button>
+      </div>
+
+      <div class="modal-body" style="padding: 1.25rem 1.4rem;">
+        <div class="shortcut-list">
+          <div class="shortcut-row">
+            <span class="shortcut-action">Listen / Stop Microphone</span>
+            <kbd class="shortcut-key">Space</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-action">Toggle Fullscreen Reel Mode</span>
+            <kbd class="shortcut-key">F</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-action">Open / Close Settings</span>
+            <kbd class="shortcut-key">S</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-action">Nudge Sync Earlier (−0.1s)</span>
+            <kbd class="shortcut-key">↓</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-action">Nudge Sync Later (+0.1s)</span>
+            <kbd class="shortcut-key">↑</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-action">Decrease Lyrics Font Size</span>
+            <kbd class="shortcut-key">[</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-action">Increase Lyrics Font Size</span>
+            <kbd class="shortcut-key">]</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-action">Show Keyboard Shortcuts</span>
+            <kbd class="shortcut-key">?</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-action">Close Dialogs / Fullscreen</span>
+            <kbd class="shortcut-key">Esc</kbd>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="display:flex; justify-content:flex-end;">
+        <button id="btnDoneShortcuts" class="btn btn-primary btn-sm" type="button" style="width:auto;padding:0.4rem 1.2rem;">
+          Got it
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================
+       User Account (Log In / Sign Up) Modal Dialog
+       =================================================================== -->
+  <div id="authBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
+    <div class="modal-dialog" style="max-width: 420px;">
+      <!-- Mobile Bottom-Sheet Drag Handle -->
+      <div class="modal-drag-handle" aria-hidden="true">
+        <span class="drag-bar"></span>
+      </div>
+      <div class="modal-header">
+        <h3 id="authModalTitle" class="modal-title" style="display:flex;align-items:center;gap:0.5rem;">
+          <span>👤</span>
+          <span id="authHeaderLabel">Log In to LyricWave</span>
+        </h3>
+        <button id="btnCloseAuth" class="btn-close-modal" type="button" aria-label="Close dialog">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 1.25rem 1.4rem;">
+        
+        <!-- Logged Out View: Tabs for Log In vs Sign Up -->
+        <div id="authLoggedOutView">
+          <div class="auth-tabs" role="tablist" style="display:flex;background:rgba(255,255,255,0.06);border-radius:var(--radius-full);padding:3px;margin-bottom:1.25rem;">
+            <button id="authTabLogin" class="auth-tab-btn active" type="button" role="tab" style="flex:1;border:none;background:var(--accent);color:var(--accent-contrast);padding:0.45rem;border-radius:var(--radius-full);font-size:0.8rem;font-weight:600;cursor:pointer;">Log In</button>
+            <button id="authTabSignup" class="auth-tab-btn" type="button" role="tab" style="flex:1;border:none;background:transparent;color:var(--text-muted);padding:0.45rem;border-radius:var(--radius-full);font-size:0.8rem;font-weight:600;cursor:pointer;">Sign Up</button>
+          </div>
+
+          <div id="authErrorMsg" class="auth-error-banner hidden" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;padding:0.5rem 0.75rem;border-radius:var(--radius-sm);font-size:0.78rem;margin-bottom:1rem;"></div>
+
+          <form id="authForm" onsubmit="return false;">
+            <div id="authNameGroup" class="settings-group hidden" style="margin-bottom:0.85rem;">
+              <label class="settings-label" for="authInputName" style="font-size:0.78rem;color:var(--text-muted);display:block;margin-bottom:0.35rem;">Display Name</label>
+              <input id="authInputName" type="text" class="input-text" placeholder="Your Name" autocomplete="name" style="width:100%;box-sizing:border-box;">
+            </div>
+
+            <div class="settings-group" style="margin-bottom:0.85rem;">
+              <label class="settings-label" for="authInputEmail" style="font-size:0.78rem;color:var(--text-muted);display:block;margin-bottom:0.35rem;">Email Address</label>
+              <input id="authInputEmail" type="email" class="input-text" placeholder="you@example.com" required autocomplete="email" style="width:100%;box-sizing:border-box;">
+            </div>
+
+            <div class="settings-group" style="margin-bottom:1.25rem;">
+              <label class="settings-label" for="authInputPassword" style="font-size:0.78rem;color:var(--text-muted);display:block;margin-bottom:0.35rem;">Password</label>
+              <input id="authInputPassword" type="password" class="input-text" placeholder="At least 6 characters" required autocomplete="current-password" style="width:100%;box-sizing:border-box;">
+            </div>
+
+            <button id="btnSubmitAuth" class="btn btn-primary" type="submit" style="width:100%;justify-content:center;padding:0.65rem 1rem;font-size:0.88rem;font-weight:600;">
+              Log In
+            </button>
+          </form>
+        </div>
+
+        <!-- Logged In View -->
+        <div id="authLoggedInView" class="hidden">
+          <div style="display:flex;align-items:center;gap:0.85rem;margin-bottom:1.25rem;padding:0.75rem;background:rgba(255,255,255,0.04);border-radius:var(--radius-md);border:1px solid var(--border);">
+            <div style="width:44px;height:44px;border-radius:50%;background:var(--accent);color:var(--accent-contrast);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.1rem;" id="userProfileInitial">
+              U
+            </div>
+            <div>
+              <div id="userProfileName" style="font-weight:600;font-size:0.95rem;color:var(--text);">User</div>
+              <div id="userProfileEmail" style="font-size:0.75rem;color:var(--text-muted);">user@example.com</div>
+            </div>
+          </div>
+
+          <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1.25rem;line-height:1.5;">
+            ✓ Your preferences, favorite themes, and custom timing offsets are saved to your account.
+          </div>
+
+          <button id="btnUserLogOut" class="btn btn-sm btn-ghost" type="button" style="width:100%;justify-content:center;color:#ef4444;border-color:rgba(239,68,68,0.25);">
+            Log Out
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Global High-Priority Hardware Audio Player Element -->
+  <audio id="speakerAudioPlayer" playsinline preload="auto" style="position:fixed;width:1px;height:1px;opacity:0.01;pointer-events:none;left:-9999px;bottom:0;"></audio>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -61,6 +61,7 @@ function isAllowedOrigin(origin) {
     return (
       host === 'localhost' ||
       host === '127.0.0.1' ||
+      host === 'appassets.androidplatform.net' ||
       host === 'lyricwave.pages.dev' ||
       host.endsWith('.lyricwave.pages.dev')
     );
