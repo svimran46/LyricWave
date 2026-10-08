@@ -1139,6 +1139,9 @@ function renderCharts(songs) {
         source: 'chart'
       }, true);
       showAlert(`▶ Playing #${rank}: "${song.title}" on speaker...`, 'success');
+      if (activePlaybackView) {
+        activePlaybackView.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     };
 
     card.addEventListener('click', startChartPlayback);

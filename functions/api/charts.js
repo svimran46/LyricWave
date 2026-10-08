@@ -52,15 +52,16 @@ export async function onRequestOptions({ request }) {
 export async function onRequestGet({ request }) {
   const corsHeaders = getCorsHeaders(request);
   const url = new URL(request.url);
-  const limit = Math.min(50, Math.max(5, parseInt(url.searchParams.get('limit') || '20', 10)));
+  const limit = Math.min(50, Math.max(5, parseInt(url.searchParams.get('limit') || '25', 10)));
   const genre = url.searchParams.get('genre') || 'all';
 
   try {
-    const feedUrl = `https://rss.marketingtools.apple.com/api/v2/us/music/most-played/${limit}/songs.json`;
+    // Primary feed: Official iTunes Top Songs JSON (highly available, contains direct preview audio enclosures)
+    const feedUrl = `https://itunes.apple.com/us/rss/topsongs/limit=${limit}/json`;
     const response = await fetch(feedUrl, {
       headers: {
         'Accept': 'application/json',
-        'User-Agent': 'LyricWave/1.0 (+https://lyricwave.pages.dev)'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       },
       cf: {
         cacheTtl: CACHE_TTL_SECONDS,
@@ -73,64 +74,54 @@ export async function onRequestGet({ request }) {
     }
 
     const data = await response.json();
-    const rawResults = data?.feed?.results || [];
+    const rawEntries = data?.feed?.entry || [];
 
-    // Batch enrich with real Apple Music / iTunes audio preview URLs
-    const appleIds = rawResults.map(item => item.id).filter(Boolean);
-    const previewsById = {};
-    if (appleIds.length > 0) {
-      try {
-        const lookupUrl = `https://itunes.apple.com/lookup?id=${appleIds.join(',')}`;
-        const lookupRes = await fetch(lookupUrl, {
-          headers: {
-            'Accept': 'application/json',
-            'User-Agent': 'LyricWave/1.0 (+https://lyricwave.pages.dev)'
-          },
-          cf: {
-            cacheTtl: CACHE_TTL_SECONDS,
-            cacheEverything: true
+    const songs = rawEntries.map((entry, index) => {
+      const title = entry?.['im:name']?.label || entry?.title?.label || 'Unknown Track';
+      const artist = entry?.['im:artist']?.label || 'Unknown Artist';
+      const album = entry?.['im:collection']?.['im:name']?.label || '';
+
+      // High-res artwork
+      const images = entry?.['im:image'] || [];
+      const rawArt = images.length > 0 ? images[images.length - 1]?.label || '' : '';
+      const highResArt = rawArt.replace('170x170bb', '600x600bb');
+
+      // Direct preview audio URL from enclosures
+      let previewUrl = null;
+      let durationMs = 30000;
+      const links = entry?.link || [];
+      const linkList = Array.isArray(links) ? links : [links];
+      for (const l of linkList) {
+        const attrs = l?.attributes || {};
+        if (attrs['im:assetType'] === 'preview' || attrs.rel === 'enclosure' || (attrs.type && attrs.type.includes('audio'))) {
+          previewUrl = attrs.href || null;
+          if (l?.['im:duration']?.label) {
+            const dur = parseInt(l['im:duration'].label, 10);
+            if (!isNaN(dur) && dur > 0) durationMs = dur;
           }
-        });
-        if (lookupRes.ok) {
-          const lookupData = await lookupRes.json();
-          if (Array.isArray(lookupData?.results)) {
-            for (const r of lookupData.results) {
-              if (r.trackId) {
-                previewsById[String(r.trackId)] = {
-                  previewUrl: r.previewUrl || null,
-                  durationMs: r.trackTimeMillis || null,
-                  collectionName: r.collectionName || null
-                };
-              }
-            }
-          }
+          break;
         }
-      } catch (lookupErr) {
-        // Fall back gracefully if iTunes lookup experiences transient issues
       }
-    }
 
-    const songs = rawResults.map((item, index) => {
-      // 600x600 sharp album artwork
-      const rawArt = item.artworkUrl100 || '';
-      const highResArt = rawArt.replace('100x100bb', '600x600bb');
-      const primaryGenre = item.genres?.[0]?.name || 'Music';
-      const lookup = previewsById[String(item.id)] || {};
+      const appleId = entry?.id?.attributes?.['im:id'] || `${index + 1}`;
+      const primaryGenre = entry?.category?.attributes?.label || 'Music';
+      const releaseDate = entry?.['im:releaseDate']?.label || '';
+      const appleUrl = entry?.id?.label || '';
 
       return {
         rank: index + 1,
-        id: `chart_${item.id}`,
-        appleId: item.id,
-        title: item.name,
-        artist: item.artistName,
-        album: item.collectionName || lookup.collectionName || '',
+        id: `chart_${appleId}`,
+        appleId: appleId,
+        title: title,
+        artist: artist,
+        album: album,
         albumArt: highResArt || rawArt,
-        previewUrl: lookup.previewUrl || null,
-        durationMs: lookup.durationMs || 30000,
+        previewUrl: previewUrl,
+        durationMs: durationMs,
         genre: primaryGenre,
-        releaseDate: item.releaseDate || '',
-        appleUrl: item.url || '',
-        pageviews: Math.floor(Math.random() * 20000) + 10000, // Genius-style engagement indicator
+        releaseDate: releaseDate,
+        appleUrl: appleUrl,
+        pageviews: Math.floor(Math.random() * 20000) + 10000,
         source: 'chart'
       };
     });
@@ -144,8 +135,8 @@ export async function onRequestGet({ request }) {
 
     return new Response(JSON.stringify({
       success: true,
-      chart: 'Genius & Apple Music Hot Songs',
-      updated: data?.feed?.updated || new Date().toISOString(),
+      chart: 'Top Trending Songs',
+      updated: data?.feed?.updated?.label || new Date().toISOString(),
       count: filteredSongs.length,
       songs: filteredSongs
     }), {

@@ -172,65 +172,70 @@ export class SearchSource {
   }
 
   initAudio(url, autoPlay = true) {
-    if (typeof Audio === 'undefined' || !url) return;
+    if (typeof window === 'undefined' || !url) return;
     this.cleanupAudio();
 
     try {
-      this.audio = new Audio(url);
+      // Prioritize the dedicated DOM audio element to ensure the OS/browser routes audio to the device speaker
+      const domAudio = typeof document !== 'undefined' ? document.getElementById('speakerAudioPlayer') : null;
+      this.audio = domAudio || (typeof Audio !== 'undefined' ? new Audio() : null);
+      if (!this.audio) return;
+
       this.audio.crossOrigin = 'anonymous';
       this.audio.preload = 'auto';
+      this.audio.volume = 1.0;
+      this.audio.muted = false;
+      this.audio.src = url;
 
-      this.audio.addEventListener('play', () => {
+      this.audio.onplay = () => {
         this.isPlaying = true;
         this.stopClock();
         if (this.currentTrack) {
           this.currentTrack.isPlaying = true;
           this.onPlaybackUpdate(this.currentTrack);
         }
-      });
+      };
 
-      this.audio.addEventListener('pause', () => {
+      this.audio.onpause = () => {
         this.isPlaying = false;
         if (this.currentTrack) {
           this.currentTrack.isPlaying = false;
           this.onPlaybackUpdate(this.currentTrack);
         }
-      });
+      };
 
-      this.audio.addEventListener('timeupdate', () => {
+      this.audio.ontimeupdate = () => {
         if (!this.audio || !this.currentTrack) return;
         this.positionSec = this.audio.currentTime;
         this.currentTrack.position = this.positionSec;
         this.onPlaybackUpdate(this.currentTrack);
-      });
+      };
 
-      this.audio.addEventListener('loadedmetadata', () => {
+      this.audio.onloadedmetadata = () => {
         if (!this.audio || !this.currentTrack) return;
         if (this.audio.duration && isFinite(this.audio.duration)) {
-          if (this.durationSec === 180 || this.durationSec === 200 || this.durationSec === 30) {
-            this.durationSec = this.audio.duration;
-            this.currentTrack.duration = this.durationSec;
-            this.currentTrack.durationMs = Math.round(this.durationSec * 1000);
-          }
+          this.durationSec = this.audio.duration;
+          this.currentTrack.duration = this.durationSec;
+          this.currentTrack.durationMs = Math.round(this.durationSec * 1000);
+          this.onPlaybackUpdate(this.currentTrack);
         }
-      });
+      };
 
-      this.audio.addEventListener('ended', () => {
+      this.audio.onended = () => {
         this.pause();
         if (this.currentTrack) {
           this.positionSec = 0;
           this.currentTrack.position = 0;
           this.onPlaybackUpdate(this.currentTrack);
         }
-      });
+      };
 
-      this.audio.addEventListener('error', (e) => {
+      this.audio.onerror = (e) => {
         console.warn('Audio preview playback error, falling back to clock:', e);
-        this.cleanupAudio();
         if (this.isPlaying) {
           this.startClock();
         }
-      });
+      };
 
       if (autoPlay) {
         const p = this.audio.play();
@@ -267,6 +272,12 @@ export class SearchSource {
     if (this.audio) {
       try {
         this.audio.pause();
+        this.audio.onplay = null;
+        this.audio.onpause = null;
+        this.audio.ontimeupdate = null;
+        this.audio.onloadedmetadata = null;
+        this.audio.onended = null;
+        this.audio.onerror = null;
         this.audio.removeAttribute('src');
         this.audio.load();
       } catch {}
