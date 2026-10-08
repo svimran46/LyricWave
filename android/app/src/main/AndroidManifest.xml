@@ -12,7 +12,7 @@
         android:icon="@mipmap/ic_launcher"
         android:label="${launcherName}"
         android:supportsRtl="true"
-        android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
+        android:theme="@style/Theme.LyricWave">
 
         <meta-data
             android:name="asset_statements"

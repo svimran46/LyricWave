@@ -62,16 +62,13 @@ jobs:
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || 'android' }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || 'lyricwave_dev_pass' }}
         run: |
-          # Build Debug APK (ready to install on Android devices)
-          gradle assembleDebug --stacktrace --info
-
-          # Build Release APK and App Bundle (AAB for Play Store)
-          gradle assembleRelease bundleRelease \
+          echo "Starting Gradle compilation..."
+          gradle assembleDebug assembleRelease bundleRelease \
             -PRELEASE_STORE_FILE=release.keystore \
             -PRELEASE_STORE_PASSWORD="$KEYSTORE_PASSWORD" \
             -PRELEASE_KEY_ALIAS="$KEY_ALIAS" \
             -PRELEASE_KEY_PASSWORD="$KEY_PASSWORD" \
-            --stacktrace --info
+            --stacktrace
 
       - name: Organize Output Artifacts
         run: |
