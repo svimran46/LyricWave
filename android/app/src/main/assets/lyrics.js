@@ -149,6 +149,21 @@ export function artistsMatch(wanted, candidate) {
 }
 
 /**
+ * Title comparison for search candidates: equal after cleanup, or one contains the other
+ * on word boundaries (min 4 chars) — "Get Lucky" vs "Get Lucky (Radio Edit)".
+ */
+export function titlesMatch(wanted, candidate) {
+  const norm = (v) => cleanTrackTitle(String(v || '')).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const a = norm(wanted);
+  const b = norm(candidate);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
+  if (shorter.length < 4) return false;
+  return ` ${longer} `.includes(` ${shorter} `);
+}
+
+/**
  * Parse raw LRC string into a sorted array of timed lyric objects
  * Returns: Array<{ timeMs: number, text: string }>
  */
@@ -291,7 +306,7 @@ export async function fetchLyrics(track) {
   try {
     const cleanedTitle = cleanTrackTitle(track.title);
     const fetchController = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const fetchTimer = fetchController ? setTimeout(() => fetchController.abort(), 9000) : null;
+    const fetchTimer = fetchController ? setTimeout(() => fetchController.abort(), 12000) : null;
     const fetchSignal = fetchController ? fetchController.signal : undefined;
 
     // Fast Step 0: Direct ID lookup if LRCLIB ID is available
@@ -375,7 +390,10 @@ export async function fetchLyrics(track) {
 
         if (allCandidates.length > 0) {
           // Filter candidates to ensure the artist actually matches the requested artist
-          const artistMatches = allCandidates.filter(r => !primaryArtist || artistsMatch(primaryArtist, r.artistName));
+          // ...and that it is the same song (the general "q" search also returns the artist's other songs).
+          const wantedTitle = cleanedTitle || track.title;
+          const artistMatches = allCandidates.filter(r =>
+            (!primaryArtist || artistsMatch(primaryArtist, r.artistName)) && titlesMatch(wantedTitle, r.trackName));
           const pool = artistMatches.length > 0 ? artistMatches : [];
           if (pool.length > 0) {
             lyricResult = pool.find(r => r.syncedLyrics)
@@ -401,6 +419,63 @@ export async function fetchLyrics(track) {
           }
         }
       } catch {}
+    }
+
+    // Step 5: alternative names supplied by the recognizer (Spotify/Deezer canonical names,
+    // other ACRCloud matches). Recognizer titles are sometimes localized, romanized or carry
+    // release suffixes that LRCLIB doesn't use — this was the main cause of "No lyrics" after a
+    // successful mic match.
+    if (!lyricResult && Array.isArray(track.lookupCandidates)) {
+      const splitArtist = (a) => String(a || '').split(/,|&|\bfeat\b\.?|\bft\b\.?|\bwith\b/i)[0].trim();
+      for (const cand of track.lookupCandidates.slice(0, 4)) {
+        if (lyricResult) break;
+        const cTitle = cleanTrackTitle(cand?.title || '') || String(cand?.title || '').trim();
+        const cArtist = splitArtist(cand?.artist);
+        if (!cTitle) continue;
+        const same = cTitle.toLowerCase() === (cleanedTitle || track.title).toLowerCase()
+          && cArtist.toLowerCase() === primaryArtist.toLowerCase();
+        if (same) continue;
+        try {
+          if (cArtist) {
+            const p = new URLSearchParams({ track_name: cTitle, artist_name: cArtist });
+            const r = await fetch(`${LRCLIB_GET_URL}?${p.toString()}`, { headers: LRCLIB_HEADERS, signal: fetchSignal });
+            if (r.status === 429) isQuotaError = true;
+            if (r.ok) {
+              const d = await r.json();
+              if (d && (d.syncedLyrics || d.plainLyrics || d.instrumental)) lyricResult = d;
+            }
+          }
+          if (!lyricResult) {
+            const q = new URLSearchParams({ q: `${cArtist} ${cTitle}`.trim() });
+            const list = await fetch(`${LRCLIB_SEARCH_URL}?${q.toString()}`, { headers: LRCLIB_HEADERS, signal: fetchSignal })
+              .then(res => (res.ok ? res.json() : [])).catch(() => []);
+            const pool = (Array.isArray(list) ? list : []).filter(r =>
+              titlesMatch(cTitle, r.trackName) && (!cArtist || artistsMatch(cArtist, r.artistName)));
+            lyricResult = pool.find(r => r.syncedLyrics) || pool.find(r => r.plainLyrics) || null;
+          }
+        } catch {}
+      }
+    }
+
+    // Step 6: title-only search confirmed by song length (±3s). Rescues songs whose artist
+    // name is written differently on LRCLIB (another script, "The", collaborations...).
+    if (!lyricResult && durationSec > 0 && !track.durationEstimated) {
+      const titles = [cleanedTitle || track.title];
+      for (const cand of (Array.isArray(track.lookupCandidates) ? track.lookupCandidates : [])) {
+        const t = cleanTrackTitle(cand?.title || '');
+        if (t && !titles.some(x => x.toLowerCase() === t.toLowerCase())) titles.push(t);
+      }
+      for (const t of titles.slice(0, 3)) {
+        if (lyricResult) break;
+        try {
+          const q = new URLSearchParams({ track_name: t });
+          const list = await fetch(`${LRCLIB_SEARCH_URL}?${q.toString()}`, { headers: LRCLIB_HEADERS, signal: fetchSignal })
+            .then(res => (res.ok ? res.json() : [])).catch(() => []);
+          const pool = (Array.isArray(list) ? list : []).filter(r =>
+            titlesMatch(t, r.trackName) && Math.abs((Number(r.duration) || 0) - durationSec) <= 3);
+          lyricResult = pool.find(r => r.syncedLyrics) || pool.find(r => r.plainLyrics) || null;
+        } catch {}
+      }
     }
 
     if (fetchTimer) clearTimeout(fetchTimer);

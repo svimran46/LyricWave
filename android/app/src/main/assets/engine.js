@@ -194,6 +194,7 @@ export class UnifiedSyncEngine {
           album: this.track.album,
           durationMs: this.durationSec * 1000,
           durationEstimated: Boolean(this.track.durationEstimated),
+          lookupCandidates: this.track.lookupCandidates,
           syncedLyrics: this.track.syncedLyrics,
           plainLyrics: this.track.plainLyrics,
           lrclibId: this.track.lrclibId

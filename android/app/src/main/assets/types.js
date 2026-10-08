@@ -85,6 +85,12 @@ export function normalizeNowPlaying(data) {
   if (data.plainLyrics) {
     res.plainLyrics = data.plainLyrics;
   }
+  if (Array.isArray(data.lookupCandidates) && data.lookupCandidates.length) {
+    res.lookupCandidates = data.lookupCandidates
+      .filter(c => c && c.title)
+      .slice(0, 6)
+      .map(c => ({ title: String(c.title), artist: String(c.artist || ''), duration: Number(c.duration) || 0 }));
+  }
   if (data.lrclibId) {
     res.lrclibId = data.lrclibId;
   }

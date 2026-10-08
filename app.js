@@ -32,6 +32,8 @@ import { signUp, logIn, logOut, getCurrentUser, updateUserPreferences, deleteCur
 // DOM Elements: Navigation Tabs
 const sourceNav = document.getElementById('sourceNav');
 const sourceTabs = document.querySelectorAll('.source-tab');
+const tabCharts = document.getElementById('tabCharts');
+const tabNews = document.getElementById('tabNews');
 const tabPanels = {
   phone: document.getElementById('panelPhone'),
   mic: document.getElementById('panelMic'),
@@ -47,11 +49,9 @@ const tabPanels = {
 const panelConnect = document.getElementById('panelConnect');
 const btnSubLastfm = document.getElementById('btnSubLastfm');
 const btnSubSpotify = document.getElementById('btnSubSpotify');
-const btnSubApple = document.getElementById('btnSubApple');
 const subPanels = {
   lastfm: document.getElementById('panelLastfm'),
-  spotify: document.getElementById('panelSpotify'),
-  apple: document.getElementById('panelApple')
+  spotify: document.getElementById('panelSpotify')
 };
 
 // DOM Elements: Now Playing Compact Bar & Recent Songs
@@ -78,8 +78,8 @@ const btnDoneShortcuts = document.getElementById('btnDoneShortcuts');
 const settingsDragHandle = document.getElementById('settingsDragHandle');
 const settingsDialog = document.getElementById('settingsDialog');
 
-// DOM Elements: Alerts & Header
-const alertContainer = document.getElementById('alertContainer');
+// DOM Elements: Toasts & Header
+const toastRegion = document.getElementById('toastRegion');
 const offlineBanner = document.getElementById('offlineBanner');
 const offlineBannerText = document.getElementById('offlineBannerText');
 const btnInstallPwa = document.getElementById('btnInstallPwa');
@@ -234,6 +234,7 @@ const STORAGE_FONT_SCALE_KEY = 'lyricwave_font_scale';
 const STORAGE_LAST_SOURCE_KEY = 'lyricwave_last_source';
 const STORAGE_RECENT_SONGS_KEY = 'lyricwave_recent_songs';
 const STORAGE_FIRST_RUN_DISMISSED_KEY = 'lyricwave_first_run_dismissed';
+const STORAGE_DISCOVER_VIEW_KEY = 'lyricwave_discover_view';
 const MAX_RECENT_SONGS = 10;
 
 function getDefaultTheme() {
@@ -352,9 +353,9 @@ function renderRecentSongs() {
     btn.setAttribute('aria-label', `Play lyrics for ${song.title} by ${song.artist}`);
 
     const cleanArt = sanitizeUrl(song.albumArt);
-    const artHtml = cleanArt 
-      ? `<img class="recent-song-art" src="${cleanArt}" alt="" onerror="this.style.display='none'">`
-      : `<div class="recent-song-art" style="display:flex;align-items:center;justify-content:center;font-size:0.75rem;opacity:0.6;">🎵</div>`;
+    const artHtml = cleanArt
+      ? `<img class="recent-song-art" src="${cleanArt}" alt="" width="32" height="32" loading="lazy" decoding="async">`
+      : `<div class="recent-song-art recent-song-art--empty" aria-hidden="true">🎵</div>`;
 
     btn.innerHTML = `
       ${artHtml}
@@ -363,6 +364,7 @@ function renderRecentSongs() {
         <span class="recent-song-artist">${escapeHtml(song.artist)}</span>
       </div>
     `;
+    hideImageOnError(btn.querySelector('img.recent-song-art'));
 
     btn.addEventListener('click', () => {
       // Load track into searchSource & engine for interactive lyrics playback
@@ -513,6 +515,11 @@ const reel = new ReelVisualizer(reelCanvas, reelContainer, {
 const engine = new UnifiedSyncEngine({
   onTrackChange: (track) => {
     activePlaybackView.classList.remove('hidden');
+    // The welcome hint has done its job once lyrics are on screen.
+    if (firstRunHint && !firstRunHint.classList.contains('hidden')) {
+      firstRunHint.classList.add('hidden');
+      try { localStorage.setItem(STORAGE_FIRST_RUN_DISMISSED_KEY, 'true'); } catch {}
+    }
     // Re-sync records a new mic sample; it makes no sense when following a phone app.
     btnResync?.classList.toggle('hidden', track.source === 'phone');
     trackTitle.textContent = track.title;
@@ -958,7 +965,7 @@ searchInput.addEventListener('input', (e) => {
     searchRequestSeq++;
     searchResults.innerHTML = `
       <div class="search-prompt">
-        <span class="search-prompt-icon">🔍</span>
+        <span class="search-prompt-icon" aria-hidden="true">🔍</span>
         <p>Type any song name above to find synced lyrics directly on LRCLIB.</p>
       </div>
     `;
@@ -966,9 +973,9 @@ searchInput.addEventListener('input', (e) => {
   }
 
   searchResults.innerHTML = `
-    <div class="search-prompt">
-      <div class="spinner" style="margin: 0 auto 0.75rem auto;"></div>
-      <p>Searching tracks on LRCLIB & iTunes...</p>
+    <div class="search-prompt" role="status">
+      <div class="spinner" aria-hidden="true"></div>
+      <p>Searching tracks on LRCLIB &amp; iTunes...</p>
     </div>
   `;
 
@@ -996,7 +1003,7 @@ btnClearSearch.addEventListener('click', () => {
   btnClearSearch.classList.add('hidden');
   searchResults.innerHTML = `
     <div class="search-prompt">
-      <span class="search-prompt-icon">🔍</span>
+      <span class="search-prompt-icon" aria-hidden="true">🔍</span>
       <p>Type any song name above to find synced lyrics directly on LRCLIB.</p>
     </div>
   `;
@@ -1020,18 +1027,19 @@ function renderSearchResults(tracks) {
     item.className = 'search-item';
     const cleanArt = sanitizeUrl(track.albumArt);
     item.innerHTML = `
-      <img class="search-item-art" src="${cleanArt || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22/>'}" alt="" onerror="this.style.display='none'">
+      <img class="search-item-art" src="${cleanArt || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22/>'}" alt="" width="48" height="48" loading="lazy" decoding="async">
       <div class="search-item-info">
         <div class="search-item-title">${escapeHtml(track.title)}</div>
         <div class="search-item-artist">${escapeHtml(track.artist)}</div>
-        <div class="search-item-meta">${escapeHtml(track.album || '')} • ${formatMs(track.durationMs)}${track.hasSynced || track.syncedLyrics ? ' <span class="lyrics-badge synced" style="padding:0.1rem 0.4rem;font-size:0.65rem;margin-left:0.35rem;">Synced</span>' : ''}</div>
+        <div class="search-item-meta">${escapeHtml(track.album || '')} • ${formatMs(track.durationMs)}${track.hasSynced || track.syncedLyrics ? ' <span class="lyrics-badge lyrics-badge--sm synced">Synced</span>' : ''}</div>
       </div>
       <div class="search-item-action">
-        <button class="btn-start-track" type="button" aria-label="Start lyrics playback">
+        <button class="btn-start-track" type="button" aria-label="Start lyrics playback for ${escapeHtml(track.title)}">
           <span>▶ Start</span>
         </button>
       </div>
     `;
+    hideImageOnError(item.querySelector('img.search-item-art'));
 
     const startAction = () => {
       engine.connectSource(searchSource);
@@ -1057,6 +1065,125 @@ function renderSearchResults(tracks) {
 }
 
 // =====================================================================
+// Shared UI helpers: thumbnails, chip scrollers, tablist keyboard support
+// =====================================================================
+
+function prefersReducedMotion() {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/** Plain <img> (recent songs / search results): drop it from layout if the image fails to load. */
+function hideImageOnError(img) {
+  if (!img) return;
+  img.addEventListener('error', () => img.classList.add('hidden'), { once: true });
+}
+
+/**
+ * Markup for a cover/photo thumbnail. The <img> is lazy + sized (no layout shift); the wrapper starts in
+ * the loading state (shimmer) and gets .is-loaded / .is-error from wireMediaThumbs().
+ * Without a usable URL it renders straight in the error state so the fallback glyph shows.
+ */
+function mediaThumbHtml(url, variant, fallbackGlyph, width, height) {
+  const clean = sanitizeUrl(url);
+  const cls = `media-thumb media-thumb--${variant}`;
+  const fallback = `<span class="media-thumb-fallback" aria-hidden="true">${fallbackGlyph}</span>`;
+  if (!clean) return `<div class="${cls} is-error" aria-hidden="true">${fallback}</div>`;
+  return `<div class="${cls}" aria-hidden="true"><img src="${escapeHtml(clean)}" alt="" width="${width}" height="${height}" loading="lazy" decoding="async">${fallback}</div>`;
+}
+
+/** Attach load/error listeners that drive the .is-loaded / .is-error thumbnail states. */
+function wireMediaThumbs(root) {
+  if (!root) return;
+  root.querySelectorAll('.media-thumb').forEach((thumb) => {
+    const img = thumb.querySelector('img');
+    if (!img || thumb.classList.contains('is-error')) return;
+    const markLoaded = () => { thumb.classList.remove('is-error'); thumb.classList.add('is-loaded'); };
+    const markError = () => { thumb.classList.remove('is-loaded'); thumb.classList.add('is-error'); };
+    img.addEventListener('load', markLoaded, { once: true });
+    img.addEventListener('error', markError, { once: true });
+    if (img.complete) {
+      if (img.naturalWidth > 0) markLoaded();
+      else markError();
+    }
+  });
+}
+
+/** Single-select chip group: updates .active + aria-pressed and centres the chosen chip in its scroller. */
+function activateChip(chips, chip) {
+  chips.forEach((c) => {
+    const on = c === chip;
+    c.classList.toggle('active', on);
+    c.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  try {
+    chip.scrollIntoView({ inline: 'center', block: 'nearest', behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+  } catch {
+    chip.scrollIntoView();
+  }
+}
+
+/** Horizontal chip rows: flag whether more chips are hidden past either edge (drives the edge-fade mask). */
+function initChipScrollers() {
+  document.querySelectorAll('.chip-scroller').forEach((scroller) => {
+    const row = scroller.querySelector('.chip-row');
+    if (!row) return;
+    const update = () => {
+      const maxScroll = row.scrollWidth - row.clientWidth;
+      const hasStart = row.scrollLeft > 2;
+      const hasEnd = maxScroll > 2 && row.scrollLeft < maxScroll - 2;
+      [scroller, row].forEach((el) => {
+        el.classList.toggle('has-more-start', hasStart);
+        el.classList.toggle('has-more-end', hasEnd);
+      });
+    };
+    row.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update, { passive: true });
+    // Panels start hidden (0 width); re-measure as soon as they become visible or fonts change sizes.
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(update).observe(row);
+    update();
+  });
+}
+
+/** Arrow / Home / End navigation for segmented controls and tab-like button groups. */
+function enableTablistKeys(container) {
+  if (!container) return;
+  container.addEventListener('keydown', (e) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+    const items = Array.from(container.querySelectorAll('[role="tab"]')).filter((b) => !b.classList.contains('hidden'));
+    const index = items.indexOf(document.activeElement);
+    if (index < 0) return;
+    e.preventDefault();
+    let next = index;
+    if (e.key === 'ArrowRight') next = (index + 1) % items.length;
+    else if (e.key === 'ArrowLeft') next = (index - 1 + items.length) % items.length;
+    else if (e.key === 'Home') next = 0;
+    else next = items.length - 1;
+    items[next].focus();
+    items[next].click();
+  });
+}
+
+/** Loading / error / empty placeholders shared by the Discover lists. */
+function loadingStateHtml(message) {
+  return `
+    <div class="charts-loading-state" role="status">
+      <div class="spinner" aria-hidden="true"></div>
+      <p>${escapeHtml(message)}</p>
+    </div>
+  `;
+}
+
+function stateWithActionHtml(message, buttonId, buttonLabel, role) {
+  return `
+    <div class="charts-empty-state"${role ? ` role="${role}"` : ''}>
+      <p>${escapeHtml(message)}</p>
+      <button id="${buttonId}" class="btn btn-sm btn-ghost" type="button">${escapeHtml(buttonLabel)}</button>
+    </div>
+  `;
+}
+
+// =====================================================================
 // Genius-Themed Charts Section (Top Trending Songs)
 // =====================================================================
 
@@ -1079,12 +1206,8 @@ async function loadCharts(genre = 'all', forceRefresh = false) {
     btnRefreshCharts.classList.add('loading');
   }
 
-  chartsListContainer.innerHTML = `
-    <div class="charts-loading-state">
-      <div class="spinner" style="margin: 0 auto 0.75rem auto;"></div>
-      <p>Loading hot chart songs...</p>
-    </div>
-  `;
+  chartsListContainer.setAttribute('aria-busy', 'true');
+  chartsListContainer.innerHTML = loadingStateHtml('Loading hot chart songs...');
 
   const ITUNES_GENRES = {
     all: '',
@@ -1181,20 +1304,14 @@ async function loadCharts(genre = 'all', forceRefresh = false) {
   } catch (err) {
     console.warn('Charts backend load error:', err);
 
-    chartsListContainer.innerHTML = `
-      <div class="charts-empty-state">
-        <p style="margin-bottom:0.6rem;">⚠️ Unable to load charts right now.</p>
-        <button id="btnRetryCharts" class="btn btn-sm btn-ghost" type="button" style="border:1px solid var(--border);">
-          ↻ Try Again
-        </button>
-      </div>
-    `;
+    chartsListContainer.innerHTML = stateWithActionHtml('⚠️ Unable to load charts right now.', 'btnRetryCharts', '↻ Try Again', 'alert');
     const btnRetry = document.getElementById('btnRetryCharts');
     if (btnRetry) {
       btnRetry.addEventListener('click', () => loadCharts(genre, true));
     }
   } finally {
     isFetchingCharts = false;
+    chartsListContainer.removeAttribute('aria-busy');
     if (btnRefreshCharts) {
       btnRefreshCharts.classList.remove('loading');
     }
@@ -1210,11 +1327,21 @@ function renderCharts(songs) {
   if (!chartsListContainer) return;
 
   if (!songs || songs.length === 0) {
-    chartsListContainer.innerHTML = `
-      <div class="charts-empty-state">
-        <p>No tracks found for this genre. Check back shortly!</p>
-      </div>
-    `;
+    const filtered = currentChartGenre !== 'all';
+    chartsListContainer.innerHTML = stateWithActionHtml(
+      filtered ? 'No tracks found for this genre. Check back shortly!' : 'No chart tracks right now. Check back shortly!',
+      'btnChartsEmptyAction',
+      filtered ? 'Show all genres' : '↻ Refresh'
+    );
+    document.getElementById('btnChartsEmptyAction')?.addEventListener('click', () => {
+      if (filtered) {
+        const allChip = Array.from(genrePills).find((c) => (c.dataset.genre || 'all') === 'all');
+        if (allChip) activateChip(genrePills, allChip);
+        loadCharts('all');
+      } else {
+        loadCharts(currentChartGenre, true);
+      }
+    });
     return;
   }
 
@@ -1225,32 +1352,31 @@ function renderCharts(songs) {
     const card = document.createElement('div');
     const rank = song.rank || (idx + 1);
     card.className = `chart-song-card rank-${rank <= 3 ? rank : 'other'}`;
-    card.setAttribute('role', 'button');
-    card.setAttribute('tabindex', '0');
-    card.setAttribute('aria-label', `Play #${rank}: ${song.title} by ${song.artist}`);
 
-    const cleanArt = sanitizeUrl(song.albumArt);
-    const artHtml = cleanArt
-      ? `<img class="chart-song-art" src="${cleanArt}" alt="${escapeHtml(song.title)}" loading="lazy" onerror="this.style.display='none'">`
-      : `<div class="chart-song-art" style="display:flex;align-items:center;justify-content:center;font-size:1.1rem;opacity:0.6;">🎵</div>`;
+    const showGenreTag = Boolean(song.genre) && song.genre !== 'Hot';
+    const tagRow = (showGenreTag || rank <= 5)
+      ? `<div class="chart-song-tag-row">
+          ${showGenreTag ? `<span class="chart-genre-tag">${escapeHtml(song.genre)}</span>` : ''}
+          ${rank <= 5 ? '<span class="chart-fire-tag">🔥 Trending</span>' : ''}
+        </div>`
+      : '';
 
     card.innerHTML = `
       <div class="chart-rank-number">#${rank}</div>
-      ${artHtml}
+      ${mediaThumbHtml(song.albumArt, 'chart', '🎵', 48, 48)}
       <div class="chart-song-meta">
         <div class="chart-song-title" title="${escapeHtml(song.title)}">${escapeHtml(song.title)}</div>
         <div class="chart-song-artist" title="${escapeHtml(song.artist)}">${escapeHtml(song.artist)}</div>
-        <div class="chart-song-tag-row">
-          <span class="chart-genre-tag">${escapeHtml(song.genre || 'Hot')}</span>
-          ${rank <= 5 ? '<span class="chart-fire-tag">🔥 Trending</span>' : ''}
-        </div>
+        ${tagRow}
       </div>
       <div class="chart-song-action">
-        <button class="btn-chart-play" type="button" aria-label="Play synced lyrics for ${escapeHtml(song.title)}">
-          <span>▶ Play</span>
+        <button class="btn-chart-play btn-chart-play--icon" type="button" aria-label="Play synced lyrics for #${rank}: ${escapeHtml(song.title)} by ${escapeHtml(song.artist)}">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><polygon points="7 4 20 12 7 20 7 4"/></svg>
+          <span class="btn-label">Play</span>
         </button>
       </div>
     `;
+    wireMediaThumbs(card);
 
     const startChartPlayback = () => {
       // Connect searchSource & select this track to launch unified synced lyrics with speaker audio
@@ -1269,17 +1395,13 @@ function renderCharts(songs) {
       }, true);
       showAlert(`▶ Lyrics for #${rank}: "${song.title}"`, 'success');
       if (activePlaybackView) {
-        activePlaybackView.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        activePlaybackView.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
       }
     };
 
+    // Pointer users can tap anywhere on the row; keyboard / screen-reader users use the Play button
+    // (one tab stop per row, no nested interactive controls).
     card.addEventListener('click', startChartPlayback);
-    card.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        startChartPlayback();
-      }
-    });
 
     const playBtn = card.querySelector('.btn-chart-play');
     if (playBtn) {
@@ -1299,8 +1421,7 @@ function renderCharts(songs) {
 if (genrePills && genrePills.length > 0) {
   genrePills.forEach((pill) => {
     pill.addEventListener('click', () => {
-      genrePills.forEach(p => p.classList.remove('active'));
-      pill.classList.add('active');
+      activateChip(genrePills, pill);
       const genre = pill.dataset.genre || 'all';
       loadCharts(genre);
     });
@@ -1332,12 +1453,8 @@ async function loadNews(sourceFilter = 'all', forceRefresh = false) {
     btnRefreshNews.classList.add('loading');
   }
 
-  newsListContainer.innerHTML = `
-    <div class="charts-loading-state">
-      <div class="spinner" style="margin: 0 auto 0.75rem auto;"></div>
-      <p>Loading fresh music headlines...</p>
-    </div>
-  `;
+  newsListContainer.setAttribute('aria-busy', 'true');
+  newsListContainer.innerHTML = loadingStateHtml('Loading fresh music headlines...');
 
   try {
     isFetchingNews = true;
@@ -1369,20 +1486,14 @@ async function loadNews(sourceFilter = 'all', forceRefresh = false) {
     renderNews(data.articles || [], sourceFilter);
   } catch (err) {
     console.warn('News load error:', err);
-    newsListContainer.innerHTML = `
-      <div class="charts-empty-state">
-        <p style="margin-bottom:0.6rem;">⚠️ Unable to load music news right now.</p>
-        <button id="btnRetryNews" class="btn btn-sm btn-ghost" type="button" style="border:1px solid var(--border);">
-          ↻ Try Again
-        </button>
-      </div>
-    `;
+    newsListContainer.innerHTML = stateWithActionHtml('⚠️ Unable to load music news right now.', 'btnRetryNews', '↻ Try Again', 'alert');
     const btnRetry = document.getElementById('btnRetryNews');
     if (btnRetry) {
       btnRetry.addEventListener('click', () => loadNews(sourceFilter, true));
     }
   } finally {
     isFetchingNews = false;
+    newsListContainer.removeAttribute('aria-busy');
     if (btnRefreshNews) {
       btnRefreshNews.classList.remove('loading');
     }
@@ -1402,11 +1513,22 @@ function renderNews(articles, sourceFilter = 'all') {
   }
 
   if (!filtered || filtered.length === 0) {
-    newsListContainer.innerHTML = `
-      <div class="charts-empty-state">
-        <p>No headlines found for this publication. Check back soon!</p>
-      </div>
-    `;
+    const narrowed = sourceFilter !== 'all';
+    newsListContainer.innerHTML = stateWithActionHtml(
+      narrowed ? 'No headlines found for this publication. Check back soon!' : 'No headlines right now. Check back soon!',
+      'btnNewsEmptyAction',
+      narrowed ? 'Show all stories' : '↻ Refresh'
+    );
+    document.getElementById('btnNewsEmptyAction')?.addEventListener('click', () => {
+      if (narrowed) {
+        const allChip = Array.from(newsFilterPills).find((c) => (c.dataset.source || 'all') === 'all');
+        if (allChip) activateChip(newsFilterPills, allChip);
+        currentNewsSource = 'all';
+        renderNews(articles, 'all');
+      } else {
+        loadNews(currentNewsSource, true);
+      }
+    });
     return;
   }
 
@@ -1415,7 +1537,8 @@ function renderNews(articles, sourceFilter = 'all') {
 
   filtered.forEach((article) => {
     const card = document.createElement('a');
-    card.className = 'news-article-card';
+    const cleanImg = sanitizeUrl(article.imageUrl);
+    card.className = cleanImg ? 'news-article-card' : 'news-article-card no-image';
     card.href = /^https?:\/\//i.test(article.link || '') ? article.link : '#';
     card.target = '_blank';
     card.rel = 'noopener noreferrer';
@@ -1429,15 +1552,8 @@ function renderNews(articles, sourceFilter = 'all') {
       } catch {}
     }
 
-    const cleanImg = sanitizeUrl(article.imageUrl);
-    const imgHtml = cleanImg
-      ? `<img class="news-article-img" src="${cleanImg}" alt="${escapeHtml(article.title)}" loading="lazy" onerror="this.parentElement.style.display='none'">`
-      : `<div class="news-article-img" style="display:flex;align-items:center;justify-content:center;font-size:1.4rem;background:#181b22;">📰</div>`;
-
     card.innerHTML = `
-      <div class="news-article-img-wrap">
-        ${imgHtml}
-      </div>
+      ${cleanImg ? mediaThumbHtml(cleanImg, 'news', '📰', 96, 60) : ''}
       <div class="news-article-content">
         <div>
           <div class="news-article-badge-row">
@@ -1450,6 +1566,7 @@ function renderNews(articles, sourceFilter = 'all') {
       </div>
     `;
 
+    wireMediaThumbs(card);
     fragment.appendChild(card);
   });
 
@@ -1460,9 +1577,9 @@ function renderNews(articles, sourceFilter = 'all') {
 if (newsFilterPills && newsFilterPills.length > 0) {
   newsFilterPills.forEach((pill) => {
     pill.addEventListener('click', () => {
-      newsFilterPills.forEach(p => p.classList.remove('active'));
-      pill.classList.add('active');
+      activateChip(newsFilterPills, pill);
       const src = pill.dataset.source || 'all';
+      currentNewsSource = src;
       if (cachedNewsData && cachedNewsData.articles) {
         renderNews(cachedNewsData.articles, src);
       } else {
@@ -1478,6 +1595,8 @@ if (btnRefreshNews) {
     loadNews(currentNewsSource, true);
   });
 }
+
+initChipScrollers();
 
 // =====================================================================
 // Input Source 3: Last.fm Live Scrobble (Approximate Mode)
@@ -1553,7 +1672,7 @@ function updatePhoneStatus(st = {}) {
     phoneStatusDot?.classList.toggle('paused', !st.isPlaying);
   } else {
     phoneStatusTitle.textContent = 'Waiting for music…';
-    phoneStatusText.textContent = 'Play a song in Spotify, YouTube Music, Apple Music or any music app.';
+    phoneStatusText.textContent = 'Play a song in any music app.';
     phoneStatusDot?.classList.add('paused');
   }
 }
@@ -1671,10 +1790,16 @@ btnLogoutSpotify.addEventListener('click', () => {
 // Navigation Tab Switching
 // =====================================================================
 
-// Sub-tab state for Connect panel ('lastfm' or 'spotify')
-let activeConnectSubTab = localStorage.getItem('lyricwave_connect_subtab') || 'lastfm';
+// Sub-tab state for Connect panel ('lastfm' or 'spotify'). The removed 'apple' sub-tab (and any
+// other stale value) falls back to Last.fm.
+const storedConnectSubTab = localStorage.getItem('lyricwave_connect_subtab');
+let activeConnectSubTab = storedConnectSubTab === 'spotify' ? 'spotify' : 'lastfm';
+if (storedConnectSubTab !== null && storedConnectSubTab !== activeConnectSubTab) {
+  localStorage.setItem('lyricwave_connect_subtab', activeConnectSubTab);
+}
 
 function switchConnectSubTab(subTab) {
+  if (subTab !== 'spotify') subTab = 'lastfm';
   activeConnectSubTab = subTab;
   localStorage.setItem('lyricwave_connect_subtab', subTab);
 
@@ -1688,15 +1813,9 @@ function switchConnectSubTab(subTab) {
     btnSubSpotify.classList.toggle('active', isSpotify);
     btnSubSpotify.setAttribute('aria-selected', isSpotify ? 'true' : 'false');
   }
-  if (btnSubApple) {
-    const isApple = subTab === 'apple';
-    btnSubApple.classList.toggle('active', isApple);
-    btnSubApple.setAttribute('aria-selected', isApple ? 'true' : 'false');
-  }
 
   if (subPanels.lastfm) subPanels.lastfm.classList.toggle('hidden', subTab !== 'lastfm');
   if (subPanels.spotify) subPanels.spotify.classList.toggle('hidden', subTab !== 'spotify');
-  if (subPanels.apple) subPanels.apple.classList.toggle('hidden', subTab !== 'apple');
 
   // Tear down opposite source
   if (subTab === 'lastfm') {
@@ -1707,9 +1826,6 @@ function switchConnectSubTab(subTab) {
     if (lastfm.isRunning) lastfm.stop();
     if (isAuthenticated()) engine.connectSource(spotifySource);
     engine.loadOffsetForSource('spotify');
-  } else if (subTab === 'apple') {
-    if (lastfm.isRunning) lastfm.stop();
-    if (spotifySource.isRunning) spotifySource.stop();
   }
   updateOffsetUI();
 }
@@ -1720,89 +1836,127 @@ if (btnSubLastfm) {
 if (btnSubSpotify) {
   btnSubSpotify.addEventListener('click', () => switchConnectSubTab('spotify'));
 }
-if (btnSubApple) {
-  btnSubApple.addEventListener('click', () => switchConnectSubTab('apple'));
+
+// Discover = Charts | News. Both views live under the single "Discover" nav item (#tabCharts);
+// #tabNews stays in the DOM (hidden) so a persisted 'news' tab and programmatic clicks keep working.
+const discoverButtons = document.querySelectorAll('.segmented[data-segmented="discover"] .segmented-btn');
+
+function getDiscoverView() {
+  try {
+    return localStorage.getItem(STORAGE_DISCOVER_VIEW_KEY) === 'news' ? 'news' : 'charts';
+  } catch {
+    return 'charts';
+  }
+}
+
+function setDiscoverView(view) {
+  try { localStorage.setItem(STORAGE_DISCOVER_VIEW_KEY, view); } catch {}
+  discoverButtons.forEach((btn) => {
+    const on = btn.dataset.discover === view;
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+}
+
+setDiscoverView(getDiscoverView());
+
+function activateTab(targetTab) {
+  activeTab = targetTab;
+  localStorage.setItem(STORAGE_LAST_SOURCE_KEY, targetTab);
+  if (targetTab === 'charts' || targetTab === 'news') setDiscoverView(targetTab);
+
+  // News is a view inside the Discover nav item, so Discover is the highlighted nav tab for both.
+  const navTarget = targetTab === 'news' ? 'charts' : targetTab;
+  sourceTabs.forEach(t => {
+    const isCurrent = t.dataset.tab === navTarget;
+    t.classList.toggle('active', isCurrent);
+    t.setAttribute('aria-selected', isCurrent ? 'true' : 'false');
+  });
+
+  Object.keys(tabPanels).forEach(key => {
+    if (tabPanels[key]) {
+      tabPanels[key].classList.toggle('hidden', key !== targetTab);
+    }
+  });
+
+  // Tear down previous sources
+  if (targetTab !== 'mic') {
+    // Also cancels a pending upload and the auto re-listen timer.
+    mic.stop();
+  }
+  if (targetTab !== 'connect' && targetTab !== 'spotify' && spotifySource.isRunning) {
+    spotifySource.stop();
+  }
+  if (targetTab !== 'connect' && targetTab !== 'lastfm' && lastfm.isRunning) {
+    lastfm.stop();
+  }
+  if (targetTab !== 'search' && searchSource.isPlaying) {
+    searchSource.stop();
+  }
+  if (targetTab !== 'phone' && phoneSource.isRunning) {
+    phoneSource.stop();
+  }
+
+  // Connect appropriate active source
+  if (targetTab === 'phone') {
+    engine.loadOffsetForSource('phone');
+    updateOffsetUI();
+    refreshPhonePanel();
+  } else if (targetTab === 'connect') {
+    if (panelConnect) panelConnect.classList.remove('hidden');
+    switchConnectSubTab(activeConnectSubTab);
+  } else if (targetTab === 'spotify') {
+    // Legacy compatibility if tabSpotify is clicked directly
+    if (isAuthenticated()) engine.connectSource(spotifySource);
+    engine.loadOffsetForSource('spotify');
+    updateOffsetUI();
+  } else if (targetTab === 'lastfm') {
+    // Legacy compatibility if tabLastfm is clicked directly
+    if (lastfm.getUsername()) engine.connectSource(lastfm);
+    engine.loadOffsetForSource('lastfm');
+    updateOffsetUI();
+  } else if (targetTab === 'search') {
+    engine.connectSource(searchSource);
+    engine.loadOffsetForSource('search');
+    updateOffsetUI();
+  } else if (targetTab === 'charts') {
+    engine.connectSource(searchSource);
+    engine.loadOffsetForSource('search');
+    updateOffsetUI();
+    if (!cachedChartData) {
+      loadCharts(currentChartGenre);
+    }
+  } else if (targetTab === 'news') {
+    engine.connectSource(searchSource);
+    engine.loadOffsetForSource('search');
+    updateOffsetUI();
+    if (!cachedNewsData) {
+      loadNews(currentNewsSource);
+    }
+  } else if (targetTab === 'mic') {
+    engine.connectSource(null);
+    engine.loadOffsetForSource('mic');
+    updateOffsetUI();
+  }
 }
 
 sourceTabs.forEach((tab) => {
   tab.addEventListener('click', () => {
-    const targetTab = tab.dataset.tab;
-    activeTab = targetTab;
-    localStorage.setItem(STORAGE_LAST_SOURCE_KEY, targetTab);
-
-    sourceTabs.forEach(t => {
-      const isCurrent = t === tab;
-      t.classList.toggle('active', isCurrent);
-      t.setAttribute('aria-selected', isCurrent ? 'true' : 'false');
-    });
-
-    Object.keys(tabPanels).forEach(key => {
-      if (tabPanels[key]) {
-        tabPanels[key].classList.toggle('hidden', key !== targetTab);
-      }
-    });
-
-    // Tear down previous sources
-    if (targetTab !== 'mic') {
-      // Also cancels a pending upload and the auto re-listen timer.
-      mic.stop();
-    }
-    if (targetTab !== 'connect' && targetTab !== 'spotify' && spotifySource.isRunning) {
-      spotifySource.stop();
-    }
-    if (targetTab !== 'connect' && targetTab !== 'lastfm' && lastfm.isRunning) {
-      lastfm.stop();
-    }
-    if (targetTab !== 'search' && searchSource.isPlaying) {
-      searchSource.stop();
-    }
-    if (targetTab !== 'phone' && phoneSource.isRunning) {
-      phoneSource.stop();
-    }
-
-    // Connect appropriate active source
-    if (targetTab === 'phone') {
-      engine.loadOffsetForSource('phone');
-      updateOffsetUI();
-      refreshPhonePanel();
-    } else if (targetTab === 'connect') {
-      if (panelConnect) panelConnect.classList.remove('hidden');
-      switchConnectSubTab(activeConnectSubTab);
-    } else if (targetTab === 'spotify') {
-      // Legacy compatibility if tabSpotify is clicked directly
-      if (isAuthenticated()) engine.connectSource(spotifySource);
-      engine.loadOffsetForSource('spotify');
-      updateOffsetUI();
-    } else if (targetTab === 'lastfm') {
-      // Legacy compatibility if tabLastfm is clicked directly
-      if (lastfm.getUsername()) engine.connectSource(lastfm);
-      engine.loadOffsetForSource('lastfm');
-      updateOffsetUI();
-    } else if (targetTab === 'search') {
-      engine.connectSource(searchSource);
-      engine.loadOffsetForSource('search');
-      updateOffsetUI();
-    } else if (targetTab === 'charts') {
-      engine.connectSource(searchSource);
-      engine.loadOffsetForSource('search');
-      updateOffsetUI();
-      if (!cachedChartData) {
-        loadCharts(currentChartGenre);
-      }
-    } else if (targetTab === 'news') {
-      engine.connectSource(searchSource);
-      engine.loadOffsetForSource('search');
-      updateOffsetUI();
-      if (!cachedNewsData) {
-        loadNews(currentNewsSource);
-      }
-    } else if (targetTab === 'mic') {
-      engine.connectSource(null);
-      engine.loadOffsetForSource('mic');
-      updateOffsetUI();
-    }
+    let targetTab = tab.dataset.tab;
+    // Tapping the Discover nav item resumes the Discover view you last used (Charts or News).
+    if (tab === tabCharts && getDiscoverView() === 'news') targetTab = 'news';
+    activateTab(targetTab);
   });
 });
+
+discoverButtons.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const view = btn.dataset.discover === 'news' ? 'news' : 'charts';
+    if (activeTab !== view) activateTab(view);
+  });
+});
+
+document.querySelectorAll('.segmented[role="tablist"]').forEach(enableTablistKeys);
 
 // Now Playing compact bar interactions:
 // 1. Listen again: triggers microphone listening immediately
@@ -1998,9 +2152,11 @@ function renderLyricsState(lyrics) {
         <div class="lyrics-empty-icon">${isOffline ? '📡' : (isQuota ? '⏳' : '⚠️')}</div>
         <div class="lyrics-empty-msg">${errorTitle}</div>
         <p class="lyrics-empty-sub">${errorDesc}</p>
-        <button id="btnRetryLyrics" class="btn btn-sm btn-spotify" type="button" style="width:auto;margin-top:0.4rem;">
-          ↻ Try Again
-        </button>
+        <div class="lyrics-empty-actions">
+          <button id="btnRetryLyrics" class="btn btn-sm btn-spotify" type="button">
+            ↻ Try Again
+          </button>
+        </div>
       </div>
     `;
     const retryBtn = document.getElementById('btnRetryLyrics');
@@ -2047,7 +2203,7 @@ function renderLyricsState(lyrics) {
     document.getElementById('btnRelistenFromEmpty')?.addEventListener('click', () => {
       btnListenAgain?.click();
     });
-    reelLineText.innerHTML = '<span class="reel-placeholder-text">No lyrics found on LRCLIB</span>';
+    reelLineText.innerHTML = '<span class="reel-placeholder-text">♪</span>';
     reelPrevLine.textContent = '';
     reelNextLine.textContent = '';
   }
@@ -2404,11 +2560,15 @@ settingsBackdrop.addEventListener('click', (e) => {
   if (e.target === settingsBackdrop) closeSettings();
 });
 
-// Focus trap listener inside settings dialog
-settingsBackdrop.addEventListener('keydown', (e) => {
-  if (e.key === 'Tab') {
-    trapFocus(settingsDialog, e);
+// Focus trap for the settings dialog (document-level so focus on <body> is caught too)
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Tab' || settingsBackdrop.classList.contains('hidden')) return;
+  if (!settingsDialog.contains(document.activeElement)) {
+    e.preventDefault();
+    btnCloseSettings?.focus();
+    return;
   }
+  trapFocus(settingsDialog, e);
 });
 
 // Shortcuts Cheat-sheet Modal Controls
@@ -2801,20 +2961,99 @@ function setupNetworkMonitoring() {
   if (!navigator.onLine) updateOnline();
 }
 
-function showAlert(message, type = 'info') {
-  alertContainer.className = `alert alert-${type}`;
-  alertContainer.innerHTML = `
-    <div class="alert-content">
-      <span>${escapeHtml(message)}</span>
-    </div>
-    <button class="alert-close" type="button" aria-label="Close">&times;</button>
-  `;
-  alertContainer.classList.remove('hidden');
+/**
+ * Transient toast notifications (replaces the old pinned alert banner).
+ * One toast at a time: a new message replaces the visible one. info/success auto-dismiss after 3.5s,
+ * warning after 6s, danger stays until closed. Timers pause while the toast is hovered or focused.
+ */
+const TOAST_ICONS = {
+  info: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+  success: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+  warning: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  danger: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
+};
+const TOAST_DURATION_MS = { info: 3500, success: 3500, warning: 6000, danger: 0 };
+const TOAST_EXIT_MS = 300;
+let activeToast = null;
+let toastDismissTimer = null;
 
-  const closeBtn = alertContainer.querySelector('.alert-close');
-  if (closeBtn) {
-    closeBtn.addEventListener('click', () => alertContainer.classList.add('hidden'));
+function clearToastTimer() {
+  if (toastDismissTimer) {
+    clearTimeout(toastDismissTimer);
+    toastDismissTimer = null;
   }
+}
+
+/** Remove a toast: animated (.is-out) by default, instantly when it is being replaced. */
+function dismissToast(toast, immediate = false) {
+  if (!toast) return;
+  if (toast === activeToast) {
+    activeToast = null;
+    clearToastTimer();
+  }
+  if (immediate) {
+    toast.remove();
+    return;
+  }
+  toast.classList.remove('is-in');
+  toast.classList.add('is-out');
+  setTimeout(() => toast.remove(), TOAST_EXIT_MS);
+}
+
+function scheduleToastDismiss(toast, durationMs) {
+  clearToastTimer();
+  if (!durationMs) return;
+  toastDismissTimer = setTimeout(() => dismissToast(toast), durationMs);
+}
+
+function showAlert(message, type = 'info') {
+  if (!toastRegion) return;
+  const kind = Object.prototype.hasOwnProperty.call(TOAST_DURATION_MS, type) ? type : 'info';
+  const duration = TOAST_DURATION_MS[kind];
+
+  if (activeToast) dismissToast(activeToast, true);
+
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${kind}`;
+  toast.setAttribute('role', kind === 'danger' ? 'alert' : 'status');
+
+  const icon = document.createElement('span');
+  icon.className = 'toast-icon';
+  icon.setAttribute('aria-hidden', 'true');
+  icon.innerHTML = TOAST_ICONS[kind];
+
+  const msg = document.createElement('span');
+  msg.className = 'toast-msg';
+  msg.textContent = String(message ?? '');
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'toast-close';
+  closeBtn.type = 'button';
+  closeBtn.setAttribute('aria-label', 'Dismiss notification');
+  closeBtn.innerHTML = '&times;';
+  closeBtn.addEventListener('click', () => dismissToast(toast));
+
+  toast.append(icon, msg, closeBtn);
+
+  // Keep the message on screen while the user is reading / interacting with it.
+  // Resume only when neither the pointer nor keyboard focus is on it.
+  let hovered = false;
+  let focused = false;
+  const update = () => {
+    if (toast !== activeToast) return;
+    if (hovered || focused) clearToastTimer();
+    else scheduleToastDismiss(toast, duration);
+  };
+  toast.addEventListener('pointerenter', () => { hovered = true; update(); });
+  toast.addEventListener('pointerleave', () => { hovered = false; update(); });
+  toast.addEventListener('focusin', () => { focused = true; update(); });
+  toast.addEventListener('focusout', (e) => { if (!toast.contains(e.relatedTarget)) { focused = false; update(); } });
+
+  toastRegion.appendChild(toast);
+  activeToast = toast;
+  void toast.offsetWidth; // commit the start state so the enter transition runs
+  toast.classList.add('is-in');
+  scheduleToastDismiss(toast, duration);
 }
 
 function formatMs(ms) {
@@ -2890,11 +3129,11 @@ async function init() {
   try {
     const callbackResult = await handleRedirectCallback();
     if (callbackResult.status === 'success') {
-      showAlert('Connected to Spotify successfully!', 'info');
-      document.getElementById('tabSpotify').click();
+      showAlert('Connected to Spotify successfully!', 'success');
+      openConnectSpotify();
     } else if (callbackResult.status === 'error') {
       showAlert(callbackResult.error, 'danger');
-      document.getElementById('tabSpotify').click();
+      openConnectSpotify();
     }
   } catch (err) {
     console.warn('Callback error:', err);
@@ -2963,8 +3202,8 @@ async function init() {
       searchInput.value = deepQuery.trim();
       btnClearSearch?.classList.remove('hidden');
       searchResults.innerHTML = `
-        <div class="search-prompt">
-          <div class="spinner" style="margin: 0 auto 0.75rem auto;"></div>
+        <div class="search-prompt" role="status">
+          <div class="spinner" aria-hidden="true"></div>
           <p>Loading shared song "${escapeHtml(deepQuery)}"...</p>
         </div>
       `;
@@ -2992,6 +3231,12 @@ async function init() {
 
   // 10. User Account Management (Sign Up / Log In)
   setupUserAuth();
+}
+
+/** Jump to Connect > Spotify (there is no standalone Spotify tab any more). */
+function openConnectSpotify() {
+  document.getElementById('tabConnect')?.click();
+  switchConnectSubTab('spotify');
 }
 
 function setupUserAuth() {
@@ -3039,37 +3284,72 @@ function setupUserAuth() {
   function setMode(signUpMode) {
     isSignUpMode = signUpMode;
     authErrorMsg?.classList.add('hidden');
-    if (isSignUpMode) {
-      authTabSignup?.style.setProperty('background', 'var(--accent)');
-      authTabSignup?.style.setProperty('color', 'var(--accent-contrast)');
-      authTabLogin?.style.setProperty('background', 'transparent');
-      authTabLogin?.style.setProperty('color', 'var(--text-muted)');
-      authNameGroup?.classList.remove('hidden');
-      if (authModalTitle) authModalTitle.textContent = 'Create LyricWave Account';
-      if (btnSubmitAuth) btnSubmitAuth.textContent = 'Sign Up';
-    } else {
-      authTabLogin?.style.setProperty('background', 'var(--accent)');
-      authTabLogin?.style.setProperty('color', 'var(--accent-contrast)');
-      authTabSignup?.style.setProperty('background', 'transparent');
-      authTabSignup?.style.setProperty('color', 'var(--text-muted)');
-      authNameGroup?.classList.add('hidden');
-      if (authModalTitle) authModalTitle.textContent = 'Log In to LyricWave';
-      if (btnSubmitAuth) btnSubmitAuth.textContent = 'Log In';
-    }
+    // Tab look is driven by .active / aria-selected (styled via .auth-tab-btn.active), not inline styles.
+    [[authTabLogin, !isSignUpMode], [authTabSignup, isSignUpMode]].forEach(([btn, on]) => {
+      if (!btn) return;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    authNameGroup?.classList.toggle('hidden', !isSignUpMode);
+    authInputPassword?.setAttribute('autocomplete', isSignUpMode ? 'new-password' : 'current-password');
+    if (authModalTitle) authModalTitle.textContent = isSignUpMode ? 'Create LyricWave Account' : 'Log In to LyricWave';
+    if (btnSubmitAuth) btnSubmitAuth.textContent = isSignUpMode ? 'Sign Up' : 'Log In';
   }
 
-  btnOpenAuth?.addEventListener('click', () => {
+  const authDialog = authBackdrop?.querySelector('.modal-dialog');
+
+  function openAuth() {
     updateAuthUI();
     authBackdrop?.classList.remove('hidden');
-  });
+    // Move focus into the dialog: first form field when logged out, the close button otherwise.
+    setTimeout(() => {
+      const target = getCurrentUser() ? btnCloseAuth : authInputEmail;
+      target?.focus();
+    }, 50);
+  }
 
-  btnCloseAuth?.addEventListener('click', () => {
+  function closeAuth() {
     authBackdrop?.classList.add('hidden');
-  });
+    btnOpenAuth?.focus();
+  }
+
+  btnOpenAuth?.addEventListener('click', openAuth);
+  btnCloseAuth?.addEventListener('click', closeAuth);
 
   authBackdrop?.addEventListener('click', (e) => {
-    if (e.target === authBackdrop) authBackdrop.classList.add('hidden');
+    if (e.target === authBackdrop) closeAuth();
   });
+
+  // Escape closes the dialog even when focus fell back to <body> (e.g. after a disabled submit button).
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && authBackdrop && !authBackdrop.classList.contains('hidden')) {
+      e.stopPropagation();
+      closeAuth();
+    }
+  });
+
+  // Tab stays inside the dialog (only visible controls count).
+  // Bound on document so it also catches Tab when focus has fallen back to <body>.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab' || !authDialog || !authBackdrop || authBackdrop.classList.contains('hidden')) return;
+    const focusables = Array.from(authDialog.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])'))
+      .filter((el) => el.offsetParent !== null);
+    if (focusables.length === 0) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (!authDialog.contains(document.activeElement)) {
+      e.preventDefault();
+      (e.shiftKey ? last : first).focus();
+    } else if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  });
+
+  enableTablistKeys(document.querySelector('.auth-tabs'));
 
   authTabLogin?.addEventListener('click', () => setMode(false));
   authTabSignup?.addEventListener('click', () => setMode(true));
@@ -3095,7 +3375,7 @@ function setupUserAuth() {
       }
       authInputPassword.value = '';
       updateAuthUI();
-      authBackdrop?.classList.add('hidden');
+      closeAuth();
     } catch (err) {
       if (authErrorMsg) {
         authErrorMsg.textContent = err.message;
@@ -3104,6 +3384,8 @@ function setupUserAuth() {
     } finally {
       btnSubmitAuth.disabled = false;
       btnSubmitAuth.textContent = origText;
+      // A disabled button drops focus to <body>; keep keyboard users inside the dialog after an error.
+      if (!authBackdrop?.classList.contains('hidden')) btnSubmitAuth.focus();
     }
   });
 
@@ -3130,7 +3412,7 @@ function setupUserAuth() {
     btnDeleteAccount.textContent = 'Delete Account';
     await deleteCurrentAccount();
     updateAuthUI();
-    authBackdrop?.classList.add('hidden');
+    closeAuth();
     showAlert('Your LyricWave account was deleted from this device.', 'info');
   });
 
