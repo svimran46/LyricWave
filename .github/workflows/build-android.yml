@@ -63,22 +63,25 @@ jobs:
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || 'lyricwave_dev_pass' }}
         run: |
           echo "Starting Gradle compilation..."
+          mkdir -p ../output-artifacts
           gradle assembleDebug assembleRelease bundleRelease \
             -PRELEASE_STORE_FILE=release.keystore \
             -PRELEASE_STORE_PASSWORD="$KEYSTORE_PASSWORD" \
             -PRELEASE_KEY_ALIAS="$KEY_ALIAS" \
             -PRELEASE_KEY_PASSWORD="$KEY_PASSWORD" \
-            --stacktrace
+            --stacktrace 2>&1 | tee ../output-artifacts/build.log
 
       - name: Organize Output Artifacts
+        if: always()
         run: |
           mkdir -p output-artifacts
-          find android/app/build/outputs/ -name "*.apk" -exec cp {} output-artifacts/ \;
-          find android/app/build/outputs/ -name "*.aab" -exec cp {} output-artifacts/ \;
-          echo "Built Artifacts:"
+          find android/app/build/outputs/ -name "*.apk" -exec cp {} output-artifacts/ \; 2>/dev/null || true
+          find android/app/build/outputs/ -name "*.aab" -exec cp {} output-artifacts/ \; 2>/dev/null || true
+          echo "Output Directory Contents:"
           ls -la output-artifacts/
 
-      - name: Upload Android Build Artifacts (APK & AAB)
+      - name: Upload Android Build Artifacts (APK, AAB & Build Logs)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: lyricwave-android-build
