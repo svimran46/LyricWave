@@ -73,6 +73,18 @@ export function normalizeNowPlaying(data) {
   if (data.spotifyId) {
     res.spotifyId = String(data.spotifyId);
   }
+  if (data.previewUrl) {
+    res.previewUrl = String(data.previewUrl);
+  }
+  if (data.syncedLyrics) {
+    res.syncedLyrics = data.syncedLyrics;
+  }
+  if (data.plainLyrics) {
+    res.plainLyrics = data.plainLyrics;
+  }
+  if (data.lrclibId) {
+    res.lrclibId = data.lrclibId;
+  }
 
   return res;
 }

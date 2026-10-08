@@ -172,7 +172,10 @@ export class SearchSource {
       durationMs: Math.round(this.durationSec * 1000),
       position: 0,
       isPlaying: this.isPlaying,
-      source: track.source || 'search'
+      source: track.source || 'search',
+      syncedLyrics: track.syncedLyrics || null,
+      plainLyrics: track.plainLyrics || null,
+      lrclibId: track.lrclibId || null
     };
 
     this.onTrackChange(this.currentTrack);

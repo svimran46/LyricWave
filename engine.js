@@ -167,7 +167,10 @@ export class UnifiedSyncEngine {
           artist: this.track.artist,
           artists: this.track.artist,
           album: this.track.album,
-          durationMs: this.durationSec * 1000
+          durationMs: this.durationSec * 1000,
+          syncedLyrics: this.track.syncedLyrics,
+          plainLyrics: this.track.plainLyrics,
+          lrclibId: this.track.lrclibId
         });
 
         // Accept lyrics if this is still the active request OR track title/artist match
