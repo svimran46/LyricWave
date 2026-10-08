@@ -89,14 +89,18 @@ jobs:
           export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           export PATH="${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/tools/bin:${ANDROID_HOME}/platform-tools:${PATH}"
           
-          # Run build non-interactively with exact arguments
+          # Initialize or update the Android project files from twa-manifest.json
+          echo "Generating Android project from twa-manifest.json..."
+          yes | bubblewrap update --skipPwaValidation || true
+
+          # Build APK and AAB with signing
+          echo "Building APK and AAB bundle..."
           bubblewrap build \
             --manifest=twa-manifest.json \
             --skipPwaValidation \
             --keyStorePath="$(pwd)/android.keystore" \
             --keyStorePassword="$KEYSTORE_PASSWORD" \
-            --keyPassword="$KEY_PASSWORD" \
-            --verbose
+            --keyPassword="$KEY_PASSWORD"
 
       - name: Locate and Organize Output Artifacts
         run: |
