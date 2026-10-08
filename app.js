@@ -538,7 +538,7 @@ const engine = new UnifiedSyncEngine({
     updateMediaSessionMetadata(track);
 
     // Request Screen Wake Lock if playing
-    if (this.isPlaying) {
+    if (engine.isPlaying || track.isPlaying) {
       requestWakeLock();
     }
 
@@ -2515,7 +2515,21 @@ if (btnResetDefaults) {
 function setupPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js').catch(() => {});
+      navigator.serviceWorker.register('./sw.js').then((reg) => {
+        // Check for service worker updates immediately on page load
+        if (reg) {
+          reg.update().catch(() => {});
+        }
+      }).catch(() => {});
+    });
+
+    // Auto refresh when a newly installed service worker takes control
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!refreshing) {
+        refreshing = true;
+        window.location.reload();
+      }
     });
   }
 

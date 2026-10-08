@@ -150,15 +150,27 @@ export class UnifiedSyncEngine {
         this.loadOffsetForSource(normalized.source);
       }
       this.lyricsData = null;
-      this.onTrackChange(this.track);
-      this.onPlaybackChange(this.isPlaying);
+      try {
+        this.onTrackChange(this.track);
+      } catch (err) {
+        console.error('UnifiedSyncEngine: onTrackChange callback error:', err);
+      }
+      try {
+        this.onPlaybackChange(this.isPlaying);
+      } catch (err) {
+        console.error('UnifiedSyncEngine: onPlaybackChange callback error:', err);
+      }
 
       // Track request monotonically so rapid track/playback updates cannot orphan or freeze lyrics
       const currentReqId = ++this._lyricsReqId;
 
       try {
         this.lyricsData = { status: 'loading' };
-        this.onLyricsLoaded(this.lyricsData);
+        try {
+          this.onLyricsLoaded(this.lyricsData);
+        } catch (cbErr) {
+          console.error('UnifiedSyncEngine: onLyricsLoaded callback error:', cbErr);
+        }
 
         // Convert duration to ms for lyrics.js helper
         const lyrics = await fetchLyrics({
