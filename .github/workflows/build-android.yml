@@ -83,14 +83,16 @@ jobs:
         run: |
           mkdir -p android-dist
           echo "Collecting APK files..."
-          find android/app/build/outputs/ -type f \( -name "*.apk" -o -name "*.aab" \) -exec cp -v {} android-dist/ \; || true
+          find android/app/build/outputs/ -type f \( -name "*.apk" -o -name "*.aab" \) -exec cp -v {} android-dist/ \; 2>/dev/null || true
+          cp -v android/build_debug.log android-dist/ 2>/dev/null || true
           echo "Collected Binaries:"
           ls -lh android-dist/
 
-      - name: Upload Android Build Artifacts (APK & AAB)
+      - name: Upload Android Build Artifacts (APK, AAB & Build Log)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: lyricwave-android-build
           path: android-dist/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30
