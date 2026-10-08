@@ -1034,12 +1034,75 @@ async function loadCharts(genre = 'all', forceRefresh = false) {
     </div>
   `;
 
+  const ITUNES_GENRES = {
+    all: '',
+    pop: '/genre=14',
+    'hip-hop': '/genre=18',
+    'r&b': '/genre=15',
+    rock: '/genre=21',
+    latin: '/genre=12',
+    country: '/genre=6'
+  };
+
   try {
     isFetchingCharts = true;
+
+    // Strategy A: Direct client-side fetch to Apple Topsongs RSS (has CORS: *, 0 server latency, and unauthenticated permanent AAC audio streams)
+    const genreSeg = ITUNES_GENRES[genre] || '';
+    const directRes = await fetch(`https://itunes.apple.com/us/rss/topsongs/limit=25${genreSeg}/json`);
+    if (directRes.ok) {
+      const dData = await directRes.json();
+      const entries = dData?.feed?.entry || [];
+      if (entries.length > 0) {
+        const clientSongs = entries.map((entry, index) => {
+          const title = entry?.['im:name']?.label || 'Unknown Track';
+          const artist = entry?.['im:artist']?.label || 'Unknown Artist';
+          const album = entry?.['im:collection']?.['im:name']?.label || '';
+          const images = entry?.['im:image'] || [];
+          const rawArt = images.length > 0 ? images[images.length - 1]?.label || '' : '';
+          const highResArt = rawArt.replace('170x170bb', '600x600bb');
+          let previewUrl = null;
+          const links = entry?.link || [];
+          const linkList = Array.isArray(links) ? links : [links];
+          for (const l of linkList) {
+            const attrs = l?.attributes || {};
+            if (attrs['im:assetType'] === 'preview' || attrs.rel === 'enclosure' || (attrs.type && attrs.type.includes('audio'))) {
+              previewUrl = attrs.href || null;
+              break;
+            }
+          }
+          return {
+            rank: index + 1,
+            id: `chart_client_${index + 1}`,
+            appleId: `${index + 1}`,
+            title,
+            artist,
+            album,
+            albumArt: highResArt || rawArt,
+            previewUrl,
+            durationMs: 30000,
+            genre: genre === 'all' ? 'Hot' : genre.toUpperCase(),
+            source: 'chart'
+          };
+        });
+
+        if (chartsUpdatedTag) {
+          chartsUpdatedTag.textContent = 'Live Today';
+        }
+        renderCharts(clientSongs);
+        return;
+      }
+    }
+  } catch (directErr) {
+    console.warn('Direct iTunes RSS client fetch error, falling back to /api/charts:', directErr);
+  }
+
+  // Strategy B: Backend Cloudflare Pages Function fallback (/api/charts)
+  try {
     const query = new URLSearchParams({
       limit: '25',
       genre: genre,
-      v: '2',
+      v: '3',
       _t: Date.now().toString()
     });
 
@@ -1062,52 +1125,7 @@ async function loadCharts(genre = 'all', forceRefresh = false) {
 
     renderCharts(data.songs || []);
   } catch (err) {
-    console.warn('Charts backend load error, attempting client direct fetch:', err);
-    try {
-      // Direct client fallback to iTunes RSS (has CORS: * and works directly from browser)
-      const directRes = await fetch('https://itunes.apple.com/us/rss/topsongs/limit=25/json');
-      if (directRes.ok) {
-        const dData = await directRes.json();
-        const entries = dData?.feed?.entry || [];
-        const clientSongs = entries.map((entry, index) => {
-          const title = entry?.['im:name']?.label || 'Unknown Track';
-          const artist = entry?.['im:artist']?.label || 'Unknown Artist';
-          const album = entry?.['im:collection']?.['im:name']?.label || '';
-          const images = entry?.['im:image'] || [];
-          const rawArt = images.length > 0 ? images[images.length - 1]?.label || '' : '';
-          const highResArt = rawArt.replace('170x170bb', '600x600bb');
-          let previewUrl = null;
-          const links = entry?.link || [];
-          const linkList = Array.isArray(links) ? links : [links];
-          for (const l of linkList) {
-            const attrs = l?.attributes || {};
-            if (attrs['im:assetType'] === 'preview' || attrs.rel === 'enclosure' || (attrs.type && attrs.type.includes('audio'))) {
-              previewUrl = attrs.href || null;
-              break;
-            }
-          }
-          return {
-            rank: index + 1,
-            id: `chart_client_${index + 1}`,
-            title,
-            artist,
-            album,
-            albumArt: highResArt || rawArt,
-            previewUrl,
-            durationMs: 30000,
-            genre: 'Hot',
-            source: 'chart'
-          };
-        });
-
-        if (clientSongs.length > 0) {
-          renderCharts(clientSongs);
-          return;
-        }
-      }
-    } catch (clientErr) {
-      console.warn('Client direct fallback failed:', clientErr);
-    }
+    console.warn('Charts backend load error:', err);
 
     chartsListContainer.innerHTML = `
       <div class="charts-empty-state">

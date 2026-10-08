@@ -135,12 +135,7 @@ export async function onRequestGet({ request }) {
     const itunesUrl = `https://itunes.apple.com/us/rss/topsongs/limit=${limit}${genreSegment}/json`;
     const itunesRes = await fetch(itunesUrl, {
       headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-      },
-      cf: {
-        cacheTtl: CACHE_TTL_SECONDS,
-        cacheEverything: true
+        'Accept': 'application/json'
       }
     });
 
@@ -216,12 +211,7 @@ export async function onRequestGet({ request }) {
     const deezerUrl = `https://api.deezer.com/chart/${chartId}/tracks?limit=${limit}`;
     const deezerRes = await fetch(deezerUrl, {
       headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'LyricWave/1.0'
-      },
-      cf: {
-        cacheTtl: CACHE_TTL_SECONDS,
-        cacheEverything: true
+        'Accept': 'application/json'
       }
     });
 
@@ -239,7 +229,9 @@ export async function onRequestGet({ request }) {
             artist: item.artist?.name || 'Unknown Artist',
             album: item.album?.title || '',
             albumArt: cover,
-            previewUrl: item.preview || null,
+            // Do NOT use Akamai-restricted preview tokens (which return 403 Forbidden to client devices).
+            // Setting null enables automatic, reliable client resolution of Apple AAC preview stream.
+            previewUrl: null,
             durationMs: (item.duration ? item.duration : 30) * 1000,
             genre: genre === 'all' ? 'Hot' : genre.toUpperCase(),
             releaseDate: '',
