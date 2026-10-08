@@ -1,0 +1,105 @@
+name: Build Android APK and AAB (TWA)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'manifest.webmanifest'
+      - 'twa-manifest.json'
+      - '.github/workflows/build-android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android Build Tools
+        run: |
+          sdkmanager "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Install Bubblewrap CLI
+        run: |
+          npm install -g @bubblewrap/cli
+
+      - name: Configure Bubblewrap Environment
+        run: |
+          mkdir -p ~/.bubblewrap
+          cat <<EOF > ~/.bubblewrap/config.json
+          {
+            "jdkPath": "${JAVA_HOME}",
+            "androidSdkPath": "${ANDROID_HOME}"
+          }
+          EOF
+
+      - name: Generate or Decode Android Keystore
+        env:
+          SIGNING_KEY_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'lyricwave_dev_pass' }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || 'android' }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || 'lyricwave_dev_pass' }}
+        run: |
+          if [ -n "$SIGNING_KEY_BASE64" ]; then
+            echo "Decoding provided production keystore from secrets..."
+            echo "$SIGNING_KEY_BASE64" | base64 --decode > android.keystore
+          else
+            echo "No custom production keystore secret found. Generating development signing keystore..."
+            keytool -genkeypair -v \
+              -keystore android.keystore \
+              -alias "$KEY_ALIAS" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass "$KEYSTORE_PASSWORD" \
+              -keypass "$KEY_PASSWORD" \
+              -dname "CN=LyricWave, OU=App, O=LyricWave, L=Internet, S=Global, C=US"
+          fi
+
+          echo "Extracting SHA-256 certificate fingerprint for Digital Asset Links verification..."
+          keytool -list -v -keystore android.keystore -alias "$KEY_ALIAS" -storepass "$KEYSTORE_PASSWORD" | grep "SHA256:" || true
+
+      - name: Build Android App (APK & AAB)
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'lyricwave_dev_pass' }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || 'lyricwave_dev_pass' }}
+        run: |
+          # Build via bubblewrap using twa-manifest.json
+          bubblewrap build \
+            --skipPwaValidation \
+            --keyStorePath=./android.keystore \
+            --keyStorePassword="$KEYSTORE_PASSWORD" \
+            --keyPassword="$KEY_PASSWORD"
+
+      - name: Locate and Organize Output Artifacts
+        run: |
+          mkdir -p dist-android
+          find . -maxdepth 2 -name "*.apk" -exec cp {} dist-android/ \;
+          find . -maxdepth 2 -name "*.aab" -exec cp {} dist-android/ \;
+          ls -la dist-android/
+
+      - name: Upload Android Build Artifacts (APK & AAB)
+        uses: actions/upload-artifact@v4
+        with:
+          name: lyricwave-android-build
+          path: dist-android/
+          retention-days: 30
