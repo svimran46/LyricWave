@@ -31,9 +31,12 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Verify Pre-installed Android SDK and Accept Licenses
+      - name: Verify Android SDK and Accept Licenses
         run: |
-          echo "Android Home: $ANDROID_HOME"
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export PATH="${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/tools/bin:${ANDROID_HOME}/platform-tools:${PATH}"
+          echo "ANDROID_HOME: $ANDROID_HOME"
+          which sdkmanager || true
           yes | sdkmanager --licenses || true
           sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
@@ -43,6 +46,7 @@ jobs:
 
       - name: Configure Bubblewrap Environment
         run: |
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           mkdir -p ~/.bubblewrap
           cat <<EOF > ~/.bubblewrap/config.json
           {
