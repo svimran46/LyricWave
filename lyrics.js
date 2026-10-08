@@ -350,15 +350,24 @@ export async function fetchLyrics(track) {
         ];
 
         if (allCandidates.length > 0) {
-          lyricResult = allCandidates.find(r => r.syncedLyrics)
-            || allCandidates.find(r => r.plainLyrics)
-            || allCandidates[0];
+          const lowerPrimary = primaryArtist.toLowerCase();
+          // Filter candidates to ensure the artist actually matches the requested artist
+          const artistMatches = allCandidates.filter(r => {
+            const rArtist = (r.artistName || '').toLowerCase();
+            return !primaryArtist || rArtist.includes(lowerPrimary) || lowerPrimary.includes(rArtist);
+          });
+          const pool = artistMatches.length > 0 ? artistMatches : [];
+          if (pool.length > 0) {
+            lyricResult = pool.find(r => r.syncedLyrics)
+              || pool.find(r => r.plainLyrics)
+              || pool[0];
+          }
         }
       } catch {}
     }
 
-    // Step 4: Broad title search fallback
-    if (!lyricResult && cleanedTitle) {
+    // Step 4: Broad title search fallback (STRICT artist match required)
+    if (!lyricResult && cleanedTitle && primaryArtist) {
       try {
         const titleParams = new URLSearchParams({ track_name: cleanedTitle });
         const titleRes = await fetch(`${LRCLIB_SEARCH_URL}?${titleParams.toString()}`, { headers: LRCLIB_HEADERS, signal: fetchSignal });
@@ -370,7 +379,9 @@ export async function fetchLyrics(track) {
               const rArtist = (r.artistName || '').toLowerCase();
               return rArtist.includes(lowerPrimary) || lowerPrimary.includes(rArtist);
             });
-            lyricResult = matched || titleCandidates.find(r => r.syncedLyrics) || titleCandidates[0];
+            if (matched) {
+              lyricResult = matched;
+            }
           }
         }
       } catch {}
