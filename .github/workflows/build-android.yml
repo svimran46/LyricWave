@@ -62,11 +62,13 @@ jobs:
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || 'android' }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || 'lyricwave_dev_pass' }}
         run: |
-          set -o pipefail
           echo "Compiling Debug APK..."
           gradle assembleDebug --stacktrace 2>&1 | tee build_debug.log || {
-            echo "::error::Gradle build failed. Dumping last 100 lines of log:"
-            tail -n 100 build_debug.log
+            echo "## ❌ Gradle Build Error Log" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -n 80 build_debug.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat build_debug.log
             exit 1
           }
           
