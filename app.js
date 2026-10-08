@@ -1033,11 +1033,10 @@ async function loadCharts(genre = 'all', forceRefresh = false) {
     isFetchingCharts = true;
     const query = new URLSearchParams({
       limit: '25',
-      genre: genre
+      genre: genre,
+      v: '2',
+      _t: Date.now().toString()
     });
-    if (forceRefresh) {
-      query.set('t', Date.now().toString());
-    }
 
     const res = await fetch(`/api/charts?${query.toString()}`);
     if (!res.ok) {
