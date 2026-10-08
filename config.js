@@ -10,7 +10,7 @@ export const CONFIG = {
    * Your Spotify Client ID from developer.spotify.com/dashboard
    * Replace the placeholder string below with your 32-character Client ID.
    */
-  CLIENT_ID: "YOUR_SPOTIFY_CLIENT_ID",
+  CLIENT_ID: "be3c77afea2d4f02a83e3512c6f9232f",
 
   /**
    * The Redirect URI where Spotify will send users back after authorizing.
@@ -44,7 +44,7 @@ export const CONFIG = {
    * Last.fm API Key (Optional override).
    * If not provided, LastFmSource falls back to the public demo key.
    */
-  LASTFM_API_KEY: "",
+  LASTFM_API_KEY: "bb89790d124ab6ab91be569d08e40481",
 
   /**
    * Default Acoustic Recognition Provider ('acrcloud' or 'audd').

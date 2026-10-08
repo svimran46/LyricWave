@@ -6,7 +6,7 @@
  */
 
 const LASTFM_API_URL = 'https://ws.audioscrobbler.com/2.0/';
-const DEFAULT_LASTFM_KEY = '4a9f5581a9cdf20a699f540f52a51c9c'; // Public client key fallback
+const DEFAULT_LASTFM_KEY = 'bb89790d124ab6ab91be569d08e40481'; // LyricWave's own Last.fm API key
 
 export class LastFmSource {
   constructor(options = {}) {
