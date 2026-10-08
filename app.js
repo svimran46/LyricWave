@@ -1057,7 +1057,53 @@ async function loadCharts(genre = 'all', forceRefresh = false) {
 
     renderCharts(data.songs || []);
   } catch (err) {
-    console.warn('Charts load error:', err);
+    console.warn('Charts backend load error, attempting client direct fetch:', err);
+    try {
+      // Direct client fallback to iTunes RSS (has CORS: * and works directly from browser)
+      const directRes = await fetch('https://itunes.apple.com/us/rss/topsongs/limit=25/json');
+      if (directRes.ok) {
+        const dData = await directRes.json();
+        const entries = dData?.feed?.entry || [];
+        const clientSongs = entries.map((entry, index) => {
+          const title = entry?.['im:name']?.label || 'Unknown Track';
+          const artist = entry?.['im:artist']?.label || 'Unknown Artist';
+          const album = entry?.['im:collection']?.['im:name']?.label || '';
+          const images = entry?.['im:image'] || [];
+          const rawArt = images.length > 0 ? images[images.length - 1]?.label || '' : '';
+          const highResArt = rawArt.replace('170x170bb', '600x600bb');
+          let previewUrl = null;
+          const links = entry?.link || [];
+          const linkList = Array.isArray(links) ? links : [links];
+          for (const l of linkList) {
+            const attrs = l?.attributes || {};
+            if (attrs['im:assetType'] === 'preview' || attrs.rel === 'enclosure' || (attrs.type && attrs.type.includes('audio'))) {
+              previewUrl = attrs.href || null;
+              break;
+            }
+          }
+          return {
+            rank: index + 1,
+            id: `chart_client_${index + 1}`,
+            title,
+            artist,
+            album,
+            albumArt: highResArt || rawArt,
+            previewUrl,
+            durationMs: 30000,
+            genre: 'Hot',
+            source: 'chart'
+          };
+        });
+
+        if (clientSongs.length > 0) {
+          renderCharts(clientSongs);
+          return;
+        }
+      }
+    } catch (clientErr) {
+      console.warn('Client direct fallback failed:', clientErr);
+    }
+
     chartsListContainer.innerHTML = `
       <div class="charts-empty-state">
         <p style="margin-bottom:0.6rem;">⚠️ Unable to load charts right now.</p>
