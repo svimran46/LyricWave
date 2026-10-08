@@ -55,46 +55,59 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Build Debug APK & Release Bundle (AAB) with Gradle
+      - name: Build Debug APK, Release APK & Release Bundle (AAB) with Gradle
         working-directory: android
         env:
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'lyricwave_dev_pass' }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || 'android' }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || 'lyricwave_dev_pass' }}
         run: |
-          echo "Compiling Debug APK..."
-          gradle assembleDebug --stacktrace 2>&1 | tee build_debug.log || {
-            echo "## ❌ Gradle Build Error Log" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            tail -n 80 build_debug.log >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            cat build_debug.log
-            exit 1
-          }
-          
-          echo "Compiling Release APK & Bundle..."
-          gradle assembleRelease bundleRelease \
+          set -euo pipefail
+          echo "Building Android binaries..."
+          gradle assembleDebug assembleRelease bundleRelease \
             -PRELEASE_STORE_FILE=release.keystore \
             -PRELEASE_STORE_PASSWORD="$KEYSTORE_PASSWORD" \
             -PRELEASE_KEY_ALIAS="$KEY_ALIAS" \
             -PRELEASE_KEY_PASSWORD="$KEY_PASSWORD" \
-            --stacktrace || true
+            --stacktrace
 
       - name: Collect Output Binaries
-        if: always()
         run: |
           mkdir -p android-dist
-          echo "Collecting APK files..."
-          find android/app/build/outputs/ -type f \( -name "*.apk" -o -name "*.aab" \) -exec cp -v {} android-dist/ \; 2>/dev/null || true
-          cp -v android/build_debug.log android-dist/ 2>/dev/null || true
+          echo "Scanning for built APK and AAB files across workspace..."
+          find . -type f \( -name "*.apk" -o -name "*.aab" \) -exec cp -v {} android-dist/ \;
           echo "Collected Binaries:"
           ls -lh android-dist/
+          if [ -z "$(ls -A android-dist/*.apk 2>/dev/null)" ]; then
+            echo "❌ Error: No APK files found in android-dist!"
+            exit 1
+          fi
 
-      - name: Upload Android Build Artifacts (APK, AAB & Build Log)
-        if: always()
+      - name: Upload Android Build Artifacts (APK, AAB)
         uses: actions/upload-artifact@v4
         with:
           name: lyricwave-android-build
           path: android-dist/
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 30
+
+      - name: Create or Update GitHub Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: twa-latest
+          name: "LyricWave Android APK & Play Store Bundle (Latest)"
+          body: |
+            ## 🎵 LyricWave Android Application Package
+
+            - **Target:** Android 5.0 (API 21) up to Android 14, 15, 16, 17 (API 34+)
+            - **Web App Source:** `https://lyricwave.pages.dev/?source=twa`
+            - **Package Name:** `app.lyricwave.twa`
+
+            ### 📦 Downloadable Files
+            - `app-debug.apk`: Ready to sideload and install immediately on any Android phone.
+            - `app-release.apk`: Signed release APK.
+            - `app-release.aab`: Production Android App Bundle for Google Play Store Console submission.
+          files: |
+            android-dist/*.apk
+            android-dist/*.aab

@@ -25,10 +25,12 @@ android {
     signingConfigs {
         release {
             if (project.hasProperty('RELEASE_STORE_FILE')) {
-                storeFile rootProject.file(RELEASE_STORE_FILE)
-                storePassword RELEASE_STORE_PASSWORD
-                keyAlias RELEASE_KEY_ALIAS
-                keyPassword RELEASE_KEY_PASSWORD
+                def storeFilePath = project.property('RELEASE_STORE_FILE')
+                def resolvedFile = file(storeFilePath).exists() ? file(storeFilePath) : rootProject.file(storeFilePath)
+                storeFile resolvedFile
+                storePassword project.property('RELEASE_STORE_PASSWORD')
+                keyAlias project.property('RELEASE_KEY_ALIAS')
+                keyPassword project.property('RELEASE_KEY_PASSWORD')
             }
         }
     }
