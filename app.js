@@ -1126,7 +1126,7 @@ function renderCharts(songs) {
     `;
 
     const startChartPlayback = () => {
-      // Connect searchSource & select this track to launch unified synced lyrics
+      // Connect searchSource & select this track to launch unified synced lyrics with speaker audio
       engine.connectSource(searchSource);
       searchSource.selectTrack({
         id: song.id || `chart_${song.appleId || idx}`,
@@ -1134,10 +1134,11 @@ function renderCharts(songs) {
         artist: song.artist,
         album: song.album || '',
         albumArt: song.albumArt || '',
-        durationMs: 200000, // standard nominal duration, auto-calibrated when lyrics or LRCLIB data loads
+        previewUrl: song.previewUrl || null,
+        durationMs: song.durationMs || 30000,
         source: 'chart'
       }, true);
-      showAlert(`Loading synced lyrics for #${rank}: "${song.title}"...`, 'info');
+      showAlert(`▶ Playing #${rank}: "${song.title}" on speaker...`, 'success');
     };
 
     card.addEventListener('click', startChartPlayback);

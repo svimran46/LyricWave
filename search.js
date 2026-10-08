@@ -116,13 +116,16 @@ export class SearchSource {
     this.durationSec = 0;
     this.lastAnchorTime = 0;
     this.timer = null;
+    this.audio = null;
   }
 
   /**
-   * Set and select track from search results, ready for Start or auto-play.
+   * Set and select track from search/charts results, ready for Start or auto-play.
    */
   selectTrack(track, autoStart = false) {
     if (!track) return;
+
+    this.cleanupAudio();
 
     const duration = (track.durationMs ? track.durationMs / 1000 : track.duration) || 180;
     this.durationSec = duration;
@@ -136,21 +139,143 @@ export class SearchSource {
       artist: track.artist,
       album: track.album || '',
       albumArt: track.albumArt || '',
+      previewUrl: track.previewUrl || null,
       duration: this.durationSec,
+      durationMs: Math.round(this.durationSec * 1000),
       position: 0,
       isPlaying: this.isPlaying,
-      source: 'search'
+      source: track.source || 'search'
     };
 
     this.onTrackChange(this.currentTrack);
 
+    // Initialize real audio playback when in browser environment
+    if (typeof Audio !== 'undefined') {
+      if (track.previewUrl) {
+        this.initAudio(track.previewUrl, autoStart);
+      } else if (track.title && track.artist) {
+        // Asynchronously discover preview URL if not yet resolved
+        this.discoverPreviewUrl(track.artist, track.title).then(purl => {
+          if (purl && this.currentTrack && this.currentTrack.id === this.currentTrack.id) {
+            this.currentTrack.previewUrl = purl;
+            this.initAudio(purl, this.isPlaying);
+          }
+        });
+      }
+    }
+
     if (autoStart) {
-      this.startClock();
+      if (!this.audio) {
+        this.startClock();
+      }
+    }
+  }
+
+  initAudio(url, autoPlay = true) {
+    if (typeof Audio === 'undefined' || !url) return;
+    this.cleanupAudio();
+
+    try {
+      this.audio = new Audio(url);
+      this.audio.crossOrigin = 'anonymous';
+      this.audio.preload = 'auto';
+
+      this.audio.addEventListener('play', () => {
+        this.isPlaying = true;
+        this.stopClock();
+        if (this.currentTrack) {
+          this.currentTrack.isPlaying = true;
+          this.onPlaybackUpdate(this.currentTrack);
+        }
+      });
+
+      this.audio.addEventListener('pause', () => {
+        this.isPlaying = false;
+        if (this.currentTrack) {
+          this.currentTrack.isPlaying = false;
+          this.onPlaybackUpdate(this.currentTrack);
+        }
+      });
+
+      this.audio.addEventListener('timeupdate', () => {
+        if (!this.audio || !this.currentTrack) return;
+        this.positionSec = this.audio.currentTime;
+        this.currentTrack.position = this.positionSec;
+        this.onPlaybackUpdate(this.currentTrack);
+      });
+
+      this.audio.addEventListener('loadedmetadata', () => {
+        if (!this.audio || !this.currentTrack) return;
+        if (this.audio.duration && isFinite(this.audio.duration)) {
+          if (this.durationSec === 180 || this.durationSec === 200 || this.durationSec === 30) {
+            this.durationSec = this.audio.duration;
+            this.currentTrack.duration = this.durationSec;
+            this.currentTrack.durationMs = Math.round(this.durationSec * 1000);
+          }
+        }
+      });
+
+      this.audio.addEventListener('ended', () => {
+        this.pause();
+        if (this.currentTrack) {
+          this.positionSec = 0;
+          this.currentTrack.position = 0;
+          this.onPlaybackUpdate(this.currentTrack);
+        }
+      });
+
+      this.audio.addEventListener('error', (e) => {
+        console.warn('Audio preview playback error, falling back to clock:', e);
+        this.cleanupAudio();
+        if (this.isPlaying) {
+          this.startClock();
+        }
+      });
+
+      if (autoPlay) {
+        const p = this.audio.play();
+        if (p !== undefined) {
+          p.catch(err => {
+            console.warn('Audio play prevented by browser policy (gesture required):', err);
+            this.startClock();
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to initialize Audio element:', err);
+      if (autoPlay) {
+        this.startClock();
+      }
+    }
+  }
+
+  async discoverPreviewUrl(artist, title) {
+    try {
+      const q = `${artist} ${title}`.trim().slice(0, 100);
+      const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=1`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.results && data.results[0] && data.results[0].previewUrl) {
+          return data.results[0].previewUrl;
+        }
+      }
+    } catch {}
+    return null;
+  }
+
+  cleanupAudio() {
+    if (this.audio) {
+      try {
+        this.audio.pause();
+        this.audio.removeAttribute('src');
+        this.audio.load();
+      } catch {}
+      this.audio = null;
     }
   }
 
   /**
-   * Starts or resumes playback clock
+   * Starts or resumes playback
    */
   play() {
     if (!this.currentTrack) return;
@@ -158,20 +283,34 @@ export class SearchSource {
     this.lastAnchorTime = performance.now();
     this.currentTrack.isPlaying = true;
     this.currentTrack.position = this.positionSec;
+
+    if (this.audio) {
+      const p = this.audio.play();
+      if (p !== undefined) {
+        p.catch(err => {
+          console.warn('Play error:', err);
+          this.startClock();
+        });
+      }
+    } else {
+      this.startClock();
+    }
+
     this.onPlaybackUpdate(this.currentTrack);
-    this.startClock();
   }
 
   /**
-   * Pauses the playback clock
+   * Pauses the playback clock & audio
    */
   pause() {
     if (!this.currentTrack) return;
-    this.updatePosition();
     this.isPlaying = false;
+    if (this.audio) {
+      try { this.audio.pause(); } catch {}
+    }
+    this.stopClock();
     this.currentTrack.isPlaying = false;
     this.currentTrack.position = this.positionSec;
-    this.stopClock();
     this.onPlaybackUpdate(this.currentTrack);
   }
 
@@ -182,12 +321,23 @@ export class SearchSource {
     if (!this.currentTrack) return;
     this.positionSec = Math.max(0, Math.min(this.durationSec, targetSec));
     this.lastAnchorTime = performance.now();
+    if (this.audio && isFinite(this.positionSec)) {
+      try {
+        this.audio.currentTime = this.positionSec;
+      } catch (err) {
+        console.warn('Audio seek error:', err);
+      }
+    }
     this.currentTrack.position = this.positionSec;
     this.onPlaybackUpdate(this.currentTrack);
   }
 
   updatePosition() {
     if (!this.isPlaying) return;
+    if (this.audio) {
+      this.positionSec = this.audio.currentTime;
+      return;
+    }
     const now = performance.now();
     const elapsed = (now - this.lastAnchorTime) / 1000;
     this.positionSec = Math.min(this.durationSec, this.positionSec + elapsed);
@@ -216,6 +366,7 @@ export class SearchSource {
   }
 
   stop() {
+    this.cleanupAudio();
     this.stopClock();
     this.isPlaying = false;
     this.currentTrack = null;

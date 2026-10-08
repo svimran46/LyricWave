@@ -75,11 +75,47 @@ export async function onRequestGet({ request }) {
     const data = await response.json();
     const rawResults = data?.feed?.results || [];
 
+    // Batch enrich with real Apple Music / iTunes audio preview URLs
+    const appleIds = rawResults.map(item => item.id).filter(Boolean);
+    const previewsById = {};
+    if (appleIds.length > 0) {
+      try {
+        const lookupUrl = `https://itunes.apple.com/lookup?id=${appleIds.join(',')}`;
+        const lookupRes = await fetch(lookupUrl, {
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'LyricWave/1.0 (+https://lyricwave.pages.dev)'
+          },
+          cf: {
+            cacheTtl: CACHE_TTL_SECONDS,
+            cacheEverything: true
+          }
+        });
+        if (lookupRes.ok) {
+          const lookupData = await lookupRes.json();
+          if (Array.isArray(lookupData?.results)) {
+            for (const r of lookupData.results) {
+              if (r.trackId) {
+                previewsById[String(r.trackId)] = {
+                  previewUrl: r.previewUrl || null,
+                  durationMs: r.trackTimeMillis || null,
+                  collectionName: r.collectionName || null
+                };
+              }
+            }
+          }
+        }
+      } catch (lookupErr) {
+        // Fall back gracefully if iTunes lookup experiences transient issues
+      }
+    }
+
     const songs = rawResults.map((item, index) => {
       // 600x600 sharp album artwork
       const rawArt = item.artworkUrl100 || '';
       const highResArt = rawArt.replace('100x100bb', '600x600bb');
       const primaryGenre = item.genres?.[0]?.name || 'Music';
+      const lookup = previewsById[String(item.id)] || {};
 
       return {
         rank: index + 1,
@@ -87,8 +123,10 @@ export async function onRequestGet({ request }) {
         appleId: item.id,
         title: item.name,
         artist: item.artistName,
-        album: item.collectionName || '',
+        album: item.collectionName || lookup.collectionName || '',
         albumArt: highResArt || rawArt,
+        previewUrl: lookup.previewUrl || null,
+        durationMs: lookup.durationMs || 30000,
         genre: primaryGenre,
         releaseDate: item.releaseDate || '',
         appleUrl: item.url || '',
