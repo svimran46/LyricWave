@@ -4,8 +4,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'manifest.webmanifest'
-      - 'twa-manifest.json'
+      - 'android/**'
       - '.github/workflows/build-android.yml'
   workflow_dispatch:
 
@@ -20,98 +19,73 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
       - name: Set up Java JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Verify Android SDK and Accept Licenses
-        run: |
-          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
-          export PATH="${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/tools/bin:${ANDROID_HOME}/platform-tools:${PATH}"
-          echo "ANDROID_HOME: $ANDROID_HOME"
-          which sdkmanager || true
-          yes | sdkmanager --licenses || true
-          sdkmanager "platforms;android-34" "build-tools;34.0.0"
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Install Bubblewrap CLI
-        run: |
-          npm install -g @bubblewrap/cli
-
-      - name: Configure Bubblewrap Environment
-        run: |
-          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
-          mkdir -p ~/.bubblewrap
-          cat <<EOF > ~/.bubblewrap/config.json
-          {
-            "jdkPath": "${JAVA_HOME}",
-            "androidSdkPath": "${ANDROID_HOME}"
-          }
-          EOF
-
-      - name: Generate or Decode Android Keystore
+      - name: Generate Signing Keystore
+        working-directory: android
         env:
-          SIGNING_KEY_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'lyricwave_dev_pass' }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || 'android' }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || 'lyricwave_dev_pass' }}
         run: |
-          if [ -n "$SIGNING_KEY_BASE64" ]; then
-            echo "Decoding provided production keystore from secrets..."
-            echo "$SIGNING_KEY_BASE64" | base64 --decode > android.keystore
-          else
-            echo "No custom production keystore secret found. Generating development signing keystore..."
-            keytool -genkeypair -v \
-              -keystore android.keystore \
-              -alias "$KEY_ALIAS" \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -storepass "$KEYSTORE_PASSWORD" \
-              -keypass "$KEY_PASSWORD" \
-              -dname "CN=LyricWave, OU=App, O=LyricWave, L=Internet, S=Global, C=US"
-          fi
+          keytool -genkeypair -v \
+            -keystore release.keystore \
+            -alias "$KEY_ALIAS" \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -keypass "$KEY_PASSWORD" \
+            -dname "CN=LyricWave, OU=App, O=LyricWave, L=Internet, S=Global, C=US"
 
-          echo "Extracting SHA-256 certificate fingerprint for Digital Asset Links verification..."
-          keytool -list -v -keystore android.keystore -alias "$KEY_ALIAS" -storepass "$KEYSTORE_PASSWORD" | grep "SHA256:" || true
+          echo "Digital Asset Links SHA-256 Fingerprint:"
+          keytool -list -v -keystore release.keystore -alias "$KEY_ALIAS" -storepass "$KEYSTORE_PASSWORD" | grep "SHA256:" || true
 
-      - name: Build Android App (APK & AAB)
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.7'
+
+      - name: Build Debug APK & Release Bundle (AAB) with Gradle
+        working-directory: android
         env:
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'lyricwave_dev_pass' }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || 'android' }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || 'lyricwave_dev_pass' }}
         run: |
-          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
-          export PATH="${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/tools/bin:${ANDROID_HOME}/platform-tools:${PATH}"
-          
-          # Initialize or update the Android project files from twa-manifest.json
-          echo "Generating Android project from twa-manifest.json..."
-          yes | bubblewrap update --skipPwaValidation || true
+          # Use gradle directly or install gradle wrapper
+          gradle wrapper --gradle-version 8.7
+          chmod +x gradlew
 
-          # Build APK and AAB with signing
-          echo "Building APK and AAB bundle..."
-          bubblewrap build \
-            --manifest=twa-manifest.json \
-            --skipPwaValidation \
-            --keyStorePath="$(pwd)/android.keystore" \
-            --keyStorePassword="$KEYSTORE_PASSWORD" \
-            --keyPassword="$KEY_PASSWORD"
+          # Build Debug APK (ready to install on Android devices)
+          ./gradlew assembleDebug --stacktrace
 
-      - name: Locate and Organize Output Artifacts
+          # Build Release APK and App Bundle (AAB for Play Store)
+          ./gradlew assembleRelease bundleRelease \
+            -PRELEASE_STORE_FILE=release.keystore \
+            -PRELEASE_STORE_PASSWORD="$KEYSTORE_PASSWORD" \
+            -PRELEASE_KEY_ALIAS="$KEY_ALIAS" \
+            -PRELEASE_KEY_PASSWORD="$KEY_PASSWORD" \
+            --stacktrace
+
+      - name: Organize Output Artifacts
         run: |
-          mkdir -p dist-android
-          find . -maxdepth 2 -name "*.apk" -exec cp {} dist-android/ \;
-          find . -maxdepth 2 -name "*.aab" -exec cp {} dist-android/ \;
-          ls -la dist-android/
+          mkdir -p output-artifacts
+          find android/app/build/outputs/ -name "*.apk" -exec cp {} output-artifacts/ \;
+          find android/app/build/outputs/ -name "*.aab" -exec cp {} output-artifacts/ \;
+          echo "Built Artifacts:"
+          ls -la output-artifacts/
 
       - name: Upload Android Build Artifacts (APK & AAB)
         uses: actions/upload-artifact@v4
         with:
           name: lyricwave-android-build
-          path: dist-android/
+          path: output-artifacts/
           retention-days: 30
