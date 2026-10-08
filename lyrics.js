@@ -236,37 +236,32 @@ export async function fetchLyrics(track) {
 
   try {
     // Parallel fast-path: dispatch exact query, cleaned query, and search in parallel
-    // with an aggressive 3.5-second timeout so the UI never stalls
+    // with an 8-second timeout for mobile resilience
     const cleanedTitle = cleanTrackTitle(track.title);
     const fetchController = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const fetchTimer = fetchController ? setTimeout(() => fetchController.abort(), 3500) : null;
+    const fetchTimer = fetchController ? setTimeout(() => fetchController.abort(), 8000) : null;
     const fetchSignal = fetchController ? fetchController.signal : undefined;
 
     const queries = [];
 
-    // Only filter by duration if this is a full-length track (>45s), not an audio preview snippet (30s)
-    const hasFullDuration = durationSec > 45;
-
-    // Query 1: Exact query via /api/get
+    // Query 1: Clean exact GET query via /api/get (do NOT constrain by album_name or strict duration
+    // as album titles vary across single/EP/album releases and cause 404s)
     const exactParams = new URLSearchParams({
       track_name: track.title,
       artist_name: primaryArtist
     });
-    if (track.album) exactParams.append('album_name', track.album);
-    if (hasFullDuration) exactParams.append('duration', durationSec.toString());
     queries.push(
       fetch(`${LRCLIB_GET_URL}?${exactParams.toString()}`, { signal: fetchSignal })
         .then(r => r.ok ? r.json() : null)
         .catch(() => null)
     );
 
-    // Query 2: Cleaned query via /api/get (if title differs)
+    // Query 2: Cleaned title query via /api/get (if title differs)
     if (cleanedTitle && cleanedTitle !== track.title) {
       const cleanParams = new URLSearchParams({
         track_name: cleanedTitle,
         artist_name: primaryArtist
       });
-      if (hasFullDuration) cleanParams.append('duration', durationSec.toString());
       queries.push(
         fetch(`${LRCLIB_GET_URL}?${cleanParams.toString()}`, { signal: fetchSignal })
           .then(r => r.ok ? r.json() : null)
@@ -284,11 +279,6 @@ export async function fetchLyrics(track) {
         .then(r => r.ok ? r.json() : null)
         .then(results => {
           if (Array.isArray(results) && results.length > 0) {
-            // If full duration is available, prefer tracks matching length; otherwise pick best synced lyrics
-            if (hasFullDuration) {
-              const durationMatch = results.find(r => r.syncedLyrics && Math.abs((r.duration || 0) - durationSec) < 15);
-              if (durationMatch) return durationMatch;
-            }
             return results.find(r => r.syncedLyrics)
               || results.find(r => r.plainLyrics)
               || results[0];
@@ -298,7 +288,24 @@ export async function fetchLyrics(track) {
         .catch(() => null)
     );
 
-    // Query 4: Search fallback with full raw artist (if raw artist differs from primaryArtist)
+    // Query 4: Full-text query via /api/search?q=... (broadest coverage)
+    const generalQ = `${primaryArtist} ${cleanedTitle || track.title}`.trim();
+    const generalParams = new URLSearchParams({ q: generalQ });
+    queries.push(
+      fetch(`${LRCLIB_SEARCH_URL}?${generalParams.toString()}`, { signal: fetchSignal })
+        .then(r => r.ok ? r.json() : null)
+        .then(results => {
+          if (Array.isArray(results) && results.length > 0) {
+            return results.find(r => r.syncedLyrics)
+              || results.find(r => r.plainLyrics)
+              || results[0];
+          }
+          return null;
+        })
+        .catch(() => null)
+    );
+
+    // Query 5: Search fallback with full raw artist (if raw artist differs from primaryArtist)
     const rawArtist = (track.artist || track.artists || '').trim();
     if (rawArtist && rawArtist !== primaryArtist) {
       const rawSearchParams = new URLSearchParams({

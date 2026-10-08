@@ -125,7 +125,9 @@ export class UnifiedSyncEngine {
     if (!trackData) return;
 
     const normalized = normalizeNowPlaying(trackData);
-    const isNew = forceReload || !this.track || this.track.id !== normalized.id;
+    const hasValidLyrics = this.lyricsData && 
+      (this.lyricsData.status === 'synced' || this.lyricsData.status === 'plain' || this.lyricsData.status === 'instrumental');
+    const isNew = forceReload || !this.track || this.track.id !== normalized.id || !hasValidLyrics;
 
     this.track = normalized;
     this.durationSec = normalized.duration || 180;
@@ -162,6 +164,7 @@ export class UnifiedSyncEngine {
         const lyrics = await fetchLyrics({
           id: this.track.id,
           title: this.track.title,
+          artist: this.track.artist,
           artists: this.track.artist,
           album: this.track.album,
           durationMs: this.durationSec * 1000
@@ -178,8 +181,9 @@ export class UnifiedSyncEngine {
           this.onLyricsLoaded(this.lyricsData);
         }
       } catch (err) {
-        if (currentReqId === this._lyricsReqId) {
-          this.lyricsData = { status: 'error', message: 'Unable to load lyrics.' };
+        if (currentReqId === this._lyricsReqId || 
+            (this.track && this.track.title.toLowerCase() === normalized.title.toLowerCase())) {
+          this.lyricsData = { status: 'error', message: err?.message || 'Unable to load lyrics.' };
           this.onLyricsLoaded(this.lyricsData);
         }
       }

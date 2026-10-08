@@ -2,7 +2,7 @@
  * LyricWave Service Worker (PWA Offline & Shell Caching)
  */
 
-const CACHE_NAME = 'lyricwave-v6';
+const CACHE_NAME = 'lyricwave-v7';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -51,11 +51,13 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
 
-  // Bypass service worker caching for external APIs and backend recognition functions
+  // Bypass service worker caching for external APIs, streaming audio, and backend functions
   if (
     url.hostname.includes('spotify.com') ||
     url.hostname.includes('lrclib.net') ||
     url.hostname.includes('audioscrobbler.com') ||
+    url.hostname.includes('apple.com') ||
+    url.hostname.includes('deezer.com') ||
     url.pathname.startsWith('/api/')
   ) {
     return;

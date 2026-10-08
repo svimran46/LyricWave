@@ -49,13 +49,14 @@ export async function onRequestOptions({ request }) {
   });
 }
 
-const DEEZER_GENRE_MAP = {
-  'all': '0',
-  'pop': '132',
-  'hip-hop': '116',
-  'r&b': '165',
-  'rock': '152',
-  'latin': '197'
+const ITUNES_GENRE_MAP = {
+  'all': '',
+  'pop': '/genre=14',
+  'hip-hop': '/genre=18',
+  'r&b': '/genre=15',
+  'rock': '/genre=21',
+  'latin': '/genre=12',
+  'country': '/genre=6'
 };
 
 // Curated high-reliability fallback tracks with verified public preview streams
@@ -66,8 +67,8 @@ const CURATED_FALLBACK_SONGS = [
     title: "Dracula (with JENNIE)",
     artist: "Tame Impala",
     album: "Dracula",
-    albumArt: "https://cdn-images.dzcdn.net/images/cover/b868399da682f34dcd7d98af1c0de80b/1000x1000-000000-80-0-0.jpg",
-    previewUrl: "https://cdnt-preview.dzcdn.net/api/1/1/6/2/5/0/6254df268039f4200674df6d63701e33.mp3",
+    albumArt: "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/71/5d/31/715d3169-5fba-a0b7-da24-2aefc83796cf/mzi.fkyxkxve.jpg/600x600bb.jpg",
+    previewUrl: "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/71/5d/31/715d3169-5fba-a0b7-da24-2aefc83796cf/mzaf_8089500935177582820.plus.aac.p.m4a",
     durationMs: 30000,
     genre: "Pop",
     source: "chart"
@@ -128,9 +129,90 @@ export async function onRequestGet({ request }) {
   const limit = Math.min(50, Math.max(5, parseInt(url.searchParams.get('limit') || '25', 10)));
   const genre = (url.searchParams.get('genre') || 'all').toLowerCase();
 
-  // Strategy 1: Deezer Public Chart API (Open, fast, non-blocking for cloud runners, direct MP3s)
+  // Strategy 1: iTunes RSS Topsongs Feed with full genre support (Unauthenticated, reliable Apple AAC audio previews with CORS: *)
   try {
-    const chartId = DEEZER_GENRE_MAP[genre] || '0';
+    const genreSegment = ITUNES_GENRE_MAP[genre] || '';
+    const itunesUrl = `https://itunes.apple.com/us/rss/topsongs/limit=${limit}${genreSegment}/json`;
+    const itunesRes = await fetch(itunesUrl, {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+      },
+      cf: {
+        cacheTtl: CACHE_TTL_SECONDS,
+        cacheEverything: true
+      }
+    });
+
+    if (itunesRes.ok) {
+      const itunesData = await itunesRes.json();
+      const rawEntries = itunesData?.feed?.entry || [];
+      if (rawEntries.length > 0) {
+        const songs = rawEntries.map((entry, index) => {
+          const title = entry?.['im:name']?.label || entry?.title?.label || 'Unknown Track';
+          const artist = entry?.['im:artist']?.label || 'Unknown Artist';
+          const album = entry?.['im:collection']?.['im:name']?.label || '';
+          const images = entry?.['im:image'] || [];
+          const rawArt = images.length > 0 ? images[images.length - 1]?.label || '' : '';
+          const highResArt = rawArt.replace('170x170bb', '600x600bb');
+
+          let previewUrl = null;
+          let durationMs = 30000;
+          const links = entry?.link || [];
+          const linkList = Array.isArray(links) ? links : [links];
+          for (const l of linkList) {
+            const attrs = l?.attributes || {};
+            if (attrs['im:assetType'] === 'preview' || attrs.rel === 'enclosure' || (attrs.type && attrs.type.includes('audio'))) {
+              previewUrl = attrs.href || null;
+              break;
+            }
+          }
+
+          const appleId = entry?.id?.attributes?.['im:id'] || `${index + 1}`;
+          const primaryGenre = entry?.category?.attributes?.label || 'Music';
+
+          return {
+            rank: index + 1,
+            id: `chart_itunes_${appleId}`,
+            appleId: appleId,
+            title: title,
+            artist: artist,
+            album: album,
+            albumArt: highResArt || rawArt,
+            previewUrl: previewUrl,
+            durationMs: durationMs,
+            genre: genre === 'all' ? primaryGenre : genre.toUpperCase(),
+            releaseDate: '',
+            appleUrl: entry?.id?.label || '',
+            pageviews: Math.floor(Math.random() * 20000) + 10000,
+            source: 'chart'
+          };
+        });
+
+        return new Response(JSON.stringify({
+          success: true,
+          chart: 'Global Top Trending Songs',
+          provider: 'itunes',
+          updated: new Date().toISOString(),
+          count: songs.length,
+          songs: songs
+        }), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders
+          }
+        });
+      }
+    }
+  } catch (itErr) {
+    console.warn('[Charts API] iTunes RSS fetch error, trying Deezer fallback:', itErr);
+  }
+
+  // Strategy 2: Deezer Public Chart API
+  try {
+    const deezerGenreMap = { 'all': '0', 'pop': '132', 'hip-hop': '116', 'r&b': '165', 'rock': '152', 'latin': '197' };
+    const chartId = deezerGenreMap[genre] || '0';
     const deezerUrl = `https://api.deezer.com/chart/${chartId}/tracks?limit=${limit}`;
     const deezerRes = await fetch(deezerUrl, {
       headers: {
@@ -184,87 +266,9 @@ export async function onRequestGet({ request }) {
       }
     }
   } catch (dzErr) {
-    console.warn('[Charts API] Deezer fetch error, trying iTunes fallback:', dzErr);
+    console.warn('[Charts API] Deezer fetch error, serving curated fallback:', dzErr);
   }
 
-  // Strategy 2: iTunes RSS Topsongs Feed
-  try {
-    const itunesUrl = `https://itunes.apple.com/us/rss/topsongs/limit=${limit}/json`;
-    const itunesRes = await fetch(itunesUrl, {
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-      },
-      cf: {
-        cacheTtl: CACHE_TTL_SECONDS,
-        cacheEverything: true
-      }
-    });
-
-    if (itunesRes.ok) {
-      const itunesData = await itunesRes.json();
-      const rawEntries = itunesData?.feed?.entry || [];
-      if (rawEntries.length > 0) {
-        const songs = rawEntries.map((entry, index) => {
-          const title = entry?.['im:name']?.label || entry?.title?.label || 'Unknown Track';
-          const artist = entry?.['im:artist']?.label || 'Unknown Artist';
-          const album = entry?.['im:collection']?.['im:name']?.label || '';
-          const images = entry?.['im:image'] || [];
-          const rawArt = images.length > 0 ? images[images.length - 1]?.label || '' : '';
-          const highResArt = rawArt.replace('170x170bb', '600x600bb');
-
-          let previewUrl = null;
-          let durationMs = 30000;
-          const links = entry?.link || [];
-          const linkList = Array.isArray(links) ? links : [links];
-          for (const l of linkList) {
-            const attrs = l?.attributes || {};
-            if (attrs['im:assetType'] === 'preview' || attrs.rel === 'enclosure' || (attrs.type && attrs.type.includes('audio'))) {
-              previewUrl = attrs.href || null;
-              break;
-            }
-          }
-
-          const appleId = entry?.id?.attributes?.['im:id'] || `${index + 1}`;
-          const primaryGenre = entry?.category?.attributes?.label || 'Music';
-
-          return {
-            rank: index + 1,
-            id: `chart_itunes_${appleId}`,
-            appleId: appleId,
-            title: title,
-            artist: artist,
-            album: album,
-            albumArt: highResArt || rawArt,
-            previewUrl: previewUrl,
-            durationMs: durationMs,
-            genre: primaryGenre,
-            releaseDate: '',
-            appleUrl: entry?.id?.label || '',
-            pageviews: Math.floor(Math.random() * 20000) + 10000,
-            source: 'chart'
-          };
-        });
-
-        return new Response(JSON.stringify({
-          success: true,
-          chart: 'Top Trending Songs',
-          provider: 'itunes',
-          updated: new Date().toISOString(),
-          count: songs.length,
-          songs: songs
-        }), {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-            ...corsHeaders
-          }
-        });
-      }
-    }
-  } catch (itErr) {
-    console.warn('[Charts API] iTunes fetch error, serving curated fallback:', itErr);
-  }
 
   // Strategy 3: Guaranteed Curated Fallback (Guarantees content is ALWAYS displayed)
   return new Response(JSON.stringify({

@@ -182,7 +182,8 @@ export class SearchSource {
       this.audio = domAudio || (typeof Audio !== 'undefined' ? new Audio() : null);
       if (!this.audio) return;
 
-      this.audio.crossOrigin = 'anonymous';
+      // Do NOT set crossOrigin = 'anonymous' because external media CDNs without explicit CORS headers
+      // will fail to decode even though simple speaker playback does not require CORS.
       this.audio.preload = 'auto';
       this.audio.volume = 1.0;
       this.audio.muted = false;
@@ -231,8 +232,20 @@ export class SearchSource {
         }
       };
 
-      this.audio.onerror = (e) => {
-        console.warn('Audio preview playback error, falling back to clock:', e);
+      this.audio.onerror = async (e) => {
+        console.warn('Audio preview playback error, attempting fallback stream:', e);
+        if (this.currentTrack && !this.currentTrack._triedFallback && this.currentTrack.title && this.currentTrack.artist) {
+          this.currentTrack._triedFallback = true;
+          try {
+            const fallbackUrl = await this.discoverPreviewUrl(this.currentTrack.artist, this.currentTrack.title);
+            if (fallbackUrl && fallbackUrl !== url) {
+              console.log('Switching to discovered Apple audio preview stream:', fallbackUrl);
+              this.currentTrack.previewUrl = fallbackUrl;
+              this.initAudio(fallbackUrl, this.isPlaying);
+              return;
+            }
+          } catch {}
+        }
         if (this.isPlaying) {
           this.startClock();
         }

@@ -749,7 +749,12 @@ const mic = new MicSource({
     micStatusSubtitle.textContent = `Found: ${track.title} - ${track.artist || track.artists}`;
 
     // Pass identified track directly into the unified sync engine
+    engine.connectSource(mic);
     engine.setTrack(track, true);
+    if (activePlaybackView) {
+      activePlaybackView.classList.remove('hidden');
+      activePlaybackView.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   },
 
   onError: (errMsg, errorType) => {
