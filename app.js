@@ -24,6 +24,7 @@ import { SpotifySource } from './spotify-source.js';
 import { MicSource } from './mic.js';
 import { searchTracks, SearchSource } from './search.js';
 import { LastFmSource } from './lastfm.js';
+import { PhoneMediaSource } from './phone-source.js';
 import { UnifiedSyncEngine } from './engine.js';
 import { ReelVisualizer } from './reel.js';
 import { signUp, logIn, logOut, getCurrentUser, updateUserPreferences, deleteCurrentAccount } from './user-auth.js';
@@ -32,6 +33,7 @@ import { signUp, logIn, logOut, getCurrentUser, updateUserPreferences, deleteCur
 const sourceNav = document.getElementById('sourceNav');
 const sourceTabs = document.querySelectorAll('.source-tab');
 const tabPanels = {
+  phone: document.getElementById('panelPhone'),
   mic: document.getElementById('panelMic'),
   search: document.getElementById('panelSearch'),
   charts: document.getElementById('panelCharts'),
@@ -511,6 +513,8 @@ const reel = new ReelVisualizer(reelCanvas, reelContainer, {
 const engine = new UnifiedSyncEngine({
   onTrackChange: (track) => {
     activePlaybackView.classList.remove('hidden');
+    // Re-sync records a new mic sample; it makes no sense when following a phone app.
+    btnResync?.classList.toggle('hidden', track.source === 'phone');
     trackTitle.textContent = track.title;
     trackTitle.title = track.title;
     trackArtist.textContent = track.artists || track.artist;
@@ -1521,6 +1525,81 @@ if (savedLastFm) {
 }
 
 // =====================================================================
+// Input Source 5: Phone media sessions (Android app only)
+// Follows Spotify / YouTube Music / Apple Music etc. playing on this phone.
+// =====================================================================
+
+const tabPhone = document.getElementById('tabPhone');
+const phoneOnboarding = document.getElementById('phoneOnboarding');
+const phoneStatusView = document.getElementById('phoneStatusView');
+const phoneStatusTitle = document.getElementById('phoneStatusTitle');
+const phoneStatusText = document.getElementById('phoneStatusText');
+const phoneStatusDot = document.getElementById('phoneStatusDot');
+const phoneRestrictedHint = document.getElementById('phoneRestrictedHint');
+const PHONE_AVAILABLE = IS_NATIVE_APP && PhoneMediaSource.isAvailable();
+let phoneGrantRequested = false;
+
+const phoneSource = new PhoneMediaSource({
+  onStatus: (st) => updatePhoneStatus(st),
+  onError: (msg) => showAlert(String(msg), 'warning')
+});
+
+function updatePhoneStatus(st = {}) {
+  if (!phoneStatusTitle) return;
+  if (st.active) {
+    const app = st.appName || 'your music app';
+    phoneStatusTitle.textContent = st.isPlaying ? `Following ${app}` : `${app} is paused`;
+    phoneStatusText.textContent = `${st.title}${st.artist ? ' · ' + st.artist : ''}`;
+    phoneStatusDot?.classList.toggle('paused', !st.isPlaying);
+  } else {
+    phoneStatusTitle.textContent = 'Waiting for music…';
+    phoneStatusText.textContent = 'Play a song in Spotify, YouTube Music, Apple Music or any music app.';
+    phoneStatusDot?.classList.add('paused');
+  }
+}
+
+/** Show onboarding or status depending on access, and (dis)connect the source. */
+function refreshPhonePanel() {
+  if (!PHONE_AVAILABLE) return;
+  const granted = phoneSource.hasAccess();
+  phoneOnboarding?.classList.toggle('hidden', granted);
+  phoneStatusView?.classList.toggle('hidden', !granted);
+  if (granted) phoneRestrictedHint?.classList.add('hidden');
+  if (activeTab !== 'phone') return;
+  if (granted && engine.currentSource !== phoneSource) {
+    engine.connectSource(phoneSource);
+  } else if (!granted && engine.currentSource === phoneSource) {
+    engine.connectSource(null);
+  }
+}
+
+if (PHONE_AVAILABLE) {
+  tabPhone?.classList.remove('hidden');
+
+  document.getElementById('btnPhoneGrant')?.addEventListener('click', () => {
+    phoneGrantRequested = true;
+    phoneSource.openAccessSettings();
+  });
+  document.getElementById('btnPhoneUseMic')?.addEventListener('click', () => {
+    document.getElementById('tabMic')?.click();
+  });
+
+  // Coming back from Android settings: pick up a newly granted (or revoked) permission.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    if (phoneGrantRequested && !phoneSource.hasAccess()) {
+      // Sideloaded builds on Android 13+ may block the toggle as a "restricted setting".
+      phoneRestrictedHint?.classList.remove('hidden');
+    }
+    if (phoneGrantRequested && phoneSource.hasAccess()) {
+      phoneGrantRequested = false;
+      showAlert('Notification access is on. Play a song in any music app.', 'success');
+    }
+    refreshPhonePanel();
+  });
+}
+
+// =====================================================================
 // Input Source 4: Spotify Live Tracking (Private Beta)
 // =====================================================================
 
@@ -1677,9 +1756,16 @@ sourceTabs.forEach((tab) => {
     if (targetTab !== 'search' && searchSource.isPlaying) {
       searchSource.stop();
     }
+    if (targetTab !== 'phone' && phoneSource.isRunning) {
+      phoneSource.stop();
+    }
 
     // Connect appropriate active source
-    if (targetTab === 'connect') {
+    if (targetTab === 'phone') {
+      engine.loadOffsetForSource('phone');
+      updateOffsetUI();
+      refreshPhonePanel();
+    } else if (targetTab === 'connect') {
       if (panelConnect) panelConnect.classList.remove('hidden');
       switchConnectSubTab(activeConnectSubTab);
     } else if (targetTab === 'spotify') {
@@ -1745,7 +1831,10 @@ if (btnSwitchSourceCompact) {
   });
 }
 
-// Restore saved source tab on launch
+// Restore saved source tab on launch. In the Android app, first launch opens the Phone
+// tab (follows the user's music app); the Phone tab never shows on the website.
+if (activeTab === 'phone' && !PHONE_AVAILABLE) activeTab = 'mic';
+if (PHONE_AVAILABLE && localStorage.getItem(STORAGE_LAST_SOURCE_KEY) === null) activeTab = 'phone';
 if (activeTab && activeTab !== 'mic') {
   const savedTabBtn = document.querySelector(`.source-tab[data-tab="${activeTab}"]`);
   if (savedTabBtn) {

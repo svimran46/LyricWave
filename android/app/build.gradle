@@ -81,7 +81,7 @@ dependencies {
 def webAppFiles = [
     'index.html', 'privacy.html', 'styles.css', 'manifest.webmanifest',
     'app.js', 'auth.js', 'config.js', 'engine.js', 'lastfm.js', 'lyrics.js',
-    'mic.js', 'reel.js', 'search.js', 'spotify-source.js', 'types.js', 'user-auth.js'
+    'mic.js', 'phone-source.js', 'reel.js', 'search.js', 'spotify-source.js', 'types.js', 'user-auth.js'
 ]
 
 task copyWebAssets(type: Sync) {

@@ -407,8 +407,14 @@ export class UnifiedSyncEngine {
 
       // Handle song finish
       if (this.isPlaying && positionSec >= this.durationSec && this.durationSec > 0) {
-        this.pause();
-        this.seek(0);
+        // Reset the lyric clock locally only. Telling the source to pause/seek here would
+        // pause or restart the user's music app (Phone source) right as it moves on to the
+        // next song; sources that own a clock (Search) already stop themselves at the end.
+        this.isPlaying = false;
+        this.anchorPositionSec = 0;
+        this.anchorLocalTime = performance.now();
+        this.activeLineIndex = -1;
+        this.onPlaybackChange(false);
         this.onSongEnd(this.track);
       }
 

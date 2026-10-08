@@ -293,6 +293,13 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
+        /** Play / pause / seek the followed music app (only "play", "pause", "seek" are accepted). */
+        @JavascriptInterface
+        public void mediaControl(final String action, final double positionMs) {
+            if (nowPlayingMonitor == null || action == null) return;
+            runOnUiThread(() -> nowPlayingMonitor.control(action, (long) positionMs));
+        }
+
         /** JSON snapshot: {access, active, package, title, artist, album, artUri, durationMs, positionMs, isPlaying}. */
         @JavascriptInterface
         public String getNowPlaying() {

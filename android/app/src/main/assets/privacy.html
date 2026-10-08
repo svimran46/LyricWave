@@ -119,6 +119,19 @@
     </section>
 
     <section>
+      <h2>2a. Music Playing on Your Phone (Android app, optional)</h2>
+      <p>
+        If you turn on <strong>Notification access</strong> for LyricWave, the Android app can follow the song playing in other apps (for example Spotify, YouTube Music or Apple Music) so lyrics stay in sync.
+      </p>
+      <ul>
+        <li><strong>What is read:</strong> only the active media player's song title, artist, album, artwork link, song length, playback position and play/pause state, and which app is playing.</li>
+        <li><strong>What is never read:</strong> the contents of your notifications — messages, codes, emails or anything else. LyricWave's notification listener ignores every notification.</li>
+        <li><strong>Where it goes:</strong> this information stays on your device. Only the song title and artist (and length) are sent to LRCLIB to look up lyrics, the same as for any other source.</li>
+        <li><strong>Controls:</strong> LyricWave's play, pause and seek buttons send those commands to the app you're listening with. You can turn Notification access off at any time in Android Settings → Notifications → Device &amp; app notifications (wording varies by phone).</li>
+      </ul>
+    </section>
+
+    <section>
       <h2>3. Third-Party Services</h2>
       <ul>
         <li><strong>Spotify (optional):</strong> connects through Spotify's OAuth 2.0 PKCE flow and requests <code>user-read-currently-playing</code>, <code>user-read-playback-state</code> and <code>user-read-private</code> (used to show your display name and profile picture). Access and refresh tokens and your cached Spotify profile are stored in this app's <strong>local storage on your device</strong>; they are sent only to Spotify, never to LyricWave servers. You can disconnect in the app or revoke access in your Spotify account settings.</li>

@@ -90,6 +90,16 @@
 
       <!-- Consumer Input Source Selector Tabs -->
       <nav class="source-nav" id="sourceNav" role="tablist" aria-label="Music Sources">
+        <!-- Android app only: follows the phone's music apps (shown by app.js when available) -->
+        <button id="tabPhone" class="source-tab hidden" role="tab" aria-selected="false" data-tab="phone">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;" aria-hidden="true">
+            <rect x="6" y="2" width="12" height="20" rx="2"/>
+            <path d="M12 7v6.5"/>
+            <circle cx="10.5" cy="14.5" r="1.5"/>
+            <path d="M12 7l2.5 1"/>
+          </svg>
+          <span class="tab-label">Phone</span>
+        </button>
         <button id="tabMic" class="source-tab active" role="tab" aria-selected="true" data-tab="mic">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;" aria-hidden="true">
             <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
@@ -177,7 +187,7 @@
         <div class="first-run-icon">✨</div>
         <div class="first-run-body">
           <strong>Welcome to LyricWave!</strong>
-          <p>Last.fm and Spotify accounts sync automatically once connected. If lyrics ever lead or lag slightly behind what you hear, fine-tune timing anytime using the <strong>on-stage sync nudge buttons (−0.1s / +0.1s)</strong> on the lyrics stage.</p>
+          <p>Pick a source below and lyrics follow along automatically. If lyrics ever lead or lag slightly behind what you hear, fine-tune timing anytime using the <strong>on-stage sync nudge buttons (−0.1s / +0.1s)</strong> on the lyrics stage.</p>
         </div>
         <button id="btnDismissFirstRun" class="btn-dismiss-first-run" type="button" aria-label="Dismiss first-run hint">✕</button>
       </div>
@@ -288,6 +298,57 @@
       </section>
 
       <!-- 2. Manual Search Panel (Active Source) -->
+      <!-- Phone Panel (Android app only): follow Spotify / YouTube Music / Apple Music etc. -->
+      <section id="panelPhone" class="tab-panel hidden" aria-label="Music playing on this phone">
+        <div class="lastfm-card">
+          <!-- Shown until notification access is granted: prominent disclosure before Android's prompt -->
+          <div id="phoneOnboarding">
+            <div class="lastfm-header">
+              <div class="lastfm-icon-badge">📱</div>
+              <div>
+                <h2 class="lastfm-title">Lyrics for whatever's playing</h2>
+                <div class="lastfm-mode-pill">
+                  <span class="status-dot"></span>
+                  <span>Spotify · YouTube Music · Apple Music · and more</span>
+                </div>
+              </div>
+            </div>
+            <p class="lastfm-desc">
+              LyricWave can follow the song playing in any music app on this phone and keep the lyrics perfectly in sync — no login needed.
+            </p>
+            <ul class="lastfm-desc" style="padding-left:1.1rem;margin:0 0 0.9rem;display:flex;flex-direction:column;gap:0.35rem;">
+              <li>Android calls this <strong>Notification access</strong>. LyricWave uses it <strong>only</strong> to read the current song's title, artist and playback position.</li>
+              <li>It <strong>never</strong> reads your messages or any other notifications, and nothing is stored or uploaded. Only the song title and artist are sent to LRCLIB to find lyrics.</li>
+              <li>You can turn it off any time in Android settings.</li>
+            </ul>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+              <button id="btnPhoneGrant" class="btn btn-sm btn-spotify" type="button">Turn on Notification access</button>
+              <button id="btnPhoneUseMic" class="btn btn-sm btn-ghost" type="button">Use microphone instead</button>
+            </div>
+            <p id="phoneRestrictedHint" class="lastfm-desc hidden" style="font-size:0.75rem;margin-top:0.75rem;">
+              If Android says the setting is <strong>restricted</strong>: open <strong>Settings → Apps → LyricWave</strong>, tap <strong>⋮ → Allow restricted settings</strong>, then try again.
+            </p>
+          </div>
+
+          <!-- Shown once access is granted -->
+          <div id="phoneStatusView" class="hidden">
+            <div class="lastfm-header">
+              <div class="lastfm-icon-badge">🎧</div>
+              <div>
+                <h2 id="phoneStatusTitle" class="lastfm-title">Waiting for music…</h2>
+                <div class="lastfm-mode-pill">
+                  <span id="phoneStatusDot" class="status-dot"></span>
+                  <span id="phoneStatusText">Play a song in Spotify, YouTube Music, Apple Music or any music app.</span>
+                </div>
+              </div>
+            </div>
+            <p class="lastfm-desc" style="font-size:0.78rem;">
+              Lyrics follow the song automatically. Using Bluetooth headphones? If lyrics run early, nudge the sync offset under the lyrics.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section id="panelSearch" class="tab-panel hidden" aria-label="Search">
         <div class="search-box-wrap">
           <div class="search-input-row">

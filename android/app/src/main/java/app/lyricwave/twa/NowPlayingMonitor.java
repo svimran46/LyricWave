@@ -155,6 +155,29 @@ final class NowPlayingMonitor {
         listener.onNowPlayingChanged();
     }
 
+    /**
+     * Control the followed music app from LyricWave's own play/pause/seek buttons.
+     * @param action "play", "pause" or "seek"
+     */
+    void control(String action, long positionMs) {
+        MediaController c = current;
+        if (c == null) return;
+        MediaController.TransportControls t = c.getTransportControls();
+        switch (action) {
+            case "play":
+                t.play();
+                break;
+            case "pause":
+                t.pause();
+                break;
+            case "seek":
+                if (positionMs >= 0) t.seekTo(positionMs);
+                break;
+            default:
+                break;
+        }
+    }
+
     /** JSON snapshot of the current track for the web app. Safe to call from any thread. */
     String snapshotJson() {
         JSONObject out = new JSONObject();
