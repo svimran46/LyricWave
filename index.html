@@ -718,39 +718,40 @@
         <span class="drag-bar"></span>
       </div>
       <div class="modal-header">
-        <h2 id="settingsTitle" class="modal-title">Settings</h2>
+        <div class="modal-header-meta">
+          <h2 id="settingsTitle" class="modal-title">Preferences</h2>
+          <span class="modal-subtitle">Customize visual theme, typography & sync timing</span>
+        </div>
         <button id="btnCloseSettings" class="btn-close-modal" type="button" aria-label="Close preferences">&times;</button>
       </div>
 
-      <div class="modal-body settings-accordion" id="settingsAccordion">
+      <div class="modal-body settings-grid-body" id="settingsAccordion">
         
-        <!-- Section 1: Appearance -->
-        <details class="settings-section" open id="secAppearance">
-          <summary class="settings-section-summary">
-            <div class="settings-section-header-title">
-              <span class="settings-section-icon">🎨</span>
-              <span class="settings-section-name">Appearance</span>
+        <!-- Section 1: Appearance & Theme -->
+        <div class="settings-card" id="secAppearance">
+          <div class="settings-card-header">
+            <span class="settings-card-icon">🎨</span>
+            <div>
+              <h3 class="settings-card-title">Appearance</h3>
+              <p class="settings-card-subtitle">Select visual theme and lyrics scale</p>
             </div>
-            <svg class="accordion-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </summary>
-          <div class="settings-section-content">
+          </div>
+          <div class="settings-card-body">
             
-            <!-- Theme Swatch Cards Picker -->
-            <div class="settings-group">
-              <label class="settings-label" id="lblThemePicker">Visual Theme</label>
+            <!-- Theme Swatch Grid (Aligned 5-theme cards) -->
+            <div class="settings-row-group">
+              <label class="settings-label" id="lblThemePicker">Theme Preset</label>
               <div class="theme-swatch-grid" role="radiogroup" aria-labelledby="lblThemePicker">
                 
                 <!-- Swatch 1: Album Adaptive -->
                 <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="adaptive">
                   <div class="theme-swatch-preview preview-adaptive">
                     <span class="theme-preview-dot dot-adaptive"></span>
-                    <span class="theme-preview-lyric lyric-adaptive">♫ Dynamic Art</span>
+                    <span class="theme-preview-lyric lyric-adaptive">♫ Adaptive Art</span>
                   </div>
                   <div class="theme-swatch-meta">
                     <span class="theme-swatch-name">Adaptive</span>
-                    <span class="theme-swatch-desc">Palette from art</span>
+                    <span class="theme-swatch-desc">Album colors</span>
                   </div>
                   <span class="theme-swatch-check" aria-hidden="true">✓</span>
                 </button>
@@ -776,7 +777,7 @@
                   </div>
                   <div class="theme-swatch-meta">
                     <span class="theme-swatch-name">Vinyl</span>
-                    <span class="theme-swatch-desc">Charcoal warm</span>
+                    <span class="theme-swatch-desc">Warm charcoal</span>
                   </div>
                   <span class="theme-swatch-check" aria-hidden="true">✓</span>
                 </button>
@@ -789,7 +790,7 @@
                   </div>
                   <div class="theme-swatch-meta">
                     <span class="theme-swatch-name">Paper</span>
-                    <span class="theme-swatch-desc">High-contrast light</span>
+                    <span class="theme-swatch-desc">Clean light</span>
                   </div>
                   <span class="theme-swatch-check" aria-hidden="true">✓</span>
                 </button>
@@ -802,176 +803,167 @@
                   </div>
                   <div class="theme-swatch-meta">
                     <span class="theme-swatch-name">Neon</span>
-                    <span class="theme-swatch-desc">Cyan magenta</span>
+                    <span class="theme-swatch-desc">High contrast</span>
                   </div>
                   <span class="theme-swatch-check" aria-hidden="true">✓</span>
                 </button>
 
               </div>
-              <span class="settings-helper-text">Theme styles color tokens, typography, and animated waves instantly.</span>
             </div>
 
-            <!-- Font Size Scale (50% to 200%) -->
-            <div class="settings-group" style="margin-top:0.75rem;">
-              <label class="settings-label" for="settingFontSize">Lyrics Font Size: <span id="lblFontSize">100%</span></label>
-              <div class="settings-range-row">
-                <span class="range-sub">50%</span>
+            <!-- Typography Scale Slider -->
+            <div class="settings-row-group">
+              <div class="settings-label-row">
+                <label class="settings-label" for="settingFontSize">Lyrics Scale</label>
+                <span id="lblFontSize" class="settings-val-badge">100%</span>
+              </div>
+              <div class="settings-range-control-row">
+                <span class="range-boundary">50%</span>
                 <input id="settingFontSize" type="range" min="50" max="200" step="5" value="100" class="offset-slider" aria-label="Lyrics font size scaling percentage">
-                <span class="range-sub">200%</span>
+                <span class="range-boundary">200%</span>
               </div>
-              <span class="settings-helper-text">Scales typography smoothly across lyrics viewport and reel stage.</span>
+              <span class="settings-helper-text">Scales typography across the lyrics viewport and OLED reel.</span>
             </div>
 
           </div>
-        </details>
+        </div>
 
-        <!-- Section 2: Lyrics -->
-        <details class="settings-section" open id="secLyrics">
-          <summary class="settings-section-summary">
-            <div class="settings-section-header-title">
-              <span class="settings-section-icon">📜</span>
-              <span class="settings-section-name">Lyrics</span>
-            </div>
-            <svg class="accordion-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </summary>
-          <div class="settings-section-content">
-            <div class="settings-group">
-              <div class="settings-toggle-row">
-                <div>
-                  <label class="settings-label" for="settingWordMode" style="margin-bottom:0.15rem;">Word-by-Word Reveal</label>
-                  <span class="settings-helper-text">Progressively reveals words within timed lyric lines.</span>
-                </div>
-                <label class="switch">
-                  <input id="settingWordMode" type="checkbox" checked>
-                  <span class="slider-round"></span>
-                </label>
-              </div>
+        <!-- Section 2: Display & Playback Behavior -->
+        <div class="settings-card" id="secLyrics">
+          <div class="settings-card-header">
+            <span class="settings-card-icon">📜</span>
+            <div>
+              <h3 class="settings-card-title">Display & Behavior</h3>
+              <p class="settings-card-subtitle">Real-time word animation and timing</p>
             </div>
           </div>
-        </details>
-
-        <!-- Section 3: Sync -->
-        <details class="settings-section" open id="secSync">
-          <summary class="settings-section-summary">
-            <div class="settings-section-header-title">
-              <span class="settings-section-icon">⏱️</span>
-              <span class="settings-section-name">Sync Calibration</span>
+          <div class="settings-card-body">
+            
+            <div class="settings-card-item-row">
+              <div class="settings-item-info">
+                <label class="settings-label" for="settingWordMode">Word-by-Word Reveal</label>
+                <span class="settings-helper-text">Progressively reveals words within active lyric lines</span>
+              </div>
+              <label class="switch">
+                <input id="settingWordMode" type="checkbox" checked>
+                <span class="slider-round"></span>
+              </label>
             </div>
-            <svg class="accordion-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </summary>
-          <div class="settings-section-content">
-            <div class="settings-group">
-              <label class="settings-label" for="settingOffsetSlider">Latency Calibration</label>
+
+          </div>
+        </div>
+
+        <!-- Section 3: Sync Calibration -->
+        <div class="settings-card" id="secSync">
+          <div class="settings-card-header">
+            <span class="settings-card-icon">⏱️</span>
+            <div>
+              <h3 class="settings-card-title">Sync Calibration</h3>
+              <p class="settings-card-subtitle">Compensate audio hardware latency and drift</p>
+            </div>
+          </div>
+          <div class="settings-card-body">
+            
+            <div class="settings-row-group">
+              <div class="settings-label-row">
+                <label class="settings-label" for="settingOffsetSlider">Latency Calibration</label>
+                <span id="lblSettingsOffset" class="settings-val-badge sync-val">+0.0s (0 ms)</span>
+              </div>
               
-              <!-- Calibration Slider: -2000ms to +2000ms (step 50ms = 0.05s) -->
-              <div class="settings-range-row" style="margin: 0.5rem 0;">
-                <span class="range-sub">−2.0s</span>
+              <div class="settings-range-control-row">
+                <span class="range-boundary">−2.0s</span>
                 <input id="settingOffsetSlider" type="range" min="-2000" max="2000" step="50" value="0" class="offset-slider" aria-label="Latency offset in ms">
-                <span class="range-sub">+2.0s</span>
+                <span class="range-boundary">+2.0s</span>
               </div>
 
-              <!-- Buttons at least 44px tall -->
               <div class="sync-actions-row">
                 <button id="btnSettingsOffsetMinus" class="btn-step btn-step-tall" type="button" aria-label="Shift earlier 0.1s">−0.1s</button>
-                <button id="btnSettingsOffsetReset" class="btn-reset btn-reset-tall" type="button" aria-label="Reset latency offset">Reset</button>
+                <button id="btnSettingsOffsetReset" class="btn-reset btn-reset-tall" type="button" aria-label="Reset latency offset">Reset (0s)</button>
                 <button id="btnSettingsOffsetPlus" class="btn-step btn-step-tall" type="button" aria-label="Shift later 0.1s">+0.1s</button>
               </div>
 
-              <div class="sync-readout-row">
-                <span class="settings-helper-text">Live: <strong id="lblSettingsOffset" class="sync-readout-val">+0.0s (0 ms)</strong></span>
-                <span class="settings-helper-text">Per-source persistence</span>
-              </div>
+              <span class="settings-helper-text">Offset persists automatically per audio source.</span>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Section 4: Advanced Engine -->
+        <div class="settings-card" id="secAdvanced">
+          <div class="settings-card-header">
+            <span class="settings-card-icon">⚙️</span>
+            <div>
+              <h3 class="settings-card-title">Advanced Settings</h3>
+              <p class="settings-card-subtitle">Recognition engine, diagnostics & privacy</p>
             </div>
           </div>
-        </details>
-
-        <!-- Section 4: Advanced -->
-        <details class="settings-section" id="secAdvanced">
-          <summary class="settings-section-summary">
-            <div class="settings-section-header-title">
-              <span class="settings-section-icon">⚙️</span>
-              <span class="settings-section-name">Advanced</span>
-            </div>
-            <svg class="accordion-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </summary>
-          <div class="settings-section-content">
+          <div class="settings-card-body">
             
             <!-- Recognition Provider Selector -->
-            <div class="settings-group" style="margin-bottom: 0.75rem;">
+            <div class="settings-row-group">
               <label class="settings-label" for="settingRecognitionProvider">Music Recognition Engine</label>
-              <select id="settingRecognitionProvider" class="form-select" style="width: 100%; padding: 0.5rem 0.75rem; background: rgba(0,0,0,0.4); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 0.85rem; outline: none;">
-                <option value="acrcloud" selected>ACRCloud (Default - acrcloud.com)</option>
-                <option value="audd">AudD (audd.io API)</option>
-              </select>
+              <div class="select-styled-wrap">
+                <select id="settingRecognitionProvider" class="form-select settings-select">
+                  <option value="acrcloud" selected>ACRCloud (Default • acrcloud.com)</option>
+                  <option value="audd">AudD (audd.io API)</option>
+                </select>
+              </div>
               <span class="settings-helper-text">Engine used when identifying music through the microphone.</span>
-
             </div>
 
             <!-- Audio Diagnostics Toggle -->
-            <div class="settings-group">
-              <div class="settings-toggle-row">
-                <div>
-                  <label class="settings-label" for="settingDebugMode" style="margin-bottom:0.15rem;">Show Diagnostics HUD</label>
-                  <span class="settings-helper-text">Displays clock jitter, drift, and frame metrics.</span>
-                </div>
-                <label class="switch">
-                  <input id="settingDebugMode" type="checkbox">
-                  <span class="slider-round"></span>
-                </label>
+            <div class="settings-card-item-row" style="margin-top:0.4rem; padding-top:0.75rem; border-top:1px solid var(--border-subtle);">
+              <div class="settings-item-info">
+                <label class="settings-label" for="settingDebugMode">Show Diagnostics HUD</label>
+                <span class="settings-helper-text">Displays clock jitter, drift & frame telemetry</span>
               </div>
+              <label class="switch">
+                <input id="settingDebugMode" type="checkbox">
+                <span class="slider-round"></span>
+              </label>
             </div>
 
-
             <!-- Diagnostics Drawer -->
-            <div id="diagnosticsDrawer" class="debug-panel hidden" style="margin-top: 0.5rem;">
+            <div id="diagnosticsDrawer" class="debug-panel hidden">
               <div class="debug-grid">
                 <div class="debug-item">
-                  <span class="debug-label">Clock Position:</span>
+                  <span class="debug-label">Clock Position</span>
                   <span id="dbgPositionMs" class="debug-val">0 ms</span>
                 </div>
                 <div class="debug-item">
-                  <span class="debug-label">Effective Sync:</span>
+                  <span class="debug-label">Effective Sync</span>
                   <span id="dbgEffectiveMs" class="debug-val">0 ms</span>
                 </div>
                 <div class="debug-item">
-                  <span class="debug-label">Active Line:</span>
+                  <span class="debug-label">Active Line</span>
                   <span id="dbgActiveLine" class="debug-val">—</span>
                 </div>
                 <div class="debug-item">
-                  <span class="debug-label">Sync Source:</span>
+                  <span class="debug-label">Sync Source</span>
                   <span id="dbgSource" class="debug-val">Ready</span>
                 </div>
               </div>
             </div>
 
-            <!-- Privacy & Data Controls Link -->
-            <div class="settings-group" style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border);">
-              <a href="./privacy.html" class="btn-text-link" style="display:inline-flex; align-items:center; gap:0.4rem; font-size:13px;">
-                <span>🔒 Privacy & Data Controls</span>
-                <span style="font-size:0.7rem;">↗</span>
+            <!-- Privacy Policy & Reset Controls -->
+            <div class="settings-footer-action-row">
+              <a href="./privacy.html" class="settings-privacy-link" target="_blank" rel="noopener">
+                <span>🔒 Privacy & Data Policy</span>
+                <span style="font-size:0.75rem;">↗</span>
               </a>
+              <button id="btnResetDefaults" class="btn-reset-defaults" type="button">Reset Defaults</button>
             </div>
 
           </div>
-        </details>
-
-        <!-- Reset to Defaults Link -->
-        <div class="settings-reset-row">
-          <button id="btnResetDefaults" class="btn-text-link btn-reset-defaults" type="button">Reset to defaults</button>
         </div>
 
       </div>
 
-      <div class="modal-footer" style="display:flex; justify-content:flex-end; align-items:center;">
+      <div class="modal-footer">
         <button id="btnDoneSettings" class="btn btn-settings-done" type="button">
           Done
         </button>
+      </div>
       </div>
     </div>
   </div>

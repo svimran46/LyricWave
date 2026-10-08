@@ -3039,102 +3039,157 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  max-height: 72vh;
+  max-height: 75vh;
   overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.modal-header-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.modal-subtitle {
+  font-size: 0.76rem;
+  color: var(--text-muted);
 }
 
 .modal-footer {
-  padding: 0.9rem 1.4rem;
+  padding: 0.85rem 1.4rem;
   border-top: 1px solid var(--border-subtle);
   display: flex;
   justify-content: flex-end;
   background: rgba(255, 255, 255, 0.02);
 }
 
-/* Phase 3 Redesigned Settings Sections (Collapsible on Mobile, Grouped Cards on Desktop) */
-.settings-accordion {
+/* =====================================================================
+   Redesigned Settings Grid Architecture
+   ===================================================================== */
+.settings-grid-body {
+  display: flex;
+  flex-direction: column;
   gap: 1rem;
 }
 
-.settings-section {
+.settings-card {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   overflow: hidden;
-  transition: border-color var(--transition-fast);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.settings-section:hover {
+.settings-card:hover {
   border-color: var(--border-highlight);
 }
 
-.settings-section[open] {
-  border-color: var(--border-highlight);
-}
-
-.settings-section-summary {
+.settings-card-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem 0.95rem;
-  cursor: pointer;
-  user-select: none;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
   background: var(--bg-elevated);
-  list-style: none;
-  transition: background var(--transition-fast);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-.settings-section-summary::-webkit-details-marker {
-  display: none;
-}
-
-.settings-section-summary:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.settings-section-header-title {
+.settings-card-icon {
+  font-size: 1.2rem;
+  line-height: 1;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
 }
 
-.settings-section-icon {
-  font-size: 1rem;
-  line-height: 1;
-}
-
-.settings-section-name {
-  font-size: 0.88rem;
+.settings-card-title {
+  font-size: 0.92rem;
   font-weight: 700;
   color: var(--text);
+  margin: 0;
   letter-spacing: -0.01em;
 }
 
-.accordion-arrow {
-  width: 16px;
-  height: 16px;
+.settings-card-subtitle {
+  font-size: 0.74rem;
   color: var(--text-muted);
-  transition: transform var(--transition-fast);
+  margin: 0.1rem 0 0 0;
 }
 
-.settings-section[open] .accordion-arrow {
-  transform: rotate(180deg);
-}
-
-.settings-section-content {
-  padding: 1rem 0.95rem;
+.settings-card-body {
+  padding: 1rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  border-top: 1px solid var(--border-subtle);
 }
 
-/* Theme Swatch Cards Grid */
+.settings-row-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.settings-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-val-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-subtle);
+  color: var(--text);
+}
+
+.settings-val-badge.sync-val {
+  color: var(--accent);
+  border-color: rgba(34, 197, 94, 0.3);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.settings-card-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.settings-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.settings-range-control-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.25rem 0;
+}
+
+.range-boundary {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  flex-shrink: 0;
+}
+
+/* Theme Swatch Grid: 5 columns on desktop, 2-3 on mobile */
 .theme-swatch-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 0.6rem;
-  margin-top: 0.35rem;
+  grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
+  gap: 0.55rem;
+  margin-top: 0.2rem;
 }
 
 .theme-swatch-card {
@@ -3144,18 +3199,19 @@ body {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   background: var(--bg-elevated);
-  padding: 0.5rem;
+  padding: 0.45rem;
   cursor: pointer;
   text-align: left;
   transition: all var(--transition-fast);
   color: inherit;
   font-family: inherit;
-  min-height: 94px;
+  min-height: 88px;
 }
 
 .theme-swatch-card:hover {
   border-color: var(--border-highlight);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
 }
 
 .theme-swatch-card:focus-visible {
@@ -3165,32 +3221,32 @@ body {
 
 .theme-swatch-card.active {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent), 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 0 0 2px var(--accent), 0 4px 14px var(--spotify-green-glow);
 }
 
 .theme-swatch-preview {
   position: relative;
   width: 100%;
-  height: 44px;
-  border-radius: 6px;
-  padding: 0.4rem;
+  height: 38px;
+  border-radius: 5px;
+  padding: 0.35rem;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.35rem;
 }
 
 .theme-preview-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   display: inline-block;
   box-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
 }
 
 .theme-preview-lyric {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
@@ -3239,28 +3295,28 @@ body {
 }
 
 .theme-swatch-name {
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 700;
   color: var(--text);
 }
 
 .theme-swatch-desc {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   color: var(--text-muted);
 }
 
 .theme-swatch-check {
   display: none;
   position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 18px;
-  height: 18px;
+  top: 5px;
+  right: 5px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: var(--accent);
   color: var(--accent-contrast);
-  font-size: 0.68rem;
-  font-weight: 800;
+  font-size: 0.6rem;
+  font-weight: 900;
   align-items: center;
   justify-content: center;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
@@ -3270,29 +3326,29 @@ body {
   display: flex;
 }
 
-/* Helper Text: at least 13px, uses --text-muted */
+/* Helper Text */
 .settings-helper-text {
-  font-size: 13px;
+  font-size: 0.74rem;
   color: var(--text-muted);
-  line-height: 1.45;
+  line-height: 1.4;
 }
 
-/* Sync Action Buttons: At least 44px tall */
+/* Latency Calibration Button Grid */
 .sync-actions-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1.4fr 1fr;
   gap: 0.5rem;
-  margin-top: 0.35rem;
+  margin-top: 0.25rem;
 }
 
 .btn-step-tall,
 .btn-reset-tall {
-  min-height: 44px;
-  height: 44px;
+  min-height: 40px;
+  height: 40px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   font-weight: 600;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -3311,47 +3367,83 @@ body {
 }
 
 .btn-reset-tall {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border-subtle);
-  color: var(--accent);
+  color: var(--text-muted);
 }
 
 .btn-reset-tall:hover {
-  background: rgba(255, 255, 255, 0.04);
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Select Wrap */
+.select-styled-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.settings-select {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.84rem;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.settings-select:focus {
   border-color: var(--accent);
 }
 
-.sync-readout-row {
+.settings-select option {
+  background: #11141d;
+  color: var(--text);
+}
+
+/* Privacy & Reset Footer Action Row */
+.settings-footer-action-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 0.75rem;
   margin-top: 0.4rem;
+  border-top: 1px solid var(--border-subtle);
 }
 
-.sync-readout-val {
+.settings-privacy-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color var(--transition-fast);
+}
+
+.settings-privacy-link:hover {
   color: var(--accent);
-  font-family: ui-monospace, SFMono-Regular, monospace;
-}
-
-/* Settings Reset to Defaults Link */
-.settings-reset-row {
-  display: flex;
-  justify-content: center;
-  padding: 0.5rem 0 0.25rem;
 }
 
 .btn-reset-defaults {
-  font-size: 13px;
+  font-size: 0.76rem;
   color: var(--text-muted);
-  text-decoration: underline;
-  cursor: pointer;
   background: none;
   border: none;
-  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast);
 }
 
 .btn-reset-defaults:hover {
-  color: var(--accent);
+  color: #ef4444;
 }
 
 /* Primary "Done" Button uses --accent and --accent-contrast */
@@ -3360,10 +3452,10 @@ body {
   color: var(--accent-contrast);
   font-weight: 700;
   font-size: 0.88rem;
-  padding: 0.6rem 1.4rem;
+  padding: 0.55rem 1.6rem;
   border-radius: var(--radius-full);
   border: none;
-  min-height: 44px;
+  min-height: 40px;
   cursor: pointer;
   transition: filter var(--transition-fast), transform var(--transition-fast);
 }
@@ -3378,65 +3470,14 @@ body {
   outline-offset: 3px;
 }
 
-.settings-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
 .settings-label {
-  font-size: 0.85rem;
+  font-size: 0.84rem;
   font-weight: 600;
   color: var(--text);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  margin: 0;
 }
 
-.settings-desc {
-  font-size: 13px;
-  color: var(--text-muted);
-  line-height: 1.4;
-}
-
-.settings-select {
-  width: 100%;
-  padding: 0.6rem 0.8rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  font-size: 0.88rem;
-  outline: none;
-}
-
-.settings-select:focus {
-  border-color: var(--accent);
-}
-
-.settings-select option {
-  background: var(--bg-surface);
-  color: var(--text);
-}
-
-.settings-range-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.range-sub {
-  font-size: 0.72rem;
-  color: var(--text-muted);
-}
-
-/* Switch Toggle using single --accent */
-.settings-toggle-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
+/* Switch Toggle */
 .switch {
   position: relative;
   display: inline-block;
@@ -4224,7 +4265,7 @@ body.fullscreen-reel-mode.cursor-idle * {
     max-height: 440px;
   }
 
-  /* Desktop Settings: Right-Side Drawer (about 380px) without dimming stage */
+  /* Desktop Settings: Right-Side Drawer without dimming stage */
   #settingsBackdrop.modal-backdrop {
     background: transparent;
     backdrop-filter: none;
@@ -4237,8 +4278,8 @@ body.fullscreen-reel-mode.cursor-idle * {
 
   #settingsDialog.modal-dialog {
     pointer-events: auto;
-    width: 380px;
-    max-width: 380px;
+    width: 440px;
+    max-width: 440px;
     height: 100vh;
     max-height: 100vh;
     border-radius: 0;
@@ -4246,18 +4287,13 @@ body.fullscreen-reel-mode.cursor-idle * {
     border-top: none;
     border-bottom: none;
     border-right: none;
-    box-shadow: -10px 0 40px rgba(0, 0, 0, 0.7);
+    box-shadow: -12px 0 48px rgba(0, 0, 0, 0.75);
     animation: drawerSlideIn 240ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  /* Desktop Settings Grouped Cards */
-  .settings-section {
-    border: 1px solid var(--border);
-    background: var(--bg-surface);
-  }
-
-  .settings-section-summary {
-    cursor: pointer;
+  #settingsDialog .modal-body {
+    max-height: calc(100vh - 130px);
+    padding: 1.25rem 1.4rem;
   }
 
   @keyframes drawerSlideIn {
