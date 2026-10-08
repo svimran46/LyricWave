@@ -17,6 +17,8 @@ Follow these steps to configure your Spotify Developer Application for LyricWave
    - **Redirect URIs**: Enter your local server URL:
      - `http://127.0.0.1:8080/`
      - *(Optional: Also add `http://localhost:8080/` or `http://localhost:3000/` if using alternate ports)*
+     - `https://lyricwave.pages.dev/` (the live website)
+     - `lyricwave://callback` (the Android app — login opens in a Chrome Custom Tab and returns here)
      > ⚠️ **Important**: Spotify requires the exact match, including the trailing slash `/` or exact file path.
    - **Which API/SDKs are you planning to use?**: Select **Web API**.
 3. Accept the Spotify Developer Terms of Service and click **Save**.

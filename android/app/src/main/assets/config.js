@@ -17,7 +17,14 @@ export const CONFIG = {
    * MUST match character-for-character with what you added in your Spotify Dashboard.
    * By default, this uses your current origin + path (e.g. http://127.0.0.1:8080/ or http://localhost:3000/)
    */
-  REDIRECT_URI: typeof window !== 'undefined'
+  /**
+   * Inside the Android app, login runs in a Chrome Custom Tab and returns through this
+   * custom-scheme link (Google/Apple sign-in on Spotify's page is blocked in WebViews).
+   * Add BOTH this and the web redirect below to the Spotify Dashboard.
+   */
+  REDIRECT_URI: (typeof window !== 'undefined' && window.location.hostname === 'appassets.androidplatform.net')
+    ? 'lyricwave://callback'
+    : typeof window !== 'undefined'
     ? window.location.origin + window.location.pathname.replace(/\/index\.html$/, "/")
     : "http://127.0.0.1:8080/",
 

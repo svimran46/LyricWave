@@ -28,6 +28,7 @@ import androidx.activity.SystemBarStyle;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
@@ -49,9 +50,25 @@ public class MainActivity extends AppCompatActivity {
         return APP_HOST.equals(host);
     }
 
-    /** Exact Spotify host match (spotify.com or *.spotify.com) — never a substring match. */
-    static boolean isSpotifyHost(String host) {
-        return host != null && (host.equals("spotify.com") || host.endsWith(".spotify.com"));
+    /** lyricwave://callback?... — the Spotify OAuth redirect coming back from the Custom Tab. */
+    static boolean isAuthCallback(Uri uri) {
+        return uri != null && "lyricwave".equals(uri.getScheme()) && "callback".equals(uri.getHost());
+    }
+
+    /** Only Spotify's real authorize endpoint may be opened by the page bridge. */
+    static boolean isSpotifyAuthorizeUrl(Uri uri) {
+        return uri != null && "https".equals(uri.getScheme())
+                && "accounts.spotify.com".equals(uri.getHost())
+                && "/authorize".equals(uri.getPath());
+    }
+
+    /** Start URL, carrying the OAuth callback query (code/state/error) when present. */
+    static String startUrlFor(Intent intent) {
+        Uri data = intent != null ? intent.getData() : null;
+        if (isAuthCallback(data) && data.getEncodedQuery() != null) {
+            return APP_START_URL + "?" + data.getEncodedQuery();
+        }
+        return APP_START_URL;
     }
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
@@ -116,8 +133,8 @@ public class MainActivity extends AppCompatActivity {
                 Uri uri = request.getUrl();
                 String host = uri.getHost();
 
-                // Keep local app navigation and Spotify login within the WebView
-                if (isAppHost(host) || isSpotifyHost(host)) {
+                // Only the bundled app runs inside the WebView. Spotify login uses a Custom Tab.
+                if (isAppHost(host)) {
                     return false;
                 }
 
@@ -210,12 +227,40 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // Load the self-contained local web app bundle
-        webView.loadUrl(APP_START_URL);
+        // Load the self-contained local web app bundle (with OAuth params on a cold-start callback)
+        webView.loadUrl(startUrlFor(getIntent()));
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        // Returning from the Spotify login tab: hand code/state to the web app's callback handler.
+        if (webView != null && isAuthCallback(intent.getData())) {
+            webView.loadUrl(startUrlFor(intent));
+        }
     }
 
     /** Exposed to page JS as window.LyricWaveNative. Keep this surface tiny. */
     private class NativeBridge {
+        /** Opens Spotify's authorize page in a Chrome Custom Tab (never inside the WebView). */
+        @JavascriptInterface
+        public void openSpotifyLogin(final String url) {
+            final Uri uri = Uri.parse(url);
+            if (!isSpotifyAuthorizeUrl(uri)) return;
+            runOnUiThread(() -> {
+                try {
+                    new CustomTabsIntent.Builder().build().launchUrl(MainActivity.this, uri);
+                } catch (ActivityNotFoundException e) {
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, uri));
+                    } catch (ActivityNotFoundException ignored) {
+                        // No browser at all; nothing we can do.
+                    }
+                }
+            });
+        }
+
         @JavascriptInterface
         public void setKeepScreenOn(final boolean keepOn) {
             runOnUiThread(() -> {

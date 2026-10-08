@@ -1568,6 +1568,13 @@ btnLoginSpotify.addEventListener('click', async () => {
     btnLoginSpotify.disabled = true;
     btnLoginSpotify.innerHTML = '<div class="spinner"></div><span>Connecting...</span>';
     await initiateLogin();
+    if (IS_NATIVE_APP) {
+      // Login continues in a Custom Tab; if the user backs out, the button must work again.
+      setTimeout(() => {
+        btnLoginSpotify.disabled = false;
+        btnLoginSpotify.innerHTML = '<span>Connect Spotify</span>';
+      }, 1500);
+    }
   } catch (err) {
     btnLoginSpotify.disabled = false;
     btnLoginSpotify.innerHTML = '<span>Connect Spotify</span>';

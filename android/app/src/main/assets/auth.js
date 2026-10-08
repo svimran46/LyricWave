@@ -77,9 +77,10 @@ export async function initiateLogin() {
   const codeChallenge = await generateCodeChallenge(codeVerifier);
   const state = generateRandomString(16);
 
-  // Store verifier and state for validation upon redirect
-  sessionStorage.setItem(STORAGE_KEYS.CODE_VERIFIER, codeVerifier);
-  sessionStorage.setItem(STORAGE_KEYS.AUTH_STATE, state);
+  // Store verifier and state for validation upon redirect. localStorage (not session)
+  // so the values survive Android killing the app while the login tab is in front.
+  localStorage.setItem(STORAGE_KEYS.CODE_VERIFIER, codeVerifier);
+  localStorage.setItem(STORAGE_KEYS.AUTH_STATE, state);
 
   const params = new URLSearchParams({
     client_id: CONFIG.CLIENT_ID,
@@ -91,7 +92,14 @@ export async function initiateLogin() {
     code_challenge: codeChallenge
   });
 
-  window.location.href = `${SPOTIFY_AUTH_ENDPOINT}?${params.toString()}`;
+  const authUrl = `${SPOTIFY_AUTH_ENDPOINT}?${params.toString()}`;
+  const native = typeof window !== 'undefined' ? window.LyricWaveNative : null;
+  if (native && typeof native.openSpotifyLogin === 'function') {
+    // Android app: open in a Chrome Custom Tab; the app is relaunched via lyricwave://callback.
+    native.openSpotifyLogin(authUrl);
+    return;
+  }
+  window.location.href = authUrl;
 }
 
 /**
@@ -136,8 +144,8 @@ export async function handleRedirectCallback() {
   }
 
   // Validate state to prevent CSRF attacks
-  const storedState = sessionStorage.getItem(STORAGE_KEYS.AUTH_STATE);
-  sessionStorage.removeItem(STORAGE_KEYS.AUTH_STATE);
+  const storedState = localStorage.getItem(STORAGE_KEYS.AUTH_STATE);
+  localStorage.removeItem(STORAGE_KEYS.AUTH_STATE);
 
   if (!returnedState || returnedState !== storedState) {
     return {
@@ -147,8 +155,8 @@ export async function handleRedirectCallback() {
   }
 
   // Retrieve code verifier
-  const codeVerifier = sessionStorage.getItem(STORAGE_KEYS.CODE_VERIFIER);
-  sessionStorage.removeItem(STORAGE_KEYS.CODE_VERIFIER);
+  const codeVerifier = localStorage.getItem(STORAGE_KEYS.CODE_VERIFIER);
+  localStorage.removeItem(STORAGE_KEYS.CODE_VERIFIER);
 
   if (!codeVerifier) {
     return {
@@ -372,8 +380,8 @@ export function logout() {
   localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
   localStorage.removeItem(STORAGE_KEYS.EXPIRES_AT);
   localStorage.removeItem(STORAGE_KEYS.USER_PROFILE);
-  sessionStorage.removeItem(STORAGE_KEYS.CODE_VERIFIER);
-  sessionStorage.removeItem(STORAGE_KEYS.AUTH_STATE);
+  localStorage.removeItem(STORAGE_KEYS.CODE_VERIFIER);
+  localStorage.removeItem(STORAGE_KEYS.AUTH_STATE);
 }
 
 /**
