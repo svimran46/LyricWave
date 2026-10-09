@@ -36,18 +36,14 @@ const sourceTabs = document.querySelectorAll('.source-tab');
 const tabCharts = document.getElementById('tabCharts');
 const tabNews = document.getElementById('tabNews');
 const tabPanels = {
-  phone: document.getElementById('panelPhone'),
-  mic: document.getElementById('panelMic'),
+  now: document.getElementById('panelNow'),
   search: document.getElementById('panelSearch'),
   charts: document.getElementById('panelCharts'),
-  news: document.getElementById('panelNews'),
-  connect: document.getElementById('panelConnect'),
-  lastfm: document.getElementById('panelLastfm'),
-  spotify: document.getElementById('panelSpotify')
+  news: document.getElementById('panelNews')
 };
+const MAIN_TABS = ['now', 'search', 'charts', 'news'];
 
-// DOM Elements: Connect Segmented Switcher
-const panelConnect = document.getElementById('panelConnect');
+// DOM Elements: Music accounts (Preferences) segmented switcher
 const btnSubLastfm = document.getElementById('btnSubLastfm');
 const btnSubSpotify = document.getElementById('btnSubSpotify');
 const subPanels = {
@@ -158,12 +154,39 @@ const miniPlayUse = document.getElementById('miniPlayUse');
 const miniTitle = document.getElementById('miniTitle');
 const miniArtist = document.getElementById('miniArtist');
 const miniArt = document.getElementById('miniArt');
-const phoneNowCard = document.getElementById('phoneNowCard');
-const phoneNowArt = document.getElementById('phoneNowArt');
-const phoneNowArtPlaceholder = document.getElementById('phoneNowArtPlaceholder');
-const phoneNowTitle = document.getElementById('phoneNowTitle');
-const phoneNowArtist = document.getElementById('phoneNowArtist');
-const btnPhoneNowOpen = document.getElementById('btnPhoneNowOpen');
+// DOM Elements: Now tab
+const nowCard = document.getElementById('nowCard');
+const nowArt = document.getElementById('nowArt');
+const nowArtPlaceholder = document.getElementById('nowArtPlaceholder');
+const nowTitle = document.getElementById('nowTitle');
+const nowArtist = document.getElementById('nowArtist');
+const nowLiveLine = document.getElementById('nowLiveLine');
+const nowProgressFill = document.getElementById('nowProgressFill');
+const nowSourceDot = document.getElementById('nowSourceDot');
+const nowSourceText = document.getElementById('nowSourceText');
+const btnNowOpen = document.getElementById('btnNowOpen');
+const nowWaiting = document.getElementById('nowWaiting');
+const nowWaitingTitle = document.getElementById('nowWaitingTitle');
+const nowWaitingHint = document.getElementById('nowWaitingHint');
+const nowLiveActions = document.getElementById('nowLiveActions');
+const nowPausedNote = document.getElementById('nowPausedNote');
+const btnNowResume = document.getElementById('btnNowResume');
+const btnNowStopFollow = document.getElementById('btnNowStopFollow');
+const nowPhoneSetup = document.getElementById('nowPhoneSetup');
+const btnNowPhoneSetup = document.getElementById('btnNowPhoneSetup');
+const nowMic = document.getElementById('nowMic');
+const btnNowIdentify = document.getElementById('btnNowIdentify');
+const nowIdentifyLabel = document.getElementById('nowIdentifyLabel');
+const nowFollowOptions = document.getElementById('nowFollowOptions');
+const btnFollowPhone = document.getElementById('btnFollowPhone');
+const nowFollowPhoneSub = document.getElementById('nowFollowPhoneSub');
+const btnFollowSpotify = document.getElementById('btnFollowSpotify');
+const nowFollowSpotifySub = document.getElementById('nowFollowSpotifySub');
+const btnFollowAccounts = document.getElementById('btnFollowAccounts');
+const phoneAccessBackdrop = document.getElementById('phoneAccessBackdrop');
+const phoneAccessSheet = document.getElementById('phoneAccessSheet');
+const btnClosePhoneAccess = document.getElementById('btnClosePhoneAccess');
+const btnSpotifyFollow = document.getElementById('btnSpotifyFollow');
 const miniArtPlaceholder = document.getElementById('miniArtPlaceholder');
 const miniProgressFill = document.getElementById('miniProgressFill');
 const moreSheetBackdrop = document.getElementById('moreSheetBackdrop');
@@ -287,7 +310,12 @@ function safeSet(key, value) {
 }
 
 // Application State
-let activeTab = localStorage.getItem(STORAGE_LAST_SOURCE_KEY) || 'mic';
+// The old Phone / Listen / Connect tabs (and legacy lastfm / spotify values) all live on Now.
+let activeTab = MAIN_TABS.includes(safeGet(STORAGE_LAST_SOURCE_KEY)) ? safeGet(STORAGE_LAST_SOURCE_KEY) : 'now';
+let nowUiReady = false;         // renderNow() waits until init() so it never touches sources mid-evaluation
+let nowMode = 'idle';           // 'following' a live source | 'paused' (user picked another song) | 'idle'
+let micExpanded = false;        // the microphone block is open on Now even though another block leads
+let phoneSheetOpen = false;     // the Notification access disclosure sheet (Android)
 let isOffsetDrawerOpen = false;
 let currentTheme = THEME_IDS.includes(localStorage.getItem(STORAGE_THEME_KEY)) ? localStorage.getItem(STORAGE_THEME_KEY) : getDefaultTheme();
 let currentAnimStyle = ANIM_STYLES.includes(safeGet(STORAGE_ANIM_KEY)) ? safeGet(STORAGE_ANIM_KEY) : DEFAULT_ANIM_STYLE;
@@ -432,7 +460,7 @@ function renderRecentSongs() {
   if (!recentSongsList) return;
   const songs = getRecentSongs();
   if (songs.length === 0) {
-    recentSongsList.innerHTML = `<p class="recent-empty-hint">Identified songs will appear here.</p>`;
+    recentSongsList.innerHTML = `<p class="recent-empty-hint">Songs you identify or open show up here.</p>`;
     return;
   }
 
@@ -702,7 +730,7 @@ function updateStageTick(tick) {
 /** Artwork for the stage header and the mini player, with a glyph fallback when missing or broken. */
 function setArtwork(url) {
   const clean = sanitizeUrl(url);
-  [[trackArt, artPlaceholder], [miniArt, miniArtPlaceholder], [phoneNowArt, phoneNowArtPlaceholder]].forEach(([img, placeholder]) => {
+  [[trackArt, artPlaceholder], [miniArt, miniArtPlaceholder], [nowArt, nowArtPlaceholder]].forEach(([img, placeholder]) => {
     if (!img) return;
     if (clean) {
       img.onerror = () => {
@@ -725,11 +753,10 @@ function setArtwork(url) {
 const engine = new UnifiedSyncEngine({
   onTrackChange: (track) => {
     hasTrack = true;
-    // The welcome hint has done its job once lyrics are on screen.
-    if (firstRunHint && !firstRunHint.classList.contains('hidden')) {
-      firstRunHint.classList.add('hidden');
-      try { localStorage.setItem(STORAGE_FIRST_RUN_DISMISSED_KEY, 'true'); } catch {}
-    }
+    // A song the user picked (search, chart, recent) or identified by mic takes over from live lyrics
+    // until they choose "Back to live lyrics" on the Now tab.
+    if (!AUTONOMOUS_SOURCES.has(track.source) && nowMode === 'following') nowMode = 'paused';
+    if (track.source === 'mic') micExpanded = false;
     // Re-sync / auto re-listen record a new mic sample: only meaningful for songs the mic identified.
     const fromMic = track.source === 'mic';
     btnResync?.classList.toggle('hidden', !fromMic);
@@ -743,8 +770,9 @@ const engine = new UnifiedSyncEngine({
     trackAlbum.classList.toggle('hidden', !track.album);
     if (miniTitle) miniTitle.textContent = track.title;
     if (miniArtist) miniArtist.textContent = artistText;
-    if (phoneNowTitle) phoneNowTitle.textContent = track.title;
-    if (phoneNowArtist) phoneNowArtist.textContent = artistText;
+    if (nowTitle) nowTitle.textContent = track.title;
+    if (nowArtist) nowArtist.textContent = artistText;
+    if (nowLiveLine) nowLiveLine.textContent = '';
     btnMiniOpen?.setAttribute('aria-label', `Open now playing: ${track.title}${artistText ? ` by ${artistText}` : ''}`);
 
     if (track.isApproximate || track.source === 'lastfm') {
@@ -770,10 +798,12 @@ const engine = new UnifiedSyncEngine({
 
     // A new track opens the stage. Background sources (phone / Last.fm / Spotify) only do so until the
     // user has collapsed it once, so the next song never yanks the UI back open.
+    // Never open it over a dialog the user is working in, or over the mic while it is listening.
     if (!stageOpen) {
       const userDriven = !AUTONOMOUS_SOURCES.has(track.source);
       if (userDriven) stageDismissedByUser = false;
-      if (userDriven || !stageDismissedByUser) openStage({ auto: true });
+      const blocked = isModalOpen() || (!userDriven && mic.isListening);
+      if (!blocked && (userDriven || !stageDismissedByUser)) openStage({ auto: true });
       else updateStageChrome();
     }
 
@@ -836,6 +866,12 @@ const engine = new UnifiedSyncEngine({
 
     // 2. Update OLED Reel Centered Box
     updateReelLine(lineIndex);
+
+    // 3. The Now card shows the line being sung (decorative; the card's title already names the song)
+    if (nowLiveLine) {
+      const text = lineIndex >= 0 ? (line?.text || '').trim() : '';
+      nowLiveLine.textContent = text || (lineIndex >= 0 ? '♪' : '');
+    }
   },
 
   onTick: (tick) => {
@@ -847,6 +883,7 @@ const engine = new UnifiedSyncEngine({
       if (Math.abs(ratio - miniRatio) > 0.0005) {
         miniRatio = ratio;
         miniProgressFill?.style.setProperty('--p', ratio.toFixed(4));
+        nowProgressFill?.style.setProperty('--p', ratio.toFixed(4));
       }
     }
 
@@ -882,15 +919,16 @@ const engine = new UnifiedSyncEngine({
     else updateStageChrome();
     // Make sure the panel for the active tab is showing again.
     showActivePanels();
+    if (nowLiveLine) nowLiveLine.textContent = '';
+    renderNow();
     releaseWakeLock();
     updateMediaSessionMetadata(null);
   },
 
   onSongEnd: (finishedTrack) => {
-    // If user is on the Microphone source, auto re-listen to detect the next song
-    // Only for songs the mic itself identified — never switch the mic on after a search,
-    // chart or recent-song playback just because the Mic tab happens to be selected.
-    if (activeTab === 'mic' && finishedTrack?.source === 'mic' && !mic.isListening && !document.hidden) {
+    // On the Now tab, auto re-listen to detect the next song. Only for songs the mic itself
+    // identified: never switch the mic on after a search, chart or recent-song playback.
+    if (activeTab === 'now' && finishedTrack?.source === 'mic' && !mic.isListening && !document.hidden) {
       micStatusTitle.textContent = 'Song Finished — Listening for next song...';
       showAlert(`Finished "${finishedTrack.title}". Listening for the next song...`, 'info');
       mic.start();
@@ -922,11 +960,12 @@ function centerActiveLine(behavior = 'auto') {
 
 /** Mirror stageOpen / hasTrack into the DOM: stage visibility, mini player, body hooks, background inertness. */
 function updateStageChrome() {
-  const showMini = hasTrack && !stageOpen;
+  // On Now the live card already shows the song, so the mini player only appears on the other tabs.
+  const showMini = hasTrack && !stageOpen && activeTab !== 'now';
   activePlaybackView.classList.toggle('hidden', !stageOpen);
   activePlaybackView.classList.toggle('is-open', stageOpen);
   miniPlayer?.classList.toggle('hidden', !showMini);
-  phoneNowCard?.classList.toggle('hidden', !hasTrack);
+  renderNow();
   document.body.classList.toggle('stage-open', stageOpen);
   document.body.classList.toggle('has-mini-player', showMini);
   // Everything behind the stage is out of reach for keyboard and screen readers while it is open.
@@ -938,11 +977,7 @@ function updateStageChrome() {
 function showActivePanels() {
   if (stageOpen) return;
   Object.keys(tabPanels).forEach((key) => {
-    const el = tabPanels[key];
-    if (!el) return;
-    let visible = key === activeTab;
-    if (key === 'lastfm' || key === 'spotify') visible = activeTab === 'connect' && key === activeConnectSubTab;
-    el.classList.toggle('hidden', !visible);
+    tabPanels[key]?.classList.toggle('hidden', key !== activeTab);
   });
 }
 
@@ -972,7 +1007,7 @@ function finishNavTraversal() {
   const queued = navPushQueue.splice(0);
   queued.forEach((name) => {
     // Only re-push overlays that are still open.
-    if ((name === 'stage' && stageOpen) || (name === 'sheet' && sheetOpen)) pushNav(name);
+    if ((name === 'stage' && stageOpen) || (name === 'sheet' && sheetOpen) || (name === 'phoneAccess' && phoneSheetOpen)) pushNav(name);
   });
 }
 
@@ -995,7 +1030,14 @@ function unwindNav(name) {
 window.addEventListener('popstate', (event) => {
   const landed = Array.isArray(event.state?.lwNav) ? event.state.lwNav : [];
   navStack = [...landed];
+  // Our own history.go() from unwindNav(): whatever it removed was already closed in the UI, and anything
+  // opened since (queued in navPushQueue) must stay open, so only re-push the queue.
+  if (navTraversalPending) {
+    finishNavTraversal();
+    return;
+  }
   // Close whatever is open but not part of the entry we landed on (closing is idempotent).
+  if (phoneSheetOpen && !landed.includes('phoneAccess')) closePhoneAccessSheet({ fromHistory: true });
   if (sheetOpen && !landed.includes('sheet')) closeMoreSheet({ fromHistory: true });
   if (stageOpen && !landed.includes('stage')) closeStage({ fromHistory: true, userInitiated: !navTraversalPending });
   if (navTraversalPending) finishNavTraversal();
@@ -1032,14 +1074,16 @@ function closeStage({ restoreFocus = true, fromHistory = false, userInitiated = 
   updateStageChrome();
   syncAudioReactive();
   if (!fromHistory) unwindNav('stage');
-  if (restoreFocus && hasTrack) btnMiniOpen?.focus({ preventScroll: true });
+  if (restoreFocus && hasTrack) (activeTab === 'now' ? btnNowOpen : btnMiniOpen)?.focus({ preventScroll: true });
 }
 
 btnStageCollapse?.addEventListener('click', () => {
   haptic('light');
   closeStage({ userInitiated: true });
 });
-btnPhoneNowOpen?.addEventListener('click', () => {
+// The Now card opens the lyrics from anywhere on it; #btnNowOpen is the keyboard / screen-reader target.
+nowCard?.addEventListener('click', (e) => {
+  if (e.target.closest('button') && e.target.closest('button') !== btnNowOpen) return;
   haptic('light');
   openStage();
 });
@@ -1289,6 +1333,7 @@ const mic = new MicSource({
         micCountdownCircle.style.strokeDashoffset = '0';
       }
     }
+    renderNow();
   },
 
   // Fired by MicSource just before it hands the track to the engine via onTrackChange.
@@ -2130,10 +2175,9 @@ btnConnectLastfm.addEventListener('click', () => {
   }
   try {
     lastfm.setUsername(user);
-    engine.connectSource(lastfm);
     lastfmStatusInfo.classList.remove('hidden');
-    lastfmStatusMsg.textContent = `Polling @${user} scrobbles every 4s...`;
-    showAlert(`Connecting to Last.fm as @${user} in Approximate Mode.`, 'info');
+    lastfmStatusMsg.textContent = `Following @${user}. Checks for new scrobbles every 4 seconds.`;
+    startFollowing('lastfm', 'Showing live lyrics from Last.fm. Timing is approximate.');
   } catch (err) {
     showAlert(err.message, 'warning');
   }
@@ -2141,9 +2185,12 @@ btnConnectLastfm.addEventListener('click', () => {
 
 if (btnDisconnectLastfm) {
   btnDisconnectLastfm.addEventListener('click', () => {
-    lastfm.stop();
+    // LastFmSource.stop() fires onIdle, which clears whatever the engine is showing; only stop it when it owns the engine.
+    if (getFollowSource() === 'lastfm') setFollowSource('off');
+    if (engine.currentSource === lastfm) stopLiveSource();
     lastfmStatusInfo.classList.add('hidden');
-    showAlert('Disconnected from Last.fm.', 'info');
+    renderNow();
+    showAlert('Stopped following Last.fm.', 'info');
   });
 }
 
@@ -2158,75 +2205,81 @@ if (savedLastFm) {
 // Follows Spotify / YouTube Music / Apple Music etc. playing on this phone.
 // =====================================================================
 
-const tabPhone = document.getElementById('tabPhone');
-const phoneOnboarding = document.getElementById('phoneOnboarding');
-const phoneStatusView = document.getElementById('phoneStatusView');
-const phoneStatusTitle = document.getElementById('phoneStatusTitle');
-const phoneStatusText = document.getElementById('phoneStatusText');
-const phoneStatusDot = document.getElementById('phoneStatusDot');
 const phoneRestrictedHint = document.getElementById('phoneRestrictedHint');
 const PHONE_AVAILABLE = IS_NATIVE_APP && PhoneMediaSource.isAvailable();
 let phoneGrantRequested = false;
+let phoneAppName = '';            // music app the phone source last reported (e.g. "Spotify")
+let lastPhoneAccess = null;       // access state at the last check, to spot a grant/revoke on resume
 
 const phoneSource = new PhoneMediaSource({
-  onStatus: (st) => updatePhoneStatus(st),
+  onStatus: (st = {}) => {
+    if (st.appName) phoneAppName = st.appName;
+    renderNow();
+  },
   onError: (msg) => showAlert(String(msg), 'warning')
 });
 
-function updatePhoneStatus(st = {}) {
-  if (!phoneStatusTitle) return;
-  if (st.active) {
-    const app = st.appName || 'your music app';
-    phoneStatusTitle.textContent = st.isPlaying ? `Following ${app}` : `${app} is paused`;
-    phoneStatusText.textContent = `${st.title}${st.artist ? ' · ' + st.artist : ''}`;
-    phoneStatusDot?.classList.toggle('paused', !st.isPlaying);
-  } else {
-    phoneStatusTitle.textContent = 'Waiting for music…';
-    phoneStatusText.textContent = 'Play a song in any music app.';
-    phoneStatusDot?.classList.add('paused');
+function phoneHasAccess() {
+  return PHONE_AVAILABLE && phoneSource.hasAccess();
+}
+
+// --- Notification access sheet: the Play "prominent disclosure" comes before Android's settings screen.
+function openPhoneAccessSheet() {
+  if (phoneSheetOpen || !phoneAccessBackdrop) return;
+  phoneSheetOpen = true;
+  phoneAccessBackdrop.classList.remove('hidden');
+  phoneAccessBackdrop.setAttribute('aria-hidden', 'false');
+  pushNav('phoneAccess');
+  setTimeout(() => { if (phoneSheetOpen) document.getElementById('btnPhoneGrant')?.focus(); }, 50);
+}
+
+function closePhoneAccessSheet({ fromHistory = false, restoreFocus = true } = {}) {
+  if (!phoneSheetOpen) return;
+  phoneSheetOpen = false;
+  phoneAccessBackdrop.classList.add('hidden');
+  phoneAccessBackdrop.setAttribute('aria-hidden', 'true');
+  if (!fromHistory) unwindNav('phoneAccess');
+  if (restoreFocus) {
+    const back = [btnNowPhoneSetup, btnFollowPhone].find((b) => b && b.offsetParent !== null);
+    back?.focus({ preventScroll: true });
   }
 }
 
-/** Show onboarding or status depending on access, and (dis)connect the source. */
-function refreshPhonePanel() {
-  if (!PHONE_AVAILABLE) return;
-  const granted = phoneSource.hasAccess();
-  phoneOnboarding?.classList.toggle('hidden', granted);
-  phoneStatusView?.classList.toggle('hidden', !granted);
-  if (granted) phoneRestrictedHint?.classList.add('hidden');
-  if (activeTab !== 'phone') return;
-  if (granted && engine.currentSource !== phoneSource) {
-    engine.connectSource(phoneSource);
-  } else if (!granted && engine.currentSource === phoneSource) {
-    engine.connectSource(null);
-  }
-}
+document.getElementById('btnPhoneGrant')?.addEventListener('click', () => {
+  phoneGrantRequested = true;
+  phoneSource.openAccessSettings();
+});
+btnClosePhoneAccess?.addEventListener('click', () => closePhoneAccessSheet());
+phoneAccessBackdrop?.addEventListener('click', (e) => {
+  if (e.target === phoneAccessBackdrop) closePhoneAccessSheet();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Tab' && phoneSheetOpen && phoneAccessSheet) trapFocusVisible(phoneAccessSheet, e);
+});
 
-if (PHONE_AVAILABLE) {
-  tabPhone?.classList.remove('hidden');
+// Coming back from Android settings (or any app switch): pick up a newly granted or revoked permission.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || !PHONE_AVAILABLE || !nowUiReady) return;
+  const access = phoneSource.hasAccess();
+  const changed = access !== lastPhoneAccess;
+  lastPhoneAccess = access;
 
-  document.getElementById('btnPhoneGrant')?.addEventListener('click', () => {
-    phoneGrantRequested = true;
-    phoneSource.openAccessSettings();
-  });
-  document.getElementById('btnPhoneUseMic')?.addEventListener('click', () => {
-    document.getElementById('tabMic')?.click();
-  });
-
-  // Coming back from Android settings: pick up a newly granted (or revoked) permission.
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) return;
-    if (phoneGrantRequested && !phoneSource.hasAccess()) {
-      // Sideloaded builds on Android 13+ may block the toggle as a "restricted setting".
-      phoneRestrictedHint?.classList.remove('hidden');
-    }
-    if (phoneGrantRequested && phoneSource.hasAccess()) {
+  if (phoneGrantRequested) {
+    if (access) {
       phoneGrantRequested = false;
-      showAlert('Notification access is on. Play a song in any music app.', 'success');
+      phoneRestrictedHint?.classList.add('hidden');
+      closePhoneAccessSheet({ restoreFocus: false });
+      startFollowing('phone', 'Notification access is on. Play a song in any music app.');
+      return;
     }
-    refreshPhonePanel();
-  });
-}
+    // Sideloaded builds on Android 13+ may block the toggle as a "restricted setting".
+    phoneRestrictedHint?.classList.remove('hidden');
+  }
+
+  // Only the Now tab re-attaches live lyrics; elsewhere the song on screen stays put.
+  if (activeTab === 'now' && (changed || !engine.currentSource)) resolveFollowSource();
+  else renderNow();
+});
 
 // =====================================================================
 // Input Source 4: Spotify Live Tracking (Private Beta)
@@ -2236,19 +2289,25 @@ const spotifySource = new SpotifySource({
   pollInterval: 3000,
   onError: (err) => {
     if (err.message.includes('expired') || err.message.includes('authenticated')) {
-      spotifySource.stop();
+      if (engine.currentSource === spotifySource) stopLiveSource();
+      else spotifySource.stop();
       logout();
       showSpotifyLoggedOut();
+      renderNow();
       showAlert('Spotify session expired. Please reconnect.', 'warning');
     }
   }
 });
 
+let spotifyProfileName = '';
+
+/** Render the signed-in Spotify card. Rendering never connects Spotify; following does. */
 function showSpotifyLoggedIn(profile) {
   spotifyLoggedOut.classList.add('hidden');
   spotifyLoggedIn.classList.remove('hidden');
 
   const name = profile?.display_name || profile?.id || 'Spotify User';
+  spotifyProfileName = name;
   userName.textContent = name;
 
   if (profile?.images && profile.images.length > 0) {
@@ -2260,13 +2319,11 @@ function showSpotifyLoggedIn(profile) {
     avatarFallback.textContent = name.charAt(0).toUpperCase();
     avatarFallback.classList.remove('hidden');
   }
-
-  // Connect spotifySource to the unified sync engine
-  engine.connectSource(spotifySource);
 }
 
 function showSpotifyLoggedOut() {
   spotifySource.stop();
+  spotifyProfileName = '';
   spotifyLoggedIn.classList.add('hidden');
   spotifyLoggedOut.classList.remove('hidden');
 }
@@ -2291,27 +2348,32 @@ btnLoginSpotify.addEventListener('click', async () => {
 });
 
 btnLogoutSpotify.addEventListener('click', () => {
-  spotifySource.stop();
+  if (getFollowSource() === 'spotify') setFollowSource('off');
+  // SpotifySource.stop() never fires onIdle, so clear the engine ourselves when Spotify owned it.
+  if (engine.currentSource === spotifySource) stopLiveSource();
   logout();
   showSpotifyLoggedOut();
+  renderNow();
+});
+
+btnSpotifyFollow?.addEventListener('click', () => {
+  startFollowing('spotify', 'Showing live lyrics from Spotify.');
 });
 
 // =====================================================================
-// Navigation Tab Switching
+// Music accounts (Preferences): Last.fm | Spotify switcher. Switching only changes the view.
 // =====================================================================
 
-// Sub-tab state for Connect panel ('lastfm' or 'spotify'). The removed 'apple' sub-tab (and any
-// other stale value) falls back to Last.fm.
-const storedConnectSubTab = localStorage.getItem('lyricwave_connect_subtab');
+const storedConnectSubTab = safeGet('lyricwave_connect_subtab');
 let activeConnectSubTab = storedConnectSubTab === 'spotify' ? 'spotify' : 'lastfm';
 if (storedConnectSubTab !== null && storedConnectSubTab !== activeConnectSubTab) {
-  localStorage.setItem('lyricwave_connect_subtab', activeConnectSubTab);
+  safeSet('lyricwave_connect_subtab', activeConnectSubTab);
 }
 
 function switchConnectSubTab(subTab) {
   if (subTab !== 'spotify') subTab = 'lastfm';
   activeConnectSubTab = subTab;
-  localStorage.setItem('lyricwave_connect_subtab', subTab);
+  safeSet('lyricwave_connect_subtab', subTab);
 
   if (btnSubLastfm) {
     const isLastfm = subTab === 'lastfm';
@@ -2326,18 +2388,6 @@ function switchConnectSubTab(subTab) {
 
   if (subPanels.lastfm) subPanels.lastfm.classList.toggle('hidden', subTab !== 'lastfm');
   if (subPanels.spotify) subPanels.spotify.classList.toggle('hidden', subTab !== 'spotify');
-
-  // Tear down opposite source
-  if (subTab === 'lastfm') {
-    if (spotifySource.isRunning) spotifySource.stop();
-    if (lastfm.getUsername()) engine.connectSource(lastfm);
-    engine.loadOffsetForSource('lastfm');
-  } else if (subTab === 'spotify') {
-    if (lastfm.isRunning) lastfm.stop();
-    if (isAuthenticated()) engine.connectSource(spotifySource);
-    engine.loadOffsetForSource('spotify');
-  }
-  updateOffsetUI();
 }
 
 if (btnSubLastfm) {
@@ -2346,9 +2396,232 @@ if (btnSubLastfm) {
 if (btnSubSpotify) {
   btnSubSpotify.addEventListener('click', () => switchConnectSubTab('spotify'));
 }
+switchConnectSubTab(activeConnectSubTab);
 
-// Discover = Charts | News. Both views live under the single "Discover" nav item (#tabCharts);
-// #tabNews stays in the DOM (hidden) so a persisted 'news' tab and programmatic clicks keep working.
+/** Preferences, scrolled to Music accounts (optionally on a given service). */
+function openMusicAccounts(subTab) {
+  if (subTab) switchConnectSubTab(subTab);
+  openSettings();
+  setTimeout(() => {
+    document.getElementById('secAccounts')?.scrollIntoView({ block: 'start', behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+  }, 60);
+}
+
+// =====================================================================
+// Now tab: which live source the lyrics follow
+// lyricwave_follow_source: absent = never chose (the phone is picked automatically once access is on),
+// 'off' = the user turned live lyrics off, or 'phone' | 'spotify' | 'lastfm'.
+// =====================================================================
+
+const STORAGE_FOLLOW_KEY = 'lyricwave_follow_source';
+const FOLLOW_VALUES = ['phone', 'spotify', 'lastfm', 'off'];
+
+function getFollowSource() {
+  const v = safeGet(STORAGE_FOLLOW_KEY);
+  return FOLLOW_VALUES.includes(v) ? v : null;
+}
+
+function setFollowSource(value) {
+  if (value) safeSet(STORAGE_FOLLOW_KEY, value);
+  else {
+    try { localStorage.removeItem(STORAGE_FOLLOW_KEY); } catch {}
+  }
+}
+
+function sourceFor(name) {
+  if (name === 'phone') return phoneSource;
+  if (name === 'spotify') return spotifySource;
+  if (name === 'lastfm') return lastfm;
+  return null;
+}
+
+/** The live source the lyrics should follow right now, or null. */
+function followCandidate() {
+  const follow = getFollowSource();
+  if (follow === 'phone') return phoneHasAccess() ? 'phone' : null;
+  if (follow === 'spotify') return isAuthenticated() ? 'spotify' : null;
+  if (follow === 'lastfm') return lastfm.getUsername() ? 'lastfm' : null;
+  if (follow === 'off') return null;
+  return phoneHasAccess() ? 'phone' : null;
+}
+
+/** Plain-words name for a live source, used on the Now card, the waiting line and the stage chip. */
+function liveSourceLabel(name) {
+  if (name === 'phone') return phoneAppName ? `${phoneAppName} on this phone` : 'this phone';
+  if (name === 'spotify') return 'Spotify';
+  if (name === 'lastfm') return 'Last.fm';
+  return '';
+}
+
+/** Detach the engine from its live source and clear the song it was showing. */
+function stopLiveSource() {
+  engine.connectSource(null);
+  if (engine.track) engine.handleIdle();
+}
+
+/**
+ * Connect the followed live source. Idempotent; does nothing while the user is on a song they picked
+ * ('paused') unless forced by "Back to live lyrics".
+ */
+function resolveFollowSource({ force = false } = {}) {
+  if (!nowUiReady) return;
+  if (nowMode === 'paused' && !force) {
+    renderNow();
+    return;
+  }
+  const name = followCandidate();
+  const live = new Set([phoneSource, spotifySource, lastfm]);
+  if (!name) {
+    nowMode = 'idle';
+    // The source we were following is gone (access revoked, logged out, turned off): let go of it.
+    if (live.has(engine.currentSource)) stopLiveSource();
+    renderNow();
+    return;
+  }
+  if (getFollowSource() === null && name === 'phone') setFollowSource('phone');
+  const src = sourceFor(name);
+  nowMode = 'following';
+  if (engine.currentSource !== src) {
+    engine.connectSource(src);
+    engine.loadOffsetForSource(name);
+    updateOffsetUI();
+  }
+  if (name === 'lastfm') {
+    lastfmStatusInfo.classList.remove('hidden');
+    lastfmStatusMsg.textContent = `Following @${lastfm.getUsername()}. Checks for new scrobbles every 4 seconds.`;
+  }
+  renderNow();
+}
+
+/** Explicit user choice: follow this source from now on, and show the Now tab. */
+function startFollowing(name, message) {
+  setFollowSource(name);
+  nowMode = 'following';
+  if (!settingsBackdrop.classList.contains('hidden')) closeSettings();
+  if (activeTab !== 'now') activateTab('now');
+  resolveFollowSource({ force: true });
+  if (message) showAlert(message, 'success');
+}
+
+/** Show exactly the Now blocks that fit the current state. */
+function renderNow() {
+  if (!nowUiReady) return;
+  const follow = getFollowSource();
+  const candidate = followCandidate();
+  const following = nowMode === 'following' && Boolean(candidate);
+  const paused = nowMode === 'paused' && Boolean(candidate);
+  const access = phoneHasAccess();
+  const track = engine.track;
+
+  // Live card: whatever song the lyrics are showing.
+  nowCard?.classList.toggle('hidden', !hasTrack);
+  if (hasTrack && nowSourceText) {
+    let label;
+    if (paused) label = 'A song you picked';
+    else if (following && AUTONOMOUS_SOURCES.has(track?.source)) label = `Live from ${liveSourceLabel(candidate)}`;
+    else if (track?.source === 'mic') label = 'Identified nearby';
+    else label = 'Lyrics only, no audio';
+    nowSourceText.textContent = label;
+    nowSourceDot?.classList.toggle('paused', !engine.isPlaying);
+    nowSourceDot?.classList.toggle('hidden', !(following && AUTONOMOUS_SOURCES.has(track?.source)));
+  }
+
+  // Following, but nothing playing yet.
+  const waiting = following && !hasTrack;
+  nowWaiting?.classList.toggle('hidden', !waiting);
+  if (waiting) {
+    const where = liveSourceLabel(candidate);
+    nowWaitingTitle.textContent = `Live lyrics from ${where}`;
+    nowWaitingHint.textContent = candidate === 'phone'
+      ? 'Play a song in any music app and the lyrics show up here.'
+      : candidate === 'spotify'
+        ? 'Play something on Spotify and the lyrics show up here.'
+        : 'Play something that scrobbles to Last.fm and the lyrics show up here. Timing is approximate.';
+  }
+
+  // Back to live lyrics / turn them off.
+  nowLiveActions?.classList.toggle('hidden', !(following || paused));
+  nowPausedNote?.classList.toggle('hidden', !paused);
+  btnNowResume?.classList.toggle('hidden', !paused);
+  if (paused && btnNowResume) btnNowResume.textContent = `Back to ${liveSourceLabel(candidate)}`;
+  btnNowStopFollow?.classList.toggle('hidden', !following);
+
+  // Android, first launch: set up the phone before anything else.
+  const phoneSetup = PHONE_AVAILABLE && follow === null && !access && !hasTrack;
+  nowPhoneSetup?.classList.toggle('hidden', !phoneSetup);
+
+  // Microphone: the hero when nothing else is set up, otherwise a row that expands it.
+  const micHero = mic.isListening || micExpanded || (!following && !paused && !hasTrack && !phoneSetup);
+  nowMic?.classList.toggle('hidden', !micHero);
+  btnNowIdentify?.classList.toggle('hidden', micHero);
+  if (nowIdentifyLabel) nowIdentifyLabel.textContent = hasTrack ? 'Identify another song' : 'Identify a song playing nearby';
+
+  // Other ways to follow your music (not while already following one).
+  const showPhoneRow = PHONE_AVAILABLE && !phoneSetup && candidate !== 'phone';
+  const showSpotifyRow = isAuthenticated() && candidate !== 'spotify';
+  const showAccountsRow = !PHONE_AVAILABLE && !showSpotifyRow;
+  const showOptions = !following && (showPhoneRow || showSpotifyRow || showAccountsRow);
+  nowFollowOptions?.classList.toggle('hidden', !showOptions);
+  btnFollowPhone?.classList.toggle('hidden', !showPhoneRow);
+  if (nowFollowPhoneSub) {
+    nowFollowPhoneSub.textContent = access ? 'Access is on. Tap to follow it again.' : 'Spotify, YouTube Music, any app';
+  }
+  btnFollowSpotify?.classList.toggle('hidden', !showSpotifyRow);
+  if (nowFollowSpotifySub) nowFollowSpotifySub.textContent = spotifyProfileName ? `Signed in as ${spotifyProfileName}` : "You're signed in";
+  btnFollowAccounts?.classList.toggle('hidden', !showAccountsRow);
+}
+
+btnNowPhoneSetup?.addEventListener('click', openPhoneAccessSheet);
+btnFollowPhone?.addEventListener('click', () => {
+  if (phoneHasAccess()) startFollowing('phone', 'Following the music on this phone.');
+  else openPhoneAccessSheet();
+});
+btnFollowSpotify?.addEventListener('click', () => startFollowing('spotify', 'Showing live lyrics from Spotify.'));
+btnFollowAccounts?.addEventListener('click', () => openMusicAccounts());
+btnNowResume?.addEventListener('click', () => {
+  nowMode = 'following';
+  resolveFollowSource({ force: true });
+});
+btnNowStopFollow?.addEventListener('click', () => {
+  const name = followCandidate();
+  setFollowSource('off');
+  if (engine.currentSource === sourceFor(name)) stopLiveSource();
+  if (name === 'lastfm') lastfmStatusInfo.classList.add('hidden');
+  nowMode = 'idle';
+  renderNow();
+  showAlert('Live lyrics are off. Turn them on again from the Now tab.', 'info');
+});
+btnNowIdentify?.addEventListener('click', () => {
+  micExpanded = true;
+  renderNow();
+  btnMicListen.click();
+});
+
+/** One-time move from the old Phone / Listen / Connect tabs to Now + a followed source. */
+function migrateLegacyNavigation() {
+  const last = safeGet(STORAGE_LAST_SOURCE_KEY);
+  if (getFollowSource() === null) {
+    let follow = null;
+    if (last === 'phone') follow = 'phone';
+    else if (last === 'connect' || last === 'spotify' || last === 'lastfm') {
+      const sub = last === 'connect' ? safeGet('lyricwave_connect_subtab') : last;
+      if (sub === 'spotify' && isAuthenticated()) follow = 'spotify';
+      else if (sub !== 'spotify' && lastfm.getUsername()) follow = 'lastfm';
+    } else if (last === 'mic' && isAuthenticated() && !phoneHasAccess()) {
+      // Spotify used to stay connected on the Listen tab; keep following it.
+      follow = 'spotify';
+    }
+    if (follow) setFollowSource(follow);
+  }
+  if (last !== null && !MAIN_TABS.includes(last)) safeSet(STORAGE_LAST_SOURCE_KEY, 'now');
+}
+
+// =====================================================================
+// Navigation Tab Switching
+// =====================================================================
+
+// Charts = Top This Week | News. Both views live under the single Charts nav item (#tabCharts);
+// #tabNews stays in the DOM (hidden) so a persisted 'news' view keeps working.
 const discoverButtons = document.querySelectorAll('.segmented[data-segmented="discover"] .segmented-btn');
 
 function getDiscoverView() {
@@ -2371,11 +2644,12 @@ function setDiscoverView(view) {
 setDiscoverView(getDiscoverView());
 
 function activateTab(targetTab) {
+  if (!MAIN_TABS.includes(targetTab)) targetTab = 'now';
   activeTab = targetTab;
-  localStorage.setItem(STORAGE_LAST_SOURCE_KEY, targetTab);
+  safeSet(STORAGE_LAST_SOURCE_KEY, targetTab);
   if (targetTab === 'charts' || targetTab === 'news') setDiscoverView(targetTab);
 
-  // News is a view inside the Discover nav item, so Discover is the highlighted nav tab for both.
+  // News is a view inside the Charts nav item, so Charts is the highlighted nav tab for both.
   const navTarget = targetTab === 'news' ? 'charts' : targetTab;
   sourceTabs.forEach(t => {
     const isCurrent = t.dataset.tab === navTarget;
@@ -2387,93 +2661,33 @@ function activateTab(targetTab) {
   if (stageOpen) {
     Object.values(tabPanels).forEach((el) => el?.classList.add('hidden'));
   } else {
-    Object.keys(tabPanels).forEach(key => {
-      if (tabPanels[key]) {
-        tabPanels[key].classList.toggle('hidden', key !== targetTab);
-      }
-    });
+    showActivePanels();
   }
 
-  // Browsing (Listen / Search / Discover) must not end the song shown in the mini player: the source that
-  // owns the live track keeps running. Phone and Connect tabs deliberately hand over to their own source.
-  const browsing = ['mic', 'search', 'charts', 'news'].includes(targetTab);
-  const keepLive = Boolean(engine.track) && browsing;
-  const liveOwner = keepLive ? engine.currentSource : null;
-
-  // Tear down previous sources
-  if (targetTab !== 'mic') {
-    // Also cancels a pending upload and the auto re-listen timer.
+  // Live sources keep running while you browse; picking a song (search, chart, recent) hands the
+  // engine to searchSource itself. Leaving Now cancels a listen in progress.
+  if (targetTab !== 'now') {
     mic.stop();
+    micExpanded = false;
   }
-  if (targetTab !== 'connect' && targetTab !== 'spotify' && spotifySource.isRunning && liveOwner !== spotifySource) {
-    spotifySource.stop();
-  }
-  if (targetTab !== 'connect' && targetTab !== 'lastfm' && lastfm.isRunning && liveOwner !== lastfm) {
-    lastfm.stop();
-  }
-  if (targetTab !== 'search' && searchSource.isPlaying && liveOwner !== searchSource) {
+  if (targetTab !== 'search' && searchSource.isPlaying && engine.currentSource !== searchSource) {
     searchSource.stop();
   }
-  if (targetTab !== 'phone' && phoneSource.isRunning && liveOwner !== phoneSource) {
-    phoneSource.stop();
-  }
 
-  // Connect appropriate active source
-  if (targetTab === 'phone') {
-    engine.loadOffsetForSource('phone');
-    updateOffsetUI();
-    refreshPhonePanel();
-  } else if (targetTab === 'connect') {
-    if (panelConnect) panelConnect.classList.remove('hidden');
-    switchConnectSubTab(activeConnectSubTab);
-  } else if (targetTab === 'spotify') {
-    // Legacy compatibility if tabSpotify is clicked directly
-    if (isAuthenticated()) engine.connectSource(spotifySource);
-    engine.loadOffsetForSource('spotify');
-    updateOffsetUI();
-  } else if (targetTab === 'lastfm') {
-    // Legacy compatibility if tabLastfm is clicked directly
-    if (lastfm.getUsername()) engine.connectSource(lastfm);
-    engine.loadOffsetForSource('lastfm');
-    updateOffsetUI();
-  } else if (targetTab === 'search') {
-    // Every "play" action connects searchSource itself, so a live track on another source is left alone.
-    if (!keepLive) {
-      engine.connectSource(searchSource);
-      engine.loadOffsetForSource('search');
-      updateOffsetUI();
-    }
+  if (targetTab === 'now') {
+    resolveFollowSource();
   } else if (targetTab === 'charts') {
-    if (!keepLive) {
-      engine.connectSource(searchSource);
-      engine.loadOffsetForSource('search');
-      updateOffsetUI();
-    }
-    if (!cachedChartData) {
-      loadCharts(currentChartGenre);
-    }
+    if (!cachedChartData) loadCharts(currentChartGenre);
   } else if (targetTab === 'news') {
-    if (!keepLive) {
-      engine.connectSource(searchSource);
-      engine.loadOffsetForSource('search');
-      updateOffsetUI();
-    }
-    if (!cachedNewsData) {
-      loadNews(currentNewsSource);
-    }
-  } else if (targetTab === 'mic') {
-    if (!keepLive) {
-      engine.connectSource(null);
-      engine.loadOffsetForSource('mic');
-      updateOffsetUI();
-    }
+    if (!cachedNewsData) loadNews(currentNewsSource);
   }
+  updateStageChrome(); // mini player visibility depends on the tab (also re-renders Now)
 }
 
 sourceTabs.forEach((tab) => {
   tab.addEventListener('click', () => {
     let targetTab = tab.dataset.tab;
-    // Tapping the Discover nav item resumes the Discover view you last used (Charts or News).
+    // Tapping Charts resumes the view you last used (Top This Week or News).
     if (tab === tabCharts && getDiscoverView() === 'news') targetTab = 'news';
     activateTab(targetTab);
   });
@@ -2488,47 +2702,27 @@ discoverButtons.forEach((btn) => {
 
 document.querySelectorAll('.segmented[role="tablist"]').forEach(enableTablistKeys);
 
-// "Listen again" (More sheet): collapse the stage, go to the Listen tab and start the microphone immediately.
+/** Start listening with the microphone on the Now tab (consent first, if needed). */
+function startListeningOnNow() {
+  if (activeTab !== 'now') activateTab('now');
+  micExpanded = true;
+  renderNow();
+  if (mic.isListening) return;
+  if (!MicSource.hasConsent()) {
+    micConsentBackdrop?.classList.remove('hidden');
+  } else {
+    mic.start();
+  }
+}
+
+// "Listen again" (More sheet): collapse the stage, go to Now and start the microphone immediately.
 if (btnListenAgain) {
   btnListenAgain.addEventListener('click', () => {
     haptic('light');
     closeStage({ restoreFocus: false }); // also closes the sheet
-    const micTab = document.getElementById('tabMic');
-    if (micTab) micTab.click();
-    if (!mic.isListening) {
-      if (!MicSource.hasConsent()) {
-        micConsentBackdrop?.classList.remove('hidden');
-      } else {
-        mic.start();
-      }
-    }
+    startListeningOnNow();
   });
 }
-
-// Restore saved source tab on launch. In the Android app, first launch opens the Phone
-// tab (follows the user's music app); the Phone tab never shows on the website.
-if (activeTab === 'phone' && !PHONE_AVAILABLE) activeTab = 'mic';
-if (PHONE_AVAILABLE && localStorage.getItem(STORAGE_LAST_SOURCE_KEY) === null) activeTab = 'phone';
-if (activeTab && activeTab !== 'mic') {
-  const savedTabBtn = document.querySelector(`.source-tab[data-tab="${activeTab}"]`);
-  if (savedTabBtn) {
-    savedTabBtn.click();
-  }
-} else {
-  engine.loadOffsetForSource('mic');
-  updateOffsetUI();
-}
-
-// "Use Spotify Beta" buttons on coming soon panels
-document.querySelectorAll('[data-switch-to="spotify"]').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    const connectTab = document.getElementById('tabConnect');
-    if (connectTab) {
-      connectTab.click();
-      switchConnectSubTab('spotify');
-    }
-  });
-});
 
 // =====================================================================
 // Shared Player Scrubber & Controls
@@ -3097,6 +3291,15 @@ function trapFocus(modalElement, event) {
 
 let settingsOpener = null;
 
+/** A dialog the user is working in is open (the stage must not pop up over it, Space must not act). */
+function isModalOpen() {
+  return !settingsBackdrop.classList.contains('hidden')
+    || phoneSheetOpen
+    || Boolean(micConsentBackdrop && !micConsentBackdrop.classList.contains('hidden'))
+    || Boolean(shortcutsBackdrop && !shortcutsBackdrop.classList.contains('hidden'))
+    || Boolean(document.getElementById('authBackdrop') && !document.getElementById('authBackdrop').classList.contains('hidden'));
+}
+
 function openSettings() {
   settingsOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   settingsBackdrop.classList.remove('hidden');
@@ -3207,6 +3410,10 @@ window.addEventListener('keydown', (e) => {
 
   // Escape to close any open dialogs or exit fullscreen
   if (e.key === 'Escape') {
+    if (phoneSheetOpen) {
+      closePhoneAccessSheet();
+      return;
+    }
     if (!settingsBackdrop.classList.contains('hidden')) {
       closeSettings();
       return;
@@ -3237,13 +3444,9 @@ window.addEventListener('keydown', (e) => {
   if (isInputActive) return;
   if (e.defaultPrevented) return; // a focused control (e.g. the seek slider) already handled this key
 
-  // 'Space': play / pause on the stage; otherwise toggle microphone listening (or play/pause a search track)
+  // 'Space': play / pause whenever a song is loaded; with nothing loaded, listen from the Now tab's microphone.
   if (e.code === 'Space' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-    const overlayOpen = sheetOpen
-      || !settingsBackdrop.classList.contains('hidden')
-      || (shortcutsBackdrop && !shortcutsBackdrop.classList.contains('hidden'))
-      || (micConsentBackdrop && !micConsentBackdrop.classList.contains('hidden'));
-    if (overlayOpen) return;
+    if (sheetOpen || isModalOpen()) return;
     // On the stage, real controls keep their native Space behaviour (except the collapse button, which has
     // focus right after the stage opens); elsewhere Space keeps meaning "listen" as before.
     if (stageOpen) {
@@ -3252,11 +3455,12 @@ window.addEventListener('keydown', (e) => {
         : null;
       if (control && control !== btnStageCollapse) return;
     }
-    e.preventDefault();
-    if (stageOpen || searchSource.isPlaying) {
+    if (hasTrack) {
+      e.preventDefault();
       haptic('light');
       engine.togglePlay();
-    } else {
+    } else if (activeTab === 'now' && nowMic && !nowMic.classList.contains('hidden')) {
+      e.preventDefault();
       btnMicListen?.click();
     }
     return;
@@ -3749,15 +3953,9 @@ async function init() {
   }
 
   // Check Spotify callback & auth state
+  let spotifyCallback = null;
   try {
-    const callbackResult = await handleRedirectCallback();
-    if (callbackResult.status === 'success') {
-      showAlert('Connected to Spotify successfully!', 'success');
-      openConnectSpotify();
-    } else if (callbackResult.status === 'error') {
-      showAlert(callbackResult.error, 'danger');
-      openConnectSpotify();
-    }
+    spotifyCallback = await handleRedirectCallback();
   } catch (err) {
     console.warn('Callback error:', err);
   }
@@ -3767,11 +3965,26 @@ async function init() {
       let profile = getStoredUserProfile() || await fetchUserProfile();
       showSpotifyLoggedIn(profile);
     } catch {
-      showSpotifyLoggedOut();
+      // Profile unavailable (e.g. offline): the tokens are still valid, so show the session without a name.
+      showSpotifyLoggedIn(null);
     }
   } else {
     showSpotifyLoggedOut();
   }
+
+  // Old Phone / Listen / Connect tabs → Now + a followed source (runs before anything reads either key).
+  migrateLegacyNavigation();
+  if (spotifyCallback?.status === 'success' && isAuthenticated()) {
+    setFollowSource('spotify');
+    activeTab = 'now';
+  }
+
+  // ?tab= deep links (manifest shortcuts): the old 'mic' shortcut opens Now.
+  const tabParam = new URLSearchParams(window.location.search).get('tab');
+  if (tabParam) activeTab = tabParam === 'charts' || tabParam === 'news' || tabParam === 'search' ? tabParam : 'now';
+
+  nowUiReady = true;
+  lastPhoneAccess = phoneHasAccess();
 
   // 6. First-Run Onboarding Hint
   if (firstRunHint && btnDismissFirstRun) {
@@ -3817,12 +4030,20 @@ async function init() {
     });
   }
 
-  // 8. Deep-Link Query (?q=artist+title) support: opens app on Search with that song loaded
+  // 8. One place decides the tab and the live source on launch.
   const urlParams = new URLSearchParams(window.location.search);
   const deepQuery = urlParams.get('q');
+  activateTab(deepQuery && deepQuery.trim() ? 'search' : activeTab);
+  resolveFollowSource();
+  if (spotifyCallback?.status === 'success') {
+    showAlert('Connected to Spotify. Showing live lyrics from Spotify.', 'success');
+  } else if (spotifyCallback?.status === 'error') {
+    showAlert(spotifyCallback.error, 'danger');
+    openMusicAccounts('spotify');
+  }
+
+  // 9. Deep-Link Query (?q=artist+title) support: opens app on Search with that song loaded
   if (deepQuery && deepQuery.trim()) {
-    const searchTab = document.getElementById('tabSearch');
-    if (searchTab) searchTab.click();
     if (searchInput) {
       searchInput.value = deepQuery.trim();
       btnClearSearch?.classList.remove('hidden');
@@ -3846,22 +4067,8 @@ async function init() {
     }
   }
 
-  // 9. Restore previously selected tab if saved (e.g. charts, search, mic)
-  if (!deepQuery && activeTab) {
-    const tabToRestore = document.querySelector(`.source-tab[data-tab="${activeTab}"]`);
-    if (tabToRestore && activeTab !== 'mic') {
-      tabToRestore.click();
-    }
-  }
-
   // 10. User Account Management (Sign Up / Log In)
   setupUserAuth();
-}
-
-/** Jump to Connect > Spotify (there is no standalone Spotify tab any more). */
-function openConnectSpotify() {
-  document.getElementById('tabConnect')?.click();
-  switchConnectSubTab('spotify');
 }
 
 function setupUserAuth() {

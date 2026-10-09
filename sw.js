@@ -2,7 +2,7 @@
  * LyricWave Service Worker (PWA Offline & Shell Caching)
  */
 
-const CACHE_NAME = 'lyricwave-v17';
+const CACHE_NAME = 'lyricwave-v18';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -25,7 +25,9 @@ const STATIC_ASSETS = [
   './manifest.webmanifest',
   './icons/icon.svg',
   './icons/icon-192.png',
-  './icons/icon-512.png'
+  './icons/icon-512.png',
+  './fonts/bricolage-grotesque-latin-wght-normal.woff2',
+  './fonts/bricolage-grotesque-latin-ext-wght-normal.woff2'
 ];
 
 self.addEventListener('install', (event) => {

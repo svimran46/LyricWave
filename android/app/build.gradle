@@ -88,6 +88,7 @@ task copyWebAssets(type: Sync) {
     from(rootDir.parentFile) {
         include webAppFiles
         include 'icons/**'
+        include 'fonts/**'
     }
     into file("${projectDir}/src/main/assets")
 }
