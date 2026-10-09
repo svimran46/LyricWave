@@ -566,12 +566,16 @@
     <!-- Hero: the OLED lyric reel -->
     <div class="stage-hero">
       <div id="reelContainer" class="reel-container" data-anim="pulse" aria-label="OLED Lyrics Reel">
+        <!-- Fullscreen-only neon laser line around the screen edge -->
+        <div class="fs-laser" aria-hidden="true"></div>
         <button id="btnReelExitFs" class="reel-fs-exit hidden" type="button" aria-label="Exit fullscreen"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
 
         <!-- Animated sine waves canvas + centered OLED line box -->
         <div class="reel-stage" id="reelStage">
           <!-- Subtle blurred cover-art backdrop for Album Adaptive theme -->
           <div id="stageArtBackdrop" class="stage-art-backdrop hidden" aria-hidden="true"></div>
+          <!-- Fullscreen-only beat visuals (bloom, rings, particles) behind the waves -->
+          <canvas id="fsVisualsCanvas" class="fs-visuals-canvas" aria-hidden="true"></canvas>
           <canvas id="reelCanvas" class="reel-canvas"></canvas>
 
           <div class="reel-box-anchor">
@@ -579,6 +583,7 @@
               <div id="reelLineText" class="reel-line-text">
                 <span class="reel-placeholder-text">♫ Waiting for music...</span>
               </div>
+              <div id="reelLineTranslation" class="reel-line-translation hidden" aria-live="off"></div>
             </div>
           </div>
 
@@ -1026,6 +1031,17 @@
                 <input id="settingWordMode" type="checkbox" checked>
                 <span class="slider-round"></span>
               </label>
+            </div>
+            <div class="set-row">
+              <label class="set-row-label" for="settingTranslate">Translate lyrics</label>
+              <label class="switch">
+                <input id="settingTranslate" type="checkbox">
+                <span class="slider-round"></span>
+              </label>
+            </div>
+            <div class="set-row">
+              <label class="set-row-label" for="settingTranslateLang">Translate into</label>
+              <select id="settingTranslateLang" class="set-select" disabled></select>
             </div>
             <div class="set-row">
               <label class="set-row-label" for="settingHaptics">Haptic feedback</label>
