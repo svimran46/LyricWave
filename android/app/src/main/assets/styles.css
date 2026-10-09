@@ -5639,6 +5639,70 @@ main.card {
   flex: none;
 }
 
+/* Phone tab home: now-playing card, plus the recently identified list moved here from the header */
+.phone-now-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3, 12px);
+  margin-top: var(--space-3, 12px);
+  padding: var(--space-3, 12px);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  border-radius: 16px;
+  background: var(--surface, rgba(255, 255, 255, 0.04));
+}
+
+.phone-now-art {
+  position: relative;
+  flex: 0 0 56px;
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.phone-now-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.phone-now-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.phone-now-title,
+.phone-now-artist {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phone-now-title {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.phone-now-artist {
+  font-size: var(--fs-sm, 0.875rem);
+  color: var(--text-muted);
+}
+
+.phone-recent.sidebar-recent-section {
+  display: flex;
+  margin-top: var(--space-4, 16px);
+}
+
+.charts-genius-link {
+  display: inline-block;
+  margin: 0 0 var(--space-3, 12px);
+  font-size: var(--fs-sm, 0.875rem);
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .discover-updated {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: var(--fs-xs);
