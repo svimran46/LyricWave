@@ -10044,3 +10044,47 @@ body.stage-open .toast-region {
 .stage.sync-mode .reel-line-box {
   min-height: 0;
 }
+
+/* Now card: play / pause next to "Open lyrics" */
+.now-card-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.now-play {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: var(--fill-1);
+  border: 1px solid var(--border-highlight);
+  border-radius: 50%;
+  color: var(--text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.now-play:active {
+  background: var(--fill-2);
+}
+
+#nowWaiting:focus {
+  outline: none;
+}
+
+#nowWaiting:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Reduced motion: the line swaps in place, never blinks out. */
+@media (prefers-reduced-motion: reduce) {
+  .stage .reel-line-box.line-pulse,
+  :root:not([data-theme="pixel"]) .stage .reel-line-box.line-pulse {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

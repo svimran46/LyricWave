@@ -230,12 +230,15 @@
           <div class="now-progress" aria-hidden="true"><div id="nowProgressFill" class="now-progress-fill"></div></div>
           <div class="now-card-foot">
             <p class="now-source"><span id="nowSourceDot" class="status-dot" aria-hidden="true"></span><span id="nowSourceText">Live</span></p>
-            <button id="btnNowOpen" class="btn btn-sm btn-spotify now-open" type="button">Open lyrics</button>
+            <div class="now-card-actions">
+              <button id="btnNowPlay" class="now-play" type="button" aria-label="Pause"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use id="nowPlayUse" href="#i-pause"/></svg></button>
+              <button id="btnNowOpen" class="btn btn-sm btn-spotify now-open" type="button">Open lyrics</button>
+            </div>
           </div>
         </article>
 
         <!-- Following a source, nothing playing yet -->
-        <div id="nowWaiting" class="now-waiting hidden" role="status">
+        <div id="nowWaiting" class="now-waiting hidden" role="status" tabindex="-1">
           <span class="now-waiting-pulse" aria-hidden="true"></span>
           <div class="now-waiting-text">
             <p id="nowWaitingTitle" class="now-waiting-title">Live lyrics are on</p>

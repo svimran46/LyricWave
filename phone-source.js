@@ -191,6 +191,9 @@ export class PhoneMediaSource {
     const appName = appNameFor(snap.package) || '';
 
     if (!snap.access || !snap.active || !snap.title) {
+      // Android stops the media monitor while LyricWave is in the background, so polls then report
+      // "nothing playing". Keep the current song until the app is visible again.
+      if (this.currentKey !== null && typeof document !== 'undefined' && document.hidden) return;
       this.onStatus({ access: Boolean(snap.access), active: false, appName, isPlaying: false });
       if (this.currentKey !== null) {
         this.currentKey = null;

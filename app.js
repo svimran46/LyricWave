@@ -165,6 +165,8 @@ const nowProgressFill = document.getElementById('nowProgressFill');
 const nowSourceDot = document.getElementById('nowSourceDot');
 const nowSourceText = document.getElementById('nowSourceText');
 const btnNowOpen = document.getElementById('btnNowOpen');
+const btnNowPlay = document.getElementById('btnNowPlay');
+const nowPlayUse = document.getElementById('nowPlayUse');
 const nowWaiting = document.getElementById('nowWaiting');
 const nowWaitingTitle = document.getElementById('nowWaitingTitle');
 const nowWaitingHint = document.getElementById('nowWaitingHint');
@@ -770,8 +772,10 @@ function updateSourceChip(track) {
   let label;
   let title = '';
   if (source === 'phone') {
-    label = phoneAppName || 'This phone';
-    title = `Following ${phoneAppName || 'the music app'} on this phone`;
+    label = `${phoneAppName || 'This phone'}${track.isApproximate ? ' (approximate)' : ''}`;
+    title = track.isApproximate
+      ? `${phoneAppName || 'The music app'} doesn't report its position, so lyrics start at 0:00 on each song. Use Sync to fix the timing.`
+      : `Following ${phoneAppName || 'the music app'} on this phone`;
   } else if (source === 'spotify') {
     label = 'Spotify';
     title = 'Following your Spotify playback';
@@ -874,6 +878,9 @@ const engine = new UnifiedSyncEngine({
     btnPlayPause?.setAttribute('aria-label', isPlaying ? 'Pause' : 'Play');
     btnMiniPlay?.setAttribute('aria-label', isPlaying ? 'Pause' : 'Play');
     setUseIcon(miniPlayUse, isPlaying ? 'pause' : 'play');
+    setUseIcon(nowPlayUse, isPlaying ? 'pause' : 'play');
+    btnNowPlay?.setAttribute('aria-label', isPlaying ? 'Pause' : 'Play');
+    nowSourceDot?.classList.toggle('paused', !isPlaying);
     audioReactive.setPlaying(isPlaying);
 
     updateMediaSessionPlaybackState(isPlaying);
@@ -1075,7 +1082,7 @@ window.addEventListener('popstate', (event) => {
   // Close whatever is open but not part of the entry we landed on (closing is idempotent).
   if (phoneSheetOpen && !landed.includes('phoneAccess')) closePhoneAccessSheet({ fromHistory: true });
   if (sheetOpen && !landed.includes('sheet')) closeMoreSheet({ fromHistory: true });
-  if (syncOpen && !landed.includes('sync')) closeSyncPanel({ fromHistory: true, restoreFocus: false });
+  if (syncOpen && !landed.includes('sync')) closeSyncPanel({ fromHistory: true, restoreFocus: landed.includes('stage') });
   if (stageOpen && !landed.includes('stage')) closeStage({ fromHistory: true, userInitiated: !navTraversalPending });
   if (navTraversalPending) finishNavTraversal();
 });
@@ -1119,6 +1126,11 @@ function closeStage({ restoreFocus = true, fromHistory = false, userInitiated = 
 btnStageCollapse?.addEventListener('click', () => {
   haptic('light');
   closeStage({ userInitiated: true });
+});
+btnNowPlay?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  haptic('light');
+  engine.togglePlay();
 });
 // The Now card opens the lyrics from anywhere on it; #btnNowOpen is the keyboard / screen-reader target.
 nowCard?.addEventListener('click', (e) => {
@@ -2204,6 +2216,7 @@ const lastfm = new LastFmSource({
     lastfmStatusInfo.classList.remove('hidden');
     lastfmStatusMsg.textContent = errMsg;
     showAlert(errMsg, 'warning');
+    renderNow();
   }
 });
 
@@ -2214,6 +2227,8 @@ btnConnectLastfm.addEventListener('click', () => {
     return;
   }
   try {
+    // Re-tapping Track user (e.g. after fixing a typo) restarts polling now instead of after the error backoff.
+    if (engine.currentSource === lastfm) stopLiveSource();
     lastfm.setUsername(user);
     lastfmStatusInfo.classList.remove('hidden');
     lastfmStatusMsg.textContent = `Following @${user}. Checks for new scrobbles every 4 seconds.`;
@@ -2267,6 +2282,7 @@ function phoneHasAccess() {
 function openPhoneAccessSheet() {
   if (phoneSheetOpen || !phoneAccessBackdrop) return;
   phoneSheetOpen = true;
+  if (appContainer && 'inert' in appContainer) appContainer.inert = true;
   phoneAccessBackdrop.classList.remove('hidden');
   phoneAccessBackdrop.setAttribute('aria-hidden', 'false');
   pushNav('phoneAccess');
@@ -2276,6 +2292,8 @@ function openPhoneAccessSheet() {
 function closePhoneAccessSheet({ fromHistory = false, restoreFocus = true } = {}) {
   if (!phoneSheetOpen) return;
   phoneSheetOpen = false;
+  phoneGrantRequested = false; // only a grant made while the sheet is open switches to the phone
+  if (appContainer && 'inert' in appContainer) appContainer.inert = stageOpen;
   phoneAccessBackdrop.classList.add('hidden');
   phoneAccessBackdrop.setAttribute('aria-hidden', 'true');
   if (!fromHistory) unwindNav('phoneAccess');
@@ -2462,6 +2480,7 @@ function getFollowSource() {
 }
 
 function setFollowSource(value) {
+  phoneGrantRequested = false; // an earlier, unfinished access request no longer decides anything
   if (value) safeSet(STORAGE_FOLLOW_KEY, value);
   else {
     try { localStorage.removeItem(STORAGE_FOLLOW_KEY); } catch {}
@@ -2513,6 +2532,7 @@ function resolveFollowSource({ force = false } = {}) {
   const live = new Set([phoneSource, spotifySource, lastfm]);
   if (!name) {
     nowMode = 'idle';
+    lastfmStatusInfo.classList.add('hidden');
     // The source we were following is gone (access revoked, logged out, turned off): let go of it.
     if (live.has(engine.currentSource)) stopLiveSource();
     renderNow();
@@ -2524,13 +2544,13 @@ function resolveFollowSource({ force = false } = {}) {
   if (engine.currentSource !== src) {
     // Coming back from a song the user picked: clear it first, or its timer would keep running under the
     // live label until the followed app reports a song of its own.
-    if (engine.track && !AUTONOMOUS_SOURCES.has(engine.track.source)) stopLiveSource();
+    if (engine.track && engine.track.source !== name) stopLiveSource();
     engine.connectSource(src);
     engine.loadOffsetForSource(name);
     updateOffsetUI();
   }
+  lastfmStatusInfo.classList.toggle('hidden', name !== 'lastfm');
   if (name === 'lastfm') {
-    lastfmStatusInfo.classList.remove('hidden');
     lastfmStatusMsg.textContent = `Following @${lastfm.getUsername()}. Checks for new scrobbles every 4 seconds.`;
   }
   renderNow();
@@ -2544,6 +2564,27 @@ function startFollowing(name, message) {
   if (activeTab !== 'now') activateTab('now');
   resolveFollowSource({ force: true });
   if (message) showAlert(message, 'success');
+  refocusNow();
+}
+
+/** Live regions announce every text-node replacement, so only write when the text really changes. */
+function setTextIfChanged(el, text) {
+  if (el && el.textContent !== text) el.textContent = text;
+}
+
+/**
+ * Now-tab actions often hide the very button that was pressed; put focus on whatever now leads the
+ * screen instead of letting it fall to <body>.
+ */
+function refocusNow() {
+  setTimeout(() => {
+    const active = document.activeElement;
+    const lost = !active || active === document.body || active.offsetParent === null;
+    if (!lost || stageOpen || isModalOpen()) return;
+    const target = [btnNowOpen, nowWaiting, btnMicListen, btnNowPhoneSetup, btnFollowPhone, btnFollowSpotify, btnNowIdentify]
+      .find((el) => el && el.offsetParent !== null);
+    target?.focus({ preventScroll: true });
+  }, 0);
 }
 
 /** Show exactly the Now blocks that fit the current state. */
@@ -2573,12 +2614,14 @@ function renderNow() {
   nowWaiting?.classList.toggle('hidden', !waiting);
   if (waiting) {
     const where = liveSourceLabel(candidate);
-    nowWaitingTitle.textContent = `Live lyrics from ${where}`;
-    nowWaitingHint.textContent = candidate === 'phone'
+    setTextIfChanged(nowWaitingTitle, `Live lyrics from ${where}`);
+    setTextIfChanged(nowWaitingHint, candidate === 'phone'
       ? 'Play a song in any music app and the lyrics show up here.'
       : candidate === 'spotify'
         ? 'Play something on Spotify and the lyrics show up here.'
-        : 'Play something that scrobbles to Last.fm and the lyrics show up here. Timing is approximate.';
+        : (lastfm.consecutiveErrors > 0
+          ? `Can't reach Last.fm for @${lastfm.getUsername()}. Check the username in Preferences > Music accounts.`
+          : 'Play something that scrobbles to Last.fm and the lyrics show up here. Timing is approximate.'));
   }
 
   // Back to live lyrics / turn them off.
@@ -2623,6 +2666,7 @@ btnFollowAccounts?.addEventListener('click', () => openMusicAccounts());
 btnNowResume?.addEventListener('click', () => {
   nowMode = 'following';
   resolveFollowSource({ force: true });
+  refocusNow();
 });
 btnNowStopFollow?.addEventListener('click', () => {
   const name = followCandidate();
@@ -2632,11 +2676,13 @@ btnNowStopFollow?.addEventListener('click', () => {
   nowMode = 'idle';
   renderNow();
   showAlert('Live lyrics are off. Turn them on again from the Now tab.', 'info');
+  refocusNow();
 });
 btnNowIdentify?.addEventListener('click', () => {
   micExpanded = true;
   renderNow();
   btnMicListen.click();
+  refocusNow();
 });
 
 /** One-time move from the old Phone / Listen / Connect tabs to Now + a followed source. */
@@ -3582,14 +3628,12 @@ window.addEventListener('keydown', (e) => {
   // 'Space': play / pause whenever a song is loaded; with nothing loaded, listen from the Now tab's microphone.
   if (e.code === 'Space' && !e.ctrlKey && !e.metaKey && !e.altKey) {
     if (sheetOpen || isModalOpen()) return;
-    // On the stage, real controls keep their native Space behaviour (except the collapse button, which has
-    // focus right after the stage opens); elsewhere Space keeps meaning "listen" as before.
-    if (stageOpen) {
-      const control = e.target instanceof Element
-        ? e.target.closest('button, a[href], [role="tab"], [role="radio"], [role="slider"], summary')
-        : null;
-      if (control && control !== btnStageCollapse) return;
-    }
+    // Real controls keep their native Space behaviour (except the stage's collapse button, which has
+    // focus right after the stage opens).
+    const control = e.target instanceof Element
+      ? e.target.closest('button, a[href], [role="tab"], [role="radio"], [role="slider"], summary')
+      : null;
+    if (control && control !== btnStageCollapse) return;
     if (hasTrack) {
       e.preventDefault();
       haptic('light');
@@ -4100,8 +4144,14 @@ async function init() {
       let profile = getStoredUserProfile() || await fetchUserProfile();
       showSpotifyLoggedIn(profile);
     } catch {
-      // Profile unavailable (e.g. offline): the tokens are still valid, so show the session without a name.
-      showSpotifyLoggedIn(null);
+      // Offline: the tokens are still valid, so show the session without a name. Any other failure
+      // (refresh rejected, 403 for an account outside the invite list) means the session is unusable.
+      if (isAuthenticated() && navigator.onLine === false) {
+        showSpotifyLoggedIn(null);
+      } else {
+        logout();
+        showSpotifyLoggedOut();
+      }
     }
   } else {
     showSpotifyLoggedOut();
@@ -4122,7 +4172,10 @@ async function init() {
   lastPhoneAccess = phoneHasAccess();
 
   // 6. Lyric timing tip on first use (shown by openStage, see updateSyncPrompts)
-  btnDismissSyncTip?.addEventListener('click', () => dismissSyncTip());
+  btnDismissSyncTip?.addEventListener('click', () => {
+    dismissSyncTip();
+    btnSync?.focus({ preventScroll: true });
+  });
 
   // 7. Share Button: Copies a deep link (?q=artist+title)
   if (btnShareSong) {
@@ -4160,6 +4213,8 @@ async function init() {
   const urlParams = new URLSearchParams(window.location.search);
   const deepQuery = urlParams.get('q');
   activateTab(deepQuery && deepQuery.trim() ? 'search' : activeTab);
+  // A shared song wins over live lyrics on launch; "Back to …" on Now resumes them.
+  if (deepQuery && deepQuery.trim()) nowMode = 'paused';
   resolveFollowSource();
   if (spotifyCallback?.status === 'success') {
     showAlert('Connected to Spotify. Showing live lyrics from Spotify.', 'success');
