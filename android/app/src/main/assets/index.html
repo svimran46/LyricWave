@@ -163,15 +163,6 @@
 
 
       <!-- Desktop Sidebar: Recently Identified Tracks List -->
-      <section id="sidebarRecentSection" class="sidebar-recent-section" aria-label="Recently Identified Songs">
-        <div class="sidebar-recent-header">
-          <span class="sidebar-recent-title">Recently Identified</span>
-          <button id="btnClearRecent" class="btn-text-link" type="button">Clear</button>
-        </div>
-        <div id="recentSongsList" class="recent-songs-list">
-          <p class="recent-empty-hint">Identified songs will appear here.</p>
-        </div>
-      </section>
     </header>
 
     <!-- Main Content Area / Right Pane -->
@@ -340,6 +331,30 @@
             </p>
           </div>
         </div>
+
+        <!-- Now playing on this phone: mirrors the mini player; tap to open the lyrics screen -->
+        <section id="phoneNowCard" class="phone-now-card hidden" aria-label="Now playing">
+          <div class="phone-now-art">
+            <img id="phoneNowArt" class="hidden" alt="" width="56" height="56" decoding="async">
+            <div id="phoneNowArtPlaceholder" class="art-placeholder" aria-hidden="true"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-music"/></svg></div>
+          </div>
+          <div class="phone-now-meta">
+            <p id="phoneNowTitle" class="phone-now-title">Song Title</p>
+            <p id="phoneNowArtist" class="phone-now-artist">Artist</p>
+          </div>
+          <button id="btnPhoneNowOpen" class="btn btn-sm btn-ghost" type="button">Open lyrics</button>
+        </section>
+
+        <!-- Recently identified songs: moved here from the header so phones can see them -->
+        <section id="sidebarRecentSection" class="sidebar-recent-section phone-recent" aria-label="Recently Identified Songs">
+          <div class="sidebar-recent-header">
+            <span class="sidebar-recent-title">Recently Identified</span>
+            <button id="btnClearRecent" class="btn-text-link" type="button">Clear</button>
+          </div>
+          <div id="recentSongsList" class="recent-songs-list">
+            <p class="recent-empty-hint">Identified songs will appear here.</p>
+          </div>
+        </section>
       </section>
 
       <!-- 2. Manual Search Panel -->

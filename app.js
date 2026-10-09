@@ -158,6 +158,12 @@ const miniPlayUse = document.getElementById('miniPlayUse');
 const miniTitle = document.getElementById('miniTitle');
 const miniArtist = document.getElementById('miniArtist');
 const miniArt = document.getElementById('miniArt');
+const phoneNowCard = document.getElementById('phoneNowCard');
+const phoneNowArt = document.getElementById('phoneNowArt');
+const phoneNowArtPlaceholder = document.getElementById('phoneNowArtPlaceholder');
+const phoneNowTitle = document.getElementById('phoneNowTitle');
+const phoneNowArtist = document.getElementById('phoneNowArtist');
+const btnPhoneNowOpen = document.getElementById('btnPhoneNowOpen');
 const miniArtPlaceholder = document.getElementById('miniArtPlaceholder');
 const miniProgressFill = document.getElementById('miniProgressFill');
 const moreSheetBackdrop = document.getElementById('moreSheetBackdrop');
@@ -696,7 +702,7 @@ function updateStageTick(tick) {
 /** Artwork for the stage header and the mini player, with a glyph fallback when missing or broken. */
 function setArtwork(url) {
   const clean = sanitizeUrl(url);
-  [[trackArt, artPlaceholder], [miniArt, miniArtPlaceholder]].forEach(([img, placeholder]) => {
+  [[trackArt, artPlaceholder], [miniArt, miniArtPlaceholder], [phoneNowArt, phoneNowArtPlaceholder]].forEach(([img, placeholder]) => {
     if (!img) return;
     if (clean) {
       img.onerror = () => {
@@ -737,6 +743,8 @@ const engine = new UnifiedSyncEngine({
     trackAlbum.classList.toggle('hidden', !track.album);
     if (miniTitle) miniTitle.textContent = track.title;
     if (miniArtist) miniArtist.textContent = artistText;
+    if (phoneNowTitle) phoneNowTitle.textContent = track.title;
+    if (phoneNowArtist) phoneNowArtist.textContent = artistText;
     btnMiniOpen?.setAttribute('aria-label', `Open now playing: ${track.title}${artistText ? ` by ${artistText}` : ''}`);
 
     if (track.isApproximate || track.source === 'lastfm') {
@@ -918,6 +926,7 @@ function updateStageChrome() {
   activePlaybackView.classList.toggle('hidden', !stageOpen);
   activePlaybackView.classList.toggle('is-open', stageOpen);
   miniPlayer?.classList.toggle('hidden', !showMini);
+  phoneNowCard?.classList.toggle('hidden', !hasTrack);
   document.body.classList.toggle('stage-open', stageOpen);
   document.body.classList.toggle('has-mini-player', showMini);
   // Everything behind the stage is out of reach for keyboard and screen readers while it is open.
@@ -1029,6 +1038,10 @@ function closeStage({ restoreFocus = true, fromHistory = false, userInitiated = 
 btnStageCollapse?.addEventListener('click', () => {
   haptic('light');
   closeStage({ userInitiated: true });
+});
+btnPhoneNowOpen?.addEventListener('click', () => {
+  haptic('light');
+  openStage();
 });
 // Tapping anywhere on the mini player (art, text, empty space) opens the stage; Enter/Space work via #btnMiniOpen.
 miniPlayer?.addEventListener('click', (e) => {
