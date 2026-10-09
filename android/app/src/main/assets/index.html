@@ -583,6 +583,7 @@
               <div id="reelLineText" class="reel-line-text">
                 <span class="reel-placeholder-text">♫ Waiting for music...</span>
               </div>
+              <div id="reelLineTranslation" class="reel-line-translation hidden" aria-live="off"></div>
             </div>
           </div>
 
@@ -1030,6 +1031,17 @@
                 <input id="settingWordMode" type="checkbox" checked>
                 <span class="slider-round"></span>
               </label>
+            </div>
+            <div class="set-row">
+              <label class="set-row-label" for="settingTranslate">Translate lyrics</label>
+              <label class="switch">
+                <input id="settingTranslate" type="checkbox">
+                <span class="slider-round"></span>
+              </label>
+            </div>
+            <div class="set-row">
+              <label class="set-row-label" for="settingTranslateLang">Translate into</label>
+              <select id="settingTranslateLang" class="set-select" disabled></select>
             </div>
             <div class="set-row">
               <label class="set-row-label" for="settingHaptics">Haptic feedback</label>
