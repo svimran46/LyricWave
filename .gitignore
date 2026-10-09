@@ -33,3 +33,6 @@ app-release-*
 android-project/
 dist-android/
 
+
+# In-app web update signing key (keep only in GitHub secrets / password manager)
+web-update-private.pem

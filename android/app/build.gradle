@@ -2,6 +2,30 @@ plugins {
     id 'com.android.application'
 }
 
+// In-app web updates (WebUpdater.java). The APK's bundled web files are versioned by the commit
+// time of the build, the same number scripts/web-update.mjs stamps on published bundles, so a
+// bundle only replaces the APK's files when it comes from a newer commit.
+def builtInWebVersion = {
+    try {
+        def out = providers.exec {
+            commandLine 'git', 'log', '-1', '--format=%ct'
+            ignoreExitValue = true
+        }.standardOutput.asText.get().trim()
+        return out.isLong() ? out.toLong() : 0L
+    } catch (Exception ignored) {
+        return 0L
+    }
+}
+
+// Public half of the update-signing key (created by `node scripts/web-update.mjs keygen`).
+// Without it the updater stays off and the app just uses the files inside the APK.
+def webUpdatePublicKeyHex = {
+    def pem = rootProject.file('web-update-public.pem')
+    if (!pem.exists()) return ''
+    def b64 = pem.readLines().findAll { !it.startsWith('-----') }.join('').trim()
+    return java.util.Base64.decoder.decode(b64).encodeHex().toString()
+}
+
 android {
     namespace 'app.lyricwave.twa'
     compileSdk 36
@@ -15,6 +39,8 @@ android {
         versionName "1.1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField "long", "BUILT_IN_WEB_VERSION", "${builtInWebVersion()}L"
+        buildConfigField "String", "WEB_UPDATE_PUBLIC_KEY", "\"${webUpdatePublicKeyHex()}\""
         manifestPlaceholders = [
             hostName: "lyricwave.pages.dev",
             defaultUrl: "https://lyricwave.pages.dev/?source=twa",
@@ -50,6 +76,10 @@ android {
                 signingConfig signingConfigs.debug
             }
         }
+    }
+
+    buildFeatures {
+        buildConfig true
     }
 
     compileOptions {

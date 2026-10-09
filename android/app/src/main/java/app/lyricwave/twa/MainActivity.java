@@ -72,6 +72,9 @@ public class MainActivity extends AppCompatActivity {
     /** JS is waiting for window.__lyricwaveAudioPermission(...). */
     private boolean audioPermissionPending;
 
+    /** Downloads signed web bundles so UI changes don't need a new APK (see WebUpdater). */
+    private WebUpdater webUpdater;
+
     /** True only for the bundled app origin served by WebViewAssetLoader. */
     static boolean isAppHost(String host) {
         return APP_HOST.equals(host);
@@ -127,10 +130,12 @@ public class MainActivity extends AppCompatActivity {
             return WindowInsetsCompat.CONSUMED;
         });
 
-        // Configure WebViewAssetLoader for fast, secure local asset serving
+        // Serve the app from the newest verified web update, falling back to the APK's assets.
+        // Same origin either way, so localStorage and the native bridge checks are unchanged.
+        webUpdater = new WebUpdater(this);
         final WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
                 .setDomain(APP_HOST)
-                .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
+                .addPathHandler("/assets/", webUpdater.pathHandler())
                 .build();
 
         WebSettings settings = webView.getSettings();
@@ -407,6 +412,15 @@ public class MainActivity extends AppCompatActivity {
         controller.setAppearanceLightNavigationBars(lightBackground);
     }
 
+    /** Tells the page about an update check; status is one of the WebUpdater.STATUS_* values. */
+    private void pushWebUpdateStatus(String status, boolean manual) {
+        runOnUiThread(() -> {
+            if (destroyed || webView == null) return;
+            webView.evaluateJavascript("window.__lyricwaveWebUpdate && window.__lyricwaveWebUpdate({status:'"
+                    + status + "',manual:" + manual + "})", null);
+        });
+    }
+
     private class NativeBridge {
         /** True once "Notification access" is enabled for LyricWave. */
         @JavascriptInterface
@@ -563,6 +577,37 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
+        /** JSON: {versionName, versionCode, webVersion, builtInWebVersion, updatesEnabled, updateReady}. */
+        @JavascriptInterface
+        public String getAppVersionInfo() {
+            WebUpdater u = webUpdater;
+            if (u == null) return "{}";
+            return "{\"versionName\":\"" + BuildConfig.VERSION_NAME.replaceAll("[^0-9A-Za-z._-]", "")
+                    + "\",\"versionCode\":" + BuildConfig.VERSION_CODE
+                    + ",\"webVersion\":" + u.servingVersion()
+                    + ",\"builtInWebVersion\":" + u.builtInVersion()
+                    + ",\"updatesEnabled\":" + u.isEnabled()
+                    + ",\"updateReady\":" + u.isUpdateReady() + "}";
+        }
+
+        /** Checks for a web update now; the result arrives via window.__lyricwaveWebUpdate. */
+        @JavascriptInterface
+        public void checkForWebUpdate() {
+            WebUpdater u = webUpdater;
+            if (u != null) u.check(true, MainActivity.this::pushWebUpdateStatus);
+        }
+
+        /** Switches to the downloaded update and reloads the app. */
+        @JavascriptInterface
+        public void applyWebUpdate() {
+            runOnUiThread(() -> {
+                if (destroyed || webView == null || webUpdater == null) return;
+                if (!webUpdater.applyReadyUpdate()) return;
+                webView.clearCache(false);
+                webView.loadUrl(APP_START_URL);
+            });
+        }
+
         /** hex: "#RGB" or "#RRGGBB". Ignored if malformed. */
         @JavascriptInterface
         public void setChromeColor(final String hex, final boolean lightBackground) {
@@ -616,6 +661,8 @@ public class MainActivity extends AppCompatActivity {
         if (webView != null) {
             webView.onResume();
         }
+        // Background check for a newer web bundle (throttled inside WebUpdater).
+        if (webUpdater != null) webUpdater.check(false, this::pushWebUpdateStatus);
     }
 
     @Override
@@ -637,6 +684,7 @@ public class MainActivity extends AppCompatActivity {
         destroyed = true;
         audioReactiveWanted = false;
         if (audioMonitor != null) audioMonitor.stop();
+        if (webUpdater != null) webUpdater.shutdown();
         if (webView != null) {
             webView.destroy();
             webView = null;

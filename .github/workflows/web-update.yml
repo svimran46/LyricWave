@@ -1,0 +1,75 @@
+name: Publish in-app web update (Android)
+
+# Every push to main that touches the web app publishes a signed bundle to the `web-latest`
+# release. Installed Android apps pick it up on their next launch (WebUpdater.java), so UI
+# changes no longer need a new APK. Native (Java) changes still do: bump versionCode in
+# android/app/build.gradle and the app will ask for the new APK instead.
+#
+# One-time setup: `node scripts/web-update.mjs keygen`, commit android/web-update-public.pem,
+# and store web-update-private.pem as the WEB_UPDATE_PRIVATE_KEY repository secret.
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '*.js'
+      - 'index.html'
+      - 'privacy.html'
+      - 'styles.css'
+      - 'icons/**'
+      - 'manifest.webmanifest'
+      - 'android/app/src/main/assets/**'
+      - 'android/app/build.gradle'
+      - 'android/web-update-public.pem'
+      - 'scripts/web-update.mjs'
+      - '.github/workflows/web-update.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: web-update
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build Signed Web Bundle
+        id: build
+        env:
+          WEB_UPDATE_PRIVATE_KEY: ${{ secrets.WEB_UPDATE_PRIVATE_KEY }}
+        run: |
+          if [ -z "${WEB_UPDATE_PRIVATE_KEY}" ]; then
+            echo "::warning::WEB_UPDATE_PRIVATE_KEY secret not set - skipping in-app update. See .github/workflows/web-update.yml."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          node scripts/web-update.mjs build --require-signature
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+
+      # The app reads the properties file first and checks the zip's sha256 against it, so a
+      # check that lands mid-upload just fails and retries later.
+      - name: Publish to the web-latest Release
+        if: steps.build.outputs.signed == 'true' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: web-latest
+          name: "LyricWave in-app web update (latest)"
+          prerelease: true
+          body: |
+            Signed web bundle downloaded automatically by the LyricWave Android app.
+            Not meant to be installed by hand; get the app itself from the `twa-latest` release.
+          files: |
+            dist/web-update/web-bundle.zip
+            dist/web-update/web-update.sig
+            dist/web-update/web-update.properties

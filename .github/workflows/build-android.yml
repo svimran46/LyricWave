@@ -11,6 +11,7 @@ on:
       - 'privacy.html'
       - 'styles.css'
       - 'icons/**'
+      - 'scripts/web-update.mjs'
   pull_request:
     paths:
       - 'android/**'
@@ -19,6 +20,7 @@ on:
       - 'index.html'
       - 'privacy.html'
       - 'styles.css'
+      - 'scripts/web-update.mjs'
   workflow_dispatch:
 
 permissions:
@@ -60,6 +62,10 @@ jobs:
             echo "::warning::ANDROID_KEYSTORE_BASE64 secret not set - building debug APK only. Release APK/AAB need a stable upload key."
             echo "available=false" >> "$GITHUB_OUTPUT"
           fi
+
+      # The APK ships the repo-root web files, matching what the in-app updater publishes.
+      - name: Sync Web Files Into Android Assets
+        run: node scripts/web-update.mjs sync
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
