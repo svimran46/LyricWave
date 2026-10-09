@@ -326,7 +326,6 @@ function isDevMode() {
 /**
  * True when running inside the bundled Android app (WebView served from appassets).
  */
-let pseudoFullscreen = false; // see setPseudoFullscreen()
 const IS_NATIVE_APP = typeof window !== 'undefined' && (
   window.location.hostname === 'appassets.androidplatform.net' ||
   /LyricWaveNativeApp/.test(navigator.userAgent || '')
@@ -882,7 +881,7 @@ const engine = new UnifiedSyncEngine({
       }
     }
 
-    if (stageOpen || isReelFullscreen()) {
+    if (stageOpen || document.fullscreenElement) {
       updateStageTick(tick);
     }
 
@@ -1058,7 +1057,6 @@ function closeStage({ restoreFocus = true, fromHistory = false, userInitiated = 
   if (document.fullscreenElement) {
     try { document.exitFullscreen?.()?.catch?.(() => {}); } catch {}
   }
-  setPseudoFullscreen(false);
   stageOpen = false;
   if (userInitiated) stageDismissedByUser = true;
   showActivePanels();
@@ -1091,7 +1089,7 @@ btnMiniPlay?.addEventListener('click', (e) => {
 function wantAudioReactive() {
   if (!stageOpen || document.hidden) return false;
   // Fullscreen always runs the beat visuals, whatever the lyric animation style.
-  return currentAnimStyle === 'pulse' || currentAnimStyle === 'karaoke' || isReelFullscreen();
+  return currentAnimStyle === 'pulse' || currentAnimStyle === 'karaoke' || Boolean(document.fullscreenElement);
 }
 
 /** Start/stop audio-reactive analysis to match the UI state. Resolves to the resulting mode. */
@@ -3176,43 +3174,21 @@ function setWordMode(enabled) {
   reelWordStates.fill(-1);
 }
 
-// Pseudo-fullscreen: the reel fills the window with CSS when the Fullscreen API is missing or
-// refused (Android WebView without fullscreen support, iPhone Safari). Same visuals, same exit button.
-
-function isReelFullscreen() {
-  return Boolean(document.fullscreenElement) || pseudoFullscreen;
-}
-
-function setPseudoFullscreen(on) {
-  if (pseudoFullscreen === on) return;
-  pseudoFullscreen = on;
-  reelContainer.classList.toggle('is-pseudo-fs', on);
-  try { window.LyricWaveNative?.setImmersive?.(on); } catch {}
-  onReelFullscreenChange();
-}
-
 function toggleFullscreen() {
   try {
-    if (pseudoFullscreen) {
-      setPseudoFullscreen(false);
-    } else if (!document.fullscreenElement) {
+    if (!document.fullscreenElement) {
       if (!stageOpen) return; // the reel is only on screen while the stage is open
-      const request = reelContainer.requestFullscreen || reelContainer.webkitRequestFullscreen;
-      if (document.fullscreenEnabled === false || !request) {
-        setPseudoFullscreen(true);
-        return;
-      }
-      const req = request.call(reelContainer);
-      req?.catch?.(() => setPseudoFullscreen(true));
+      const req = reelContainer.requestFullscreen
+        ? reelContainer.requestFullscreen()
+        : (reelContainer.webkitRequestFullscreen ? reelContainer.webkitRequestFullscreen() : null);
+      req?.catch?.(() => {});
     } else {
       const ex = document.exitFullscreen
         ? document.exitFullscreen()
         : (document.webkitExitFullscreen ? document.webkitExitFullscreen() : null);
       ex?.catch?.(() => {});
     }
-  } catch {
-    if (stageOpen && !isReelFullscreen()) setPseudoFullscreen(true);
-  }
+  } catch {}
 }
 
 function trapFocus(modalElement, event) {
@@ -3363,8 +3339,8 @@ window.addEventListener('keydown', (e) => {
       closeMoreSheet();
       return;
     }
-    if (isReelFullscreen()) {
-      toggleFullscreen();
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
       return;
     }
     // Escape collapses the stage to the mini player.
@@ -3464,9 +3440,9 @@ window.addEventListener('keydown', (e) => {
 function resetCursorIdleTimer() {
   document.body.classList.remove('cursor-idle');
   if (cursorIdleTimeout) clearTimeout(cursorIdleTimeout);
-  if (isReelFullscreen()) {
+  if (document.fullscreenElement) {
     cursorIdleTimeout = setTimeout(() => {
-      if (isReelFullscreen()) {
+      if (document.fullscreenElement) {
         document.body.classList.add('cursor-idle');
       }
     }, 3000);
@@ -3490,10 +3466,8 @@ btnFullscreen.addEventListener('click', () => {
 });
 btnReelExitFs?.addEventListener('click', toggleFullscreen);
 
-document.addEventListener('fullscreenchange', onReelFullscreenChange);
-
-function onReelFullscreenChange() {
-  const isFs = isReelFullscreen();
+document.addEventListener('fullscreenchange', () => {
+  const isFs = Boolean(document.fullscreenElement);
   document.body.classList.toggle('fullscreen-reel-mode', isFs);
   fsLabel.textContent = isFs ? 'Exit fullscreen' : 'Fullscreen';
   btnReelExitFs?.classList.toggle('hidden', !isFs);
@@ -3507,7 +3481,7 @@ function onReelFullscreenChange() {
   } else {
     releaseWakeLock();
   }
-}
+});
 
 // Theme swatch cards in preferences modal
 if (themeCards && themeCards.length > 0) {
