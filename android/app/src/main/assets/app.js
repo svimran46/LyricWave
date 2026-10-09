@@ -169,7 +169,6 @@ const nowWaiting = document.getElementById('nowWaiting');
 const nowWaitingTitle = document.getElementById('nowWaitingTitle');
 const nowWaitingHint = document.getElementById('nowWaitingHint');
 const nowLiveActions = document.getElementById('nowLiveActions');
-const nowPausedNote = document.getElementById('nowPausedNote');
 const btnNowResume = document.getElementById('btnNowResume');
 const btnNowStopFollow = document.getElementById('btnNowStopFollow');
 const nowPhoneSetup = document.getElementById('nowPhoneSetup');
@@ -841,6 +840,8 @@ const engine = new UnifiedSyncEngine({
       if (!blocked && (userDriven || !stageDismissedByUser)) openStage({ auto: true });
       else updateStageChrome();
     }
+
+    updateSyncPrompts();
 
     // Persist song to recently identified list
     saveRecentSong(track);
@@ -2521,6 +2522,9 @@ function resolveFollowSource({ force = false } = {}) {
   const src = sourceFor(name);
   nowMode = 'following';
   if (engine.currentSource !== src) {
+    // Coming back from a song the user picked: clear it first, or its timer would keep running under the
+    // live label until the followed app reports a song of its own.
+    if (engine.track && !AUTONOMOUS_SOURCES.has(engine.track.source)) stopLiveSource();
     engine.connectSource(src);
     engine.loadOffsetForSource(name);
     updateOffsetUI();
@@ -2556,8 +2560,7 @@ function renderNow() {
   nowCard?.classList.toggle('hidden', !hasTrack);
   if (hasTrack && nowSourceText) {
     let label;
-    if (paused) label = 'A song you picked';
-    else if (following && AUTONOMOUS_SOURCES.has(track?.source)) label = `Live from ${liveSourceLabel(candidate)}`;
+    if (following && AUTONOMOUS_SOURCES.has(track?.source)) label = `Live from ${liveSourceLabel(candidate)}`;
     else if (track?.source === 'mic') label = 'Identified nearby';
     else label = 'Lyrics only, no audio';
     nowSourceText.textContent = label;
@@ -2580,7 +2583,6 @@ function renderNow() {
 
   // Back to live lyrics / turn them off.
   nowLiveActions?.classList.toggle('hidden', !(following || paused));
-  nowPausedNote?.classList.toggle('hidden', !paused);
   btnNowResume?.classList.toggle('hidden', !paused);
   if (paused && btnNowResume) btnNowResume.textContent = `Back to ${liveSourceLabel(candidate)}`;
   btnNowStopFollow?.classList.toggle('hidden', !following);
@@ -2608,6 +2610,7 @@ function renderNow() {
   btnFollowSpotify?.classList.toggle('hidden', !showSpotifyRow);
   if (nowFollowSpotifySub) nowFollowSpotifySub.textContent = spotifyProfileName ? `Signed in as ${spotifyProfileName}` : "You're signed in";
   btnFollowAccounts?.classList.toggle('hidden', !showAccountsRow);
+  btnSpotifyFollow?.classList.toggle('hidden', candidate === 'spotify' && nowMode !== 'paused');
 }
 
 btnNowPhoneSetup?.addEventListener('click', openPhoneAccessSheet);

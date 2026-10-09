@@ -9370,12 +9370,6 @@ body.stage-open .toast-region {
   margin-top: calc(var(--space-2) * -1);
 }
 
-.now-paused-note {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--fs-sm);
-}
-
 /* Android first launch: phone set-up */
 .now-hero {
   display: flex;
