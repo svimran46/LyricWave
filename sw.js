@@ -2,7 +2,7 @@
  * LyricWave Service Worker (PWA Offline & Shell Caching)
  */
 
-const CACHE_NAME = 'lyricwave-v20';
+const CACHE_NAME = 'lyricwave-v19';
 const STATIC_ASSETS = [
   './',
   './index.html',

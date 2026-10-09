@@ -495,23 +495,6 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        /** Hides the status and navigation bars while the reel is fullscreen (swipe shows them briefly). */
-        @JavascriptInterface
-        public void setImmersive(final boolean on) {
-            runOnUiThread(() -> {
-                if (destroyed) return;
-                WindowInsetsControllerCompat controller =
-                        WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
-                if (on) {
-                    controller.setSystemBarsBehavior(
-                            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
-                    controller.hide(WindowInsetsCompat.Type.systemBars());
-                } else {
-                    controller.show(WindowInsetsCompat.Type.systemBars());
-                }
-            });
-        }
-
         // ---- Sprint 2 (contract C1): audio-reactive beat/vocal sync, haptics, system-bar colour ----
 
         /** True if this device can run the Visualizer (class present, not repeatedly failing). */
