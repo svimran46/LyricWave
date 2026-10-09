@@ -2817,7 +2817,7 @@ function updateOffsetUI() {
   if (offsetSlider) offsetSlider.value = ms.toString();
 
   if (settingOffsetSlider) settingOffsetSlider.value = ms.toString();
-  if (lblSettingsOffset) lblSettingsOffset.textContent = text;
+  if (lblSettingsOffset) lblSettingsOffset.textContent = `${sign}${sec}s`;
 }
 
 function setOffset(newMs) {
@@ -3463,10 +3463,10 @@ if (btnClearAllData) {
   let clearArmedTimer = null;
   btnClearAllData.addEventListener('click', async () => {
     if (!clearArmedTimer) {
-      btnClearAllData.textContent = 'Tap again to erase';
+      btnClearAllData.textContent = 'Tap again';
       clearArmedTimer = setTimeout(() => {
         clearArmedTimer = null;
-        btnClearAllData.textContent = 'Clear All Data';
+        btnClearAllData.textContent = 'Clear';
       }, 4000);
       return;
     }
@@ -3506,7 +3506,7 @@ if (btnResetDefaults) {
       diagnosticsDrawer?.classList.add('hidden');
     }
 
-    showAlert('Preferences reset to default values.', 'info');
+    showAlert('Settings reset to defaults.', 'info');
   });
 }
 

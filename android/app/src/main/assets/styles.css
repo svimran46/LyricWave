@@ -9138,3 +9138,429 @@ body.stage-open .toast-region {
   .mini-meta.mini-open:focus:not(:focus-visible),
   .stage-collapse:focus:not(:focus-visible) { outline: none; box-shadow: none; }
 }
+
+/* =====================================================================
+   Settings: grouped-list layout
+   Small section title above a rounded group; one setting per row,
+   label on the left, control on the right. No subtitles, no helper copy
+   unless an action is destructive or needs one line of context.
+   ===================================================================== */
+#settingsDialog .settings-grid-body {
+  gap: var(--space-5);
+}
+
+.set-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.set-section-title {
+  margin: 0;
+  padding: 0 var(--space-1);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.set-group {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.set-group > * + * {
+  border-top: 1px solid var(--border);
+}
+
+.set-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 56px;
+  padding: var(--space-2) var(--space-4);
+  color: inherit;
+  text-decoration: none;
+}
+
+.set-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.set-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.set-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.set-row-label {
+  font-size: var(--fs-base);
+  font-weight: 500;
+  color: var(--text);
+}
+
+.set-row-sub {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.set-row--link .set-row-trail {
+  color: var(--text-muted);
+  flex: none;
+}
+
+@media (hover: hover) {
+  .set-row--link:hover {
+    background: var(--fill-1);
+  }
+}
+
+.set-value {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+.offset-slider.set-slider {
+  /* the phone-width .offset-slider rule (order: -1) is for the More-sheet drawer only */
+  order: 0;
+  flex: none;
+  width: 100%;
+  margin: 0;
+}
+
+.set-footnote {
+  margin: 0;
+  padding: 0 var(--space-1);
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+/* Small secondary button used for Reset / Clear / offset steps */
+.set-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 72px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--fill-1);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) linear;
+}
+
+@media (hover: hover) {
+  .set-btn:hover {
+    background: var(--fill-2);
+  }
+}
+
+.set-btn:active {
+  transform: scale(0.97);
+}
+
+.set-btn--danger {
+  color: var(--danger-text);
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+}
+
+.set-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.set-stepper {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.set-stepper .set-btn {
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Native select, styled to sit on the right of a row like a value */
+.set-select {
+  flex: none;
+  min-height: 44px;
+  max-width: 55%;
+  padding: 0 calc(var(--space-4) + 18px) 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background-color: var(--fill-1);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.set-select option {
+  background: var(--bg-elevated);
+  color: var(--text);
+}
+
+#settingsDialog .debug-panel {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+/* ---------------------------------------------------------------------
+   Theme swatches (Settings + More sheet): one name per theme.
+   Preview = theme background + "Aa" in its lyric colour + accent pill
+   + wave strip. Adaptive spans the full row because it is different in
+   kind (it follows the album art), which also leaves 12 fixed themes
+   that divide evenly into 3, 4 or 6 columns.
+   --------------------------------------------------------------------- */
+.theme-swatch-grid,
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+}
+
+@media (max-width: 340px) {
+  .theme-swatch-grid,
+  .theme-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.theme-swatch-grid .theme-swatch-card,
+.theme-grid .theme-swatch-card {
+  min-height: 0;
+  min-width: 0;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  align-items: stretch;
+  text-align: center;
+}
+
+.theme-swatch-grid .theme-swatch-card.active,
+.theme-grid .theme-swatch-card.active {
+  box-shadow: none;
+}
+
+.theme-swatch-grid .theme-swatch-preview,
+.theme-grid .theme-swatch-preview {
+  height: 52px;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  transition: box-shadow var(--dur-fast) linear;
+}
+
+.theme-swatch-card.active .theme-swatch-preview {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+}
+
+.theme-swatch-grid .theme-preview-dot,
+.theme-grid .theme-preview-dot {
+  display: none;
+}
+
+.theme-swatch-grid .theme-preview-lyric,
+.theme-grid .theme-preview-lyric {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  line-height: 1;
+  overflow: visible;
+}
+
+.theme-swatch-card[data-theme-card="vinyl"] .theme-preview-lyric {
+  font-family: 'Fraunces', 'Playfair Display', Georgia, serif;
+}
+
+.theme-swatch-card[data-theme-card="pixel"] .theme-preview-lyric {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+.theme-swatch-grid .theme-swatch-meta,
+.theme-grid .theme-swatch-meta {
+  align-items: center;
+  min-width: 0;
+}
+
+.theme-swatch-grid .theme-swatch-name,
+.theme-grid .theme-swatch-name {
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.theme-swatch-card.active .theme-swatch-name {
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* The ring + bold name mark the selection; the corner tick collided with the accent pill */
+.theme-swatch-grid .theme-swatch-card .theme-swatch-check,
+.theme-grid .theme-swatch-card .theme-swatch-check {
+  display: none;
+}
+
+/* Adaptive: full-width row, preview on the left, name + one-liner on the right */
+.theme-swatch-card[data-theme-card="adaptive"] {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-3);
+  text-align: left;
+}
+
+.theme-swatch-card[data-theme-card="adaptive"] .theme-swatch-preview {
+  flex: none;
+  width: 72px;
+  height: 44px;
+}
+
+.theme-swatch-card[data-theme-card="adaptive"] .theme-swatch-meta {
+  align-items: flex-start;
+}
+
+.theme-swatch-card[data-theme-card="adaptive"] .theme-swatch-name {
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+
+.theme-swatch-grid .theme-swatch-desc,
+.theme-grid .theme-swatch-desc {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+/* ---------------------------------------------------------------------
+   Connect tab: Last.fm and Spotify share one card layout
+   (icon + name + one-line subtitle, full-width field/button, one note).
+   --------------------------------------------------------------------- */
+.account-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  text-align: left;
+}
+
+.account-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.account-head-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.account-card .lastfm-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--fs-lg);
+}
+
+.account-card .beta-badge {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--accent-soft);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.account-sub,
+.account-note {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.account-note {
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+}
+
+.account-note strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.account-card .lastfm-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.account-card .lastfm-input {
+  width: 100%;
+}
+
+.account-card .btn-block {
+  width: 100%;
+  margin: 0;
+}
+
+.account-icon--spotify {
+  color: var(--spotify-green);
+}
+
+.spotify-view.account-card {
+  align-items: stretch;
+  text-align: left;
+}

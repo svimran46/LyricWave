@@ -107,7 +107,7 @@
           </button>
 
           <!-- Settings Button -->
-          <button id="btnOpenSettings" class="btn-header-tool btn-header-icon" type="button" aria-haspopup="dialog" aria-label="Open Preferences Settings" title="Preferences">
+          <button id="btnOpenSettings" class="btn-header-tool btn-header-icon" type="button" aria-haspopup="dialog" aria-label="Open settings" title="Settings">
             <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-settings"/></svg>
             <span class="btn-label">Settings</span>
           </button>
@@ -470,28 +470,20 @@
 
         <!-- Sub-panel A: Last.fm (kept under panelLastfm ID for compatibility) -->
         <div id="panelLastfm" class="connect-sub-view" aria-label="Last.fm">
-          <div class="lastfm-card">
-            <div class="lastfm-header">
-              <div class="lastfm-icon-badge" aria-hidden="true"><svg class="icon icon--lg" width="28" height="28" aria-hidden="true" focusable="false"><use href="#i-radio"/></svg></div>
-              <div>
-                <h2 class="lastfm-title">Last.fm Live Scrobble Sync</h2>
-                <div class="lastfm-mode-pill">
-                  <span class="status-dot"></span>
-                  <span>Approximate sync</span>
-                </div>
+          <div class="lastfm-card account-card">
+            <div class="account-head">
+              <div class="lastfm-icon-badge" aria-hidden="true"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-radio"/></svg></div>
+              <div class="account-head-text">
+                <h2 class="lastfm-title">Last.fm</h2>
+                <p class="account-sub">Works with any player that scrobbles</p>
               </div>
             </div>
 
-            <p class="lastfm-desc">
-              Sync lyrics for Apple Music, YouTube Music, Tidal, Deezer, foobar2000, or any scrobbler. Enter your username (no password needed). Lyrics start at 0:00 on each track change.
-            </p>
-
             <form id="formLastfm" class="lastfm-form" onsubmit="return false;">
-              <div class="lastfm-input-row">
-                <input id="lastfmUserInput" class="lastfm-input" type="text" placeholder="Enter Last.fm username..." autocomplete="username" autocapitalize="none" aria-label="Last.fm username">
-                <button id="btnConnectLastfm" class="btn btn-sm btn-spotify" type="submit">Track User</button>
-              </div>
+              <input id="lastfmUserInput" class="lastfm-input" type="text" placeholder="Last.fm username" autocomplete="username" autocapitalize="none" aria-label="Last.fm username">
+              <button id="btnConnectLastfm" class="btn btn-primary btn-block" type="submit">Connect</button>
             </form>
+            <p class="account-note">Username only, no password. Timing is approximate.</p>
 
             <div id="lastfmStatusInfo" class="lastfm-status-box hidden">
               <div class="status-pill">
@@ -506,17 +498,20 @@
         <!-- Sub-panel B: Spotify Beta (kept under panelSpotify ID for compatibility) -->
         <div id="panelSpotify" class="connect-sub-view hidden" aria-label="Spotify Connect">
           <!-- Logged Out View -->
-          <div id="spotifyLoggedOut" class="spotify-view">
-            <div class="beta-notice">
-              <span class="beta-badge-large">Private Beta</span>
-              <p class="beta-desc">Spotify login is invite-only (Spotify limits new apps to a few approved testers). Not on the list? Use the <strong>Phone</strong> tab in the Android app, which follows Spotify automatically, or the <strong>Listen</strong> tab.</p>
+          <div id="spotifyLoggedOut" class="spotify-view account-card">
+            <div class="account-head">
+              <div class="lastfm-icon-badge account-icon--spotify" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.498 17.306c-.215.353-.674.464-1.026.248-2.812-1.718-6.353-2.107-10.523-1.155-.403.092-.803-.16-.895-.563-.092-.403.16-.803.563-.895 4.567-1.043 8.487-.604 11.633 1.339.352.216.463.674.248 1.026zm1.467-3.262c-.27.441-.849.58-1.29.31-3.22-1.978-8.128-2.55-11.936-1.393-.497.151-1.023-.134-1.174-.631-.151-.498.134-1.024.631-1.175 4.354-1.321 9.775-.681 13.459 1.583.441.27.58.849.31 1.29zm.126-3.41c-3.86-2.292-10.228-2.503-13.903-1.388-.592.18-1.217-.154-1.397-.746-.18-.592.154-1.217.746-1.397 4.227-1.284 11.258-1.037 15.707 1.603.534.316.708 1.009.392 1.543-.316.534-1.009.708-1.543.392z"/></svg>
+              </div>
+              <div class="account-head-text">
+                <h2 class="lastfm-title">Spotify <span class="beta-badge">Beta</span></h2>
+                <p class="account-sub">Invite-only for now</p>
+              </div>
             </div>
-            <button id="btnLoginSpotify" class="btn btn-spotify" type="button">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
-                <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.498 17.306c-.215.353-.674.464-1.026.248-2.812-1.718-6.353-2.107-10.523-1.155-.403.092-.803-.16-.895-.563-.092-.403.16-.803.563-.895 4.567-1.043 8.487-.604 11.633 1.339.352.216.463.674.248 1.026zm1.467-3.262c-.27.441-.849.58-1.29.31-3.22-1.978-8.128-2.55-11.936-1.393-.497.151-1.023-.134-1.174-.631-.151-.498.134-1.024.631-1.175 4.354-1.321 9.775-.681 13.459 1.583.441.27.58.849.31 1.29zm.126-3.41c-3.86-2.292-10.228-2.503-13.903-1.388-.592.18-1.217-.154-1.397-.746-.18-.592.154-1.217.746-1.397 4.227-1.284 11.258-1.037 15.707 1.603.534.316.708 1.009.392 1.543-.316.534-1.009.708-1.543.392z"/>
-              </svg>
+            <button id="btnLoginSpotify" class="btn btn-spotify btn-block" type="button">
               <span>Connect Spotify</span>
             </button>
+            <p class="account-note">Not on the invite list? Use <strong>Listen</strong>, or <strong>Phone</strong> in the Android app.</p>
           </div>
 
           <!-- Logged In View -->
@@ -681,159 +676,96 @@
         <section class="sheet-section" aria-labelledby="sheetThemeTitle">
           <h3 id="sheetThemeTitle" class="sheet-section-title">Theme</h3>
           <div class="theme-grid" role="radiogroup" aria-labelledby="sheetThemeTitle">
-            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="adaptive">
-              <div class="theme-swatch-preview preview-adaptive">
-                <span class="theme-preview-dot dot-adaptive"></span>
-                <span class="theme-preview-lyric lyric-adaptive">♫ Adaptive Art</span>
-              </div>
-              <div class="theme-swatch-meta">
+            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="adaptive" aria-label="Adaptive">
+              <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+              <span class="theme-swatch-meta">
                 <span class="theme-swatch-name">Adaptive</span>
-                <span class="theme-swatch-desc">Album colors</span>
-              </div>
+                <span class="theme-swatch-desc">Matches the album art</span>
+              </span>
               <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
             </button>
-
-            <button type="button" role="radio" aria-checked="true" class="theme-swatch-card active" data-theme-card="aurora">
-              <div class="theme-swatch-preview preview-aurora">
-                <span class="theme-preview-dot dot-aurora"></span>
-                <span class="theme-preview-lyric lyric-aurora">♫ Indigo Mint</span>
-              </div>
-              <div class="theme-swatch-meta">
+            <button type="button" role="radio" aria-checked="true" class="theme-swatch-card active" data-theme-card="aurora" aria-label="Aurora">
+              <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+              <span class="theme-swatch-meta">
                 <span class="theme-swatch-name">Aurora</span>
-                <span class="theme-swatch-desc">Indigo &amp; mint</span>
-              </div>
+              </span>
               <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
             </button>
-
-            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="vinyl">
-              <div class="theme-swatch-preview preview-vinyl">
-                <span class="theme-preview-dot dot-vinyl"></span>
-                <span class="theme-preview-lyric lyric-vinyl">♫ Amber Serif</span>
-              </div>
-              <div class="theme-swatch-meta">
+            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="vinyl" aria-label="Vinyl">
+              <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+              <span class="theme-swatch-meta">
                 <span class="theme-swatch-name">Vinyl</span>
-                <span class="theme-swatch-desc">Warm charcoal</span>
-              </div>
+              </span>
               <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
             </button>
-
-            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="paper">
-              <div class="theme-swatch-preview preview-paper">
-                <span class="theme-preview-dot dot-paper"></span>
-                <span class="theme-preview-lyric lyric-paper">♫ Ink Minimal</span>
-              </div>
-              <div class="theme-swatch-meta">
+            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="paper" aria-label="Paper">
+              <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+              <span class="theme-swatch-meta">
                 <span class="theme-swatch-name">Paper</span>
-                <span class="theme-swatch-desc">Clean light</span>
-              </div>
+              </span>
               <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
             </button>
-
-            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="neon">
-              <div class="theme-swatch-preview preview-neon">
-                <span class="theme-preview-dot dot-neon"></span>
-                <span class="theme-preview-lyric lyric-neon">♫ Cyan Glow</span>
-              </div>
-              <div class="theme-swatch-meta">
+            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="neon" aria-label="Neon">
+              <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+              <span class="theme-swatch-meta">
                 <span class="theme-swatch-name">Neon</span>
-                <span class="theme-swatch-desc">High contrast</span>
-              </div>
+              </span>
               <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
             </button>
-
-            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="pixel">
-              <div class="theme-swatch-preview preview-pixel">
-                <span class="theme-preview-dot dot-pixel"></span>
-                <span class="theme-preview-lyric lyric-pixel">♫ 8-bit Beat</span>
-              </div>
-              <div class="theme-swatch-meta">
+            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="pixel" aria-label="Pixel">
+              <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+              <span class="theme-swatch-meta">
                 <span class="theme-swatch-name">Pixel</span>
-                <span class="theme-swatch-desc">Retro arcade</span>
-              </div>
+              </span>
               <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
             </button>
-
-            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="minimal">
-              <div class="theme-swatch-preview preview-minimal">
-                <span class="theme-preview-dot dot-minimal"></span>
-                <span class="theme-preview-lyric lyric-minimal">♫ Quiet Type</span>
-              </div>
-              <div class="theme-swatch-meta">
+            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="minimal" aria-label="Minimal">
+              <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+              <span class="theme-swatch-meta">
                 <span class="theme-swatch-name">Minimal</span>
-                <span class="theme-swatch-desc">Calm &amp; simple</span>
-              </div>
+              </span>
               <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
             </button>
-
-            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="sunset">
-              <div class="theme-swatch-preview preview-sunset">
-                <span class="theme-preview-dot dot-sunset"></span>
-                <span class="theme-preview-lyric lyric-sunset">♫ Golden Hour</span>
-              </div>
-              <div class="theme-swatch-meta">
+            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="sunset" aria-label="Sunset">
+              <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+              <span class="theme-swatch-meta">
                 <span class="theme-swatch-name">Sunset</span>
-                <span class="theme-swatch-desc">Warm gradient</span>
-              </div>
+              </span>
               <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
             </button>
-
-            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="ocean">
-              <div class="theme-swatch-preview preview-ocean">
-                <span class="theme-preview-dot dot-ocean"></span>
-                <span class="theme-preview-lyric lyric-ocean">♫ Teal Tide</span>
-              </div>
-              <div class="theme-swatch-meta">
+            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="ocean" aria-label="Ocean">
+              <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+              <span class="theme-swatch-meta">
                 <span class="theme-swatch-name">Ocean</span>
-                <span class="theme-swatch-desc">Deep blue</span>
-              </div>
+              </span>
               <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
             </button>
-
-            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="sakura">
-              <div class="theme-swatch-preview preview-sakura">
-                <span class="theme-preview-dot dot-sakura"></span>
-                <span class="theme-preview-lyric lyric-sakura">♫ Cherry Bloom</span>
-              </div>
-              <div class="theme-swatch-meta">
+            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="sakura" aria-label="Sakura">
+              <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+              <span class="theme-swatch-meta">
                 <span class="theme-swatch-name">Sakura</span>
-                <span class="theme-swatch-desc">Soft pink</span>
-              </div>
+              </span>
               <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
             </button>
-
-            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="mono">
-              <div class="theme-swatch-preview preview-mono">
-                <span class="theme-preview-dot dot-mono"></span>
-                <span class="theme-preview-lyric lyric-mono">♫ Pure White</span>
-              </div>
-              <div class="theme-swatch-meta">
+            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="mono" aria-label="Mono">
+              <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+              <span class="theme-swatch-meta">
                 <span class="theme-swatch-name">Mono</span>
-                <span class="theme-swatch-desc">True black OLED</span>
-              </div>
+              </span>
               <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
             </button>
-
-            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="synthwave">
-              <div class="theme-swatch-preview preview-synthwave">
-                <span class="theme-preview-dot dot-synthwave"></span>
-                <span class="theme-preview-lyric lyric-synthwave">♫ Neon Grid</span>
-              </div>
-              <div class="theme-swatch-meta">
+            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="synthwave" aria-label="Synthwave">
+              <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+              <span class="theme-swatch-meta">
                 <span class="theme-swatch-name">Synthwave</span>
-                <span class="theme-swatch-desc">Pink &amp; purple</span>
-              </div>
+              </span>
               <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
             </button>
-
-            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="forest">
-              <div class="theme-swatch-preview preview-forest">
-                <span class="theme-preview-dot dot-forest"></span>
-                <span class="theme-preview-lyric lyric-forest">♫ Moss Light</span>
-              </div>
-              <div class="theme-swatch-meta">
+            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="forest" aria-label="Forest">
+              <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+              <span class="theme-swatch-meta">
                 <span class="theme-swatch-name">Forest</span>
-                <span class="theme-swatch-desc">Calm greens</span>
-              </div>
+              </span>
               <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
             </button>
           </div>
@@ -943,7 +875,7 @@
           <h3 id="sheetAppTitle" class="sheet-section-title">App</h3>
           <button id="btnMoreOpenSettings" class="sheet-row" type="button">
             <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-settings"/></svg>
-            <span class="sheet-row-label">Preferences</span>
+            <span class="sheet-row-label">Settings</span>
           </button>
           <button id="btnOpenShortcuts" class="sheet-row" type="button" aria-label="Keyboard shortcuts cheat-sheet" title="Keyboard Shortcuts (?)">
             <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-keyboard"/></svg>
@@ -966,310 +898,183 @@
       </div>
       <div class="modal-header">
         <div class="modal-header-meta">
-          <h2 id="settingsTitle" class="modal-title">Preferences</h2>
-          <span class="modal-subtitle">Customize visual theme, typography & sync timing</span>
+          <h2 id="settingsTitle" class="modal-title">Settings</h2>
         </div>
-        <button id="btnCloseSettings" class="btn-close-modal" type="button" aria-label="Close preferences"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
+        <button id="btnCloseSettings" class="btn-close-modal" type="button" aria-label="Close settings"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
       </div>
 
       <div class="modal-body settings-grid-body" id="settingsAccordion">
-        
-        <!-- Section 1: Appearance & Theme -->
-        <div class="settings-card" id="secAppearance">
-          <div class="settings-card-header">
-            <span class="settings-card-icon" aria-hidden="true"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-palette"/></svg></span>
-            <div>
-              <h3 class="settings-card-title">Appearance</h3>
-              <p class="settings-card-subtitle">Select visual theme and lyrics scale</p>
-            </div>
-          </div>
-          <div class="settings-card-body">
-            
-            <!-- Theme Swatch Grid (all 13 themes) -->
-            <div class="settings-row-group">
-              <label class="settings-label" id="lblThemePicker">Theme Preset</label>
+
+        <!-- Appearance -->
+        <section class="set-section" id="secAppearance" aria-labelledby="secAppearanceTitle">
+          <h3 id="secAppearanceTitle" class="set-section-title">Appearance</h3>
+          <div class="set-group">
+            <div class="set-block">
+              <span class="set-row-label" id="lblThemePicker">Theme</span>
               <div class="theme-swatch-grid" role="radiogroup" aria-labelledby="lblThemePicker">
-                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="adaptive">
-                  <div class="theme-swatch-preview preview-adaptive">
-                    <span class="theme-preview-dot dot-adaptive"></span>
-                    <span class="theme-preview-lyric lyric-adaptive">♫ Adaptive Art</span>
-                  </div>
-                  <div class="theme-swatch-meta">
+                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="adaptive" aria-label="Adaptive">
+                  <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+                  <span class="theme-swatch-meta">
                     <span class="theme-swatch-name">Adaptive</span>
-                    <span class="theme-swatch-desc">Album colors</span>
-                  </div>
+                    <span class="theme-swatch-desc">Matches the album art</span>
+                  </span>
                   <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
                 </button>
-
-                <button type="button" role="radio" aria-checked="true" class="theme-swatch-card active" data-theme-card="aurora">
-                  <div class="theme-swatch-preview preview-aurora">
-                    <span class="theme-preview-dot dot-aurora"></span>
-                    <span class="theme-preview-lyric lyric-aurora">♫ Indigo Mint</span>
-                  </div>
-                  <div class="theme-swatch-meta">
+                <button type="button" role="radio" aria-checked="true" class="theme-swatch-card active" data-theme-card="aurora" aria-label="Aurora">
+                  <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+                  <span class="theme-swatch-meta">
                     <span class="theme-swatch-name">Aurora</span>
-                    <span class="theme-swatch-desc">Indigo &amp; mint</span>
-                  </div>
+                  </span>
                   <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
                 </button>
-
-                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="vinyl">
-                  <div class="theme-swatch-preview preview-vinyl">
-                    <span class="theme-preview-dot dot-vinyl"></span>
-                    <span class="theme-preview-lyric lyric-vinyl">♫ Amber Serif</span>
-                  </div>
-                  <div class="theme-swatch-meta">
+                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="vinyl" aria-label="Vinyl">
+                  <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+                  <span class="theme-swatch-meta">
                     <span class="theme-swatch-name">Vinyl</span>
-                    <span class="theme-swatch-desc">Warm charcoal</span>
-                  </div>
+                  </span>
                   <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
                 </button>
-
-                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="paper">
-                  <div class="theme-swatch-preview preview-paper">
-                    <span class="theme-preview-dot dot-paper"></span>
-                    <span class="theme-preview-lyric lyric-paper">♫ Ink Minimal</span>
-                  </div>
-                  <div class="theme-swatch-meta">
+                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="paper" aria-label="Paper">
+                  <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+                  <span class="theme-swatch-meta">
                     <span class="theme-swatch-name">Paper</span>
-                    <span class="theme-swatch-desc">Clean light</span>
-                  </div>
+                  </span>
                   <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
                 </button>
-
-                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="neon">
-                  <div class="theme-swatch-preview preview-neon">
-                    <span class="theme-preview-dot dot-neon"></span>
-                    <span class="theme-preview-lyric lyric-neon">♫ Cyan Glow</span>
-                  </div>
-                  <div class="theme-swatch-meta">
+                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="neon" aria-label="Neon">
+                  <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+                  <span class="theme-swatch-meta">
                     <span class="theme-swatch-name">Neon</span>
-                    <span class="theme-swatch-desc">High contrast</span>
-                  </div>
+                  </span>
                   <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
                 </button>
-
-                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="pixel">
-                  <div class="theme-swatch-preview preview-pixel">
-                    <span class="theme-preview-dot dot-pixel"></span>
-                    <span class="theme-preview-lyric lyric-pixel">♫ 8-bit Beat</span>
-                  </div>
-                  <div class="theme-swatch-meta">
+                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="pixel" aria-label="Pixel">
+                  <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+                  <span class="theme-swatch-meta">
                     <span class="theme-swatch-name">Pixel</span>
-                    <span class="theme-swatch-desc">Retro arcade</span>
-                  </div>
+                  </span>
                   <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
                 </button>
-
-                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="minimal">
-                  <div class="theme-swatch-preview preview-minimal">
-                    <span class="theme-preview-dot dot-minimal"></span>
-                    <span class="theme-preview-lyric lyric-minimal">♫ Quiet Type</span>
-                  </div>
-                  <div class="theme-swatch-meta">
+                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="minimal" aria-label="Minimal">
+                  <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+                  <span class="theme-swatch-meta">
                     <span class="theme-swatch-name">Minimal</span>
-                    <span class="theme-swatch-desc">Calm &amp; simple</span>
-                  </div>
+                  </span>
                   <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
                 </button>
-
-                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="sunset">
-                  <div class="theme-swatch-preview preview-sunset">
-                    <span class="theme-preview-dot dot-sunset"></span>
-                    <span class="theme-preview-lyric lyric-sunset">♫ Golden Hour</span>
-                  </div>
-                  <div class="theme-swatch-meta">
+                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="sunset" aria-label="Sunset">
+                  <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+                  <span class="theme-swatch-meta">
                     <span class="theme-swatch-name">Sunset</span>
-                    <span class="theme-swatch-desc">Warm gradient</span>
-                  </div>
+                  </span>
                   <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
                 </button>
-
-                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="ocean">
-                  <div class="theme-swatch-preview preview-ocean">
-                    <span class="theme-preview-dot dot-ocean"></span>
-                    <span class="theme-preview-lyric lyric-ocean">♫ Teal Tide</span>
-                  </div>
-                  <div class="theme-swatch-meta">
+                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="ocean" aria-label="Ocean">
+                  <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+                  <span class="theme-swatch-meta">
                     <span class="theme-swatch-name">Ocean</span>
-                    <span class="theme-swatch-desc">Deep blue</span>
-                  </div>
+                  </span>
                   <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
                 </button>
-
-                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="sakura">
-                  <div class="theme-swatch-preview preview-sakura">
-                    <span class="theme-preview-dot dot-sakura"></span>
-                    <span class="theme-preview-lyric lyric-sakura">♫ Cherry Bloom</span>
-                  </div>
-                  <div class="theme-swatch-meta">
+                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="sakura" aria-label="Sakura">
+                  <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+                  <span class="theme-swatch-meta">
                     <span class="theme-swatch-name">Sakura</span>
-                    <span class="theme-swatch-desc">Soft pink</span>
-                  </div>
+                  </span>
                   <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
                 </button>
-
-                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="mono">
-                  <div class="theme-swatch-preview preview-mono">
-                    <span class="theme-preview-dot dot-mono"></span>
-                    <span class="theme-preview-lyric lyric-mono">♫ Pure White</span>
-                  </div>
-                  <div class="theme-swatch-meta">
+                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="mono" aria-label="Mono">
+                  <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+                  <span class="theme-swatch-meta">
                     <span class="theme-swatch-name">Mono</span>
-                    <span class="theme-swatch-desc">True black OLED</span>
-                  </div>
+                  </span>
                   <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
                 </button>
-
-                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="synthwave">
-                  <div class="theme-swatch-preview preview-synthwave">
-                    <span class="theme-preview-dot dot-synthwave"></span>
-                    <span class="theme-preview-lyric lyric-synthwave">♫ Neon Grid</span>
-                  </div>
-                  <div class="theme-swatch-meta">
+                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="synthwave" aria-label="Synthwave">
+                  <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+                  <span class="theme-swatch-meta">
                     <span class="theme-swatch-name">Synthwave</span>
-                    <span class="theme-swatch-desc">Pink &amp; purple</span>
-                  </div>
+                  </span>
                   <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
                 </button>
-
-                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="forest">
-                  <div class="theme-swatch-preview preview-forest">
-                    <span class="theme-preview-dot dot-forest"></span>
-                    <span class="theme-preview-lyric lyric-forest">♫ Moss Light</span>
-                  </div>
-                  <div class="theme-swatch-meta">
+                <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="forest" aria-label="Forest">
+                  <span class="theme-swatch-preview" aria-hidden="true"><span class="theme-preview-dot"></span><span class="theme-preview-lyric">Aa</span></span>
+                  <span class="theme-swatch-meta">
                     <span class="theme-swatch-name">Forest</span>
-                    <span class="theme-swatch-desc">Calm greens</span>
-                  </div>
+                  </span>
                   <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
                 </button>
               </div>
             </div>
-
-            <!-- Typography Scale Slider -->
-            <div class="settings-row-group">
-              <div class="settings-label-row">
-                <label class="settings-label" for="settingFontSize">Lyrics Scale</label>
-                <span id="lblFontSize" class="settings-val-badge">100%</span>
+            <div class="set-block">
+              <div class="set-row-head">
+                <label class="set-row-label" for="settingFontSize">Lyrics size</label>
+                <span id="lblFontSize" class="set-value">100%</span>
               </div>
-              <div class="settings-range-control-row">
-                <span class="range-boundary">50%</span>
-                <input id="settingFontSize" type="range" min="50" max="200" step="5" value="100" class="offset-slider" aria-label="Lyrics font size scaling percentage">
-                <span class="range-boundary">200%</span>
-              </div>
-              <span class="settings-helper-text">Scales typography across the lyrics viewport and OLED reel.</span>
-            </div>
-
-          </div>
-        </div>
-
-        <!-- Section 2: Display & Playback Behavior -->
-        <div class="settings-card" id="secLyrics">
-          <div class="settings-card-header">
-            <span class="settings-card-icon" aria-hidden="true"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-sparkles"/></svg></span>
-            <div>
-              <h3 class="settings-card-title">Display & Behavior</h3>
-              <p class="settings-card-subtitle">Real-time word animation and timing</p>
+              <input id="settingFontSize" type="range" min="50" max="200" step="5" value="100" class="offset-slider set-slider" aria-label="Lyrics size, percent">
             </div>
           </div>
-          <div class="settings-card-body">
-            
-            <div class="settings-card-item-row">
-              <div class="settings-item-info">
-                <label class="settings-label" for="settingWordMode">Word-by-Word Reveal</label>
-                <span class="settings-helper-text">Progressively reveals words within active lyric lines</span>
-              </div>
+        </section>
+
+        <!-- Lyrics & feedback -->
+        <section class="set-section" id="secLyrics" aria-labelledby="secLyricsTitle">
+          <h3 id="secLyricsTitle" class="set-section-title">Display</h3>
+          <div class="set-group">
+            <div class="set-row">
+              <label class="set-row-label" for="settingWordMode">Word-by-word reveal</label>
               <label class="switch">
                 <input id="settingWordMode" type="checkbox" checked>
                 <span class="slider-round"></span>
               </label>
             </div>
-
-            <div class="settings-card-item-row">
-              <div class="settings-item-info">
-                <label class="settings-label" for="settingHaptics">Haptic Feedback</label>
-                <span class="settings-helper-text">Subtle vibration on controls (Android app)</span>
-              </div>
+            <div class="set-row">
+              <label class="set-row-label" for="settingHaptics">Haptic feedback</label>
               <label class="switch">
                 <input id="settingHaptics" type="checkbox" checked>
                 <span class="slider-round"></span>
               </label>
             </div>
-
           </div>
-        </div>
+        </section>
 
-        <!-- Section 3: Sync Calibration -->
-        <div class="settings-card" id="secSync">
-          <div class="settings-card-header">
-            <span class="settings-card-icon" aria-hidden="true"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-timer"/></svg></span>
-            <div>
-              <h3 class="settings-card-title">Sync Calibration</h3>
-              <p class="settings-card-subtitle">Compensate audio hardware latency and drift</p>
+        <!-- Sync -->
+        <section class="set-section" id="secSync" aria-labelledby="secSyncTitle">
+          <h3 id="secSyncTitle" class="set-section-title">Sync</h3>
+          <div class="set-group">
+            <div class="set-block">
+              <div class="set-row-head">
+                <label class="set-row-label" for="settingOffsetSlider">Lyrics offset</label>
+                <span id="lblSettingsOffset" class="set-value">0.0s</span>
+              </div>
+              <input id="settingOffsetSlider" type="range" min="-2000" max="2000" step="50" value="0" class="offset-slider set-slider" aria-label="Lyrics offset in milliseconds">
+              <div class="set-stepper">
+                <button id="btnSettingsOffsetMinus" class="set-btn" type="button" aria-label="Show lyrics 0.1 seconds earlier">−0.1s</button>
+                <button id="btnSettingsOffsetReset" class="set-btn" type="button" aria-label="Reset lyrics offset">Reset</button>
+                <button id="btnSettingsOffsetPlus" class="set-btn" type="button" aria-label="Show lyrics 0.1 seconds later">+0.1s</button>
+              </div>
             </div>
           </div>
-          <div class="settings-card-body">
-            
-            <div class="settings-row-group">
-              <div class="settings-label-row">
-                <label class="settings-label" for="settingOffsetSlider">Latency Calibration</label>
-                <span id="lblSettingsOffset" class="settings-val-badge sync-val">+0.0s (0 ms)</span>
-              </div>
-              
-              <div class="settings-range-control-row">
-                <span class="range-boundary">−2.0s</span>
-                <input id="settingOffsetSlider" type="range" min="-2000" max="2000" step="50" value="0" class="offset-slider" aria-label="Latency offset in ms">
-                <span class="range-boundary">+2.0s</span>
-              </div>
+          <p class="set-footnote">Use if lyrics run ahead of or behind the music. Saved per source.</p>
+        </section>
 
-              <div class="sync-actions-row">
-                <button id="btnSettingsOffsetMinus" class="btn-step btn-step-tall" type="button" aria-label="Shift earlier 0.1s">−0.1s</button>
-                <button id="btnSettingsOffsetReset" class="btn-reset btn-reset-tall" type="button" aria-label="Reset latency offset">Reset (0s)</button>
-                <button id="btnSettingsOffsetPlus" class="btn-step btn-step-tall" type="button" aria-label="Shift later 0.1s">+0.1s</button>
-              </div>
-
-              <span class="settings-helper-text">Offset persists automatically per audio source.</span>
+        <!-- Advanced -->
+        <section class="set-section" id="secAdvanced" aria-labelledby="secAdvancedTitle">
+          <h3 id="secAdvancedTitle" class="set-section-title">Advanced</h3>
+          <div class="set-group">
+            <div class="set-row">
+              <label class="set-row-label" for="settingRecognitionProvider">Recognition engine</label>
+              <select id="settingRecognitionProvider" class="set-select">
+                <option value="acrcloud" selected>ACRCloud</option>
+                <option value="audd">AudD</option>
+              </select>
             </div>
-
-          </div>
-        </div>
-
-        <!-- Section 4: Advanced Engine -->
-        <div class="settings-card" id="secAdvanced">
-          <div class="settings-card-header">
-            <span class="settings-card-icon" aria-hidden="true"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-settings"/></svg></span>
-            <div>
-              <h3 class="settings-card-title">Advanced Settings</h3>
-              <p class="settings-card-subtitle">Recognition engine, diagnostics & privacy</p>
-            </div>
-          </div>
-          <div class="settings-card-body">
-            
-            <!-- Recognition Provider Selector -->
-            <div class="settings-row-group">
-              <label class="settings-label" for="settingRecognitionProvider">Music Recognition Engine</label>
-              <div class="select-styled-wrap">
-                <select id="settingRecognitionProvider" class="form-select settings-select">
-                  <option value="acrcloud" selected>ACRCloud (Default • acrcloud.com)</option>
-                  <option value="audd">AudD (audd.io API)</option>
-                </select>
-              </div>
-              <span class="settings-helper-text">Engine used when identifying music through the microphone.</span>
-            </div>
-
-            <!-- Audio Diagnostics Toggle -->
-            <div class="settings-card-item-row">
-              <div class="settings-item-info">
-                <label class="settings-label" for="settingDebugMode">Show Diagnostics HUD</label>
-                <span class="settings-helper-text">Displays clock jitter, drift & frame telemetry</span>
-              </div>
+            <div class="set-row">
+              <label class="set-row-label" for="settingDebugMode">Diagnostics overlay</label>
               <label class="switch">
                 <input id="settingDebugMode" type="checkbox">
                 <span class="slider-round"></span>
               </label>
             </div>
-
             <!-- Diagnostics Drawer -->
             <div id="diagnosticsDrawer" class="debug-panel hidden">
               <div class="debug-grid">
@@ -1291,22 +1096,30 @@
                 </div>
               </div>
             </div>
-
-            <!-- Privacy Policy & Reset Controls -->
-            <div class="settings-footer-action-row">
-              <a href="./privacy.html" class="settings-privacy-link" target="_blank" rel="noopener">
-                <span><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-lock"/></svg> Privacy &amp; Data Policy</span>
-                <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-external-link"/></svg>
-              </a>
-              <button id="btnResetDefaults" class="btn-reset-defaults" type="button">Reset Defaults</button>
-              <button id="btnClearAllData" class="btn-reset-defaults btn-danger-outline" type="button" aria-describedby="clearAllDataHint">Clear All Data</button>
-            </div>
-            <p id="clearAllDataHint" class="settings-hint">
-              Clear All Data erases everything LyricWave stores on this device: preferences, recent songs, cached lyrics, Last.fm username, Spotify connection and local accounts.
-            </p>
-
           </div>
-        </div>
+        </section>
+
+        <!-- Privacy & data -->
+        <section class="set-section" id="secData" aria-labelledby="secDataTitle">
+          <h3 id="secDataTitle" class="set-section-title">Privacy &amp; data</h3>
+          <div class="set-group">
+            <a href="./privacy.html" class="set-row set-row--link" target="_blank" rel="noopener">
+              <span class="set-row-label">Privacy policy</span>
+              <svg class="icon icon--sm set-row-trail" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-external-link"/></svg>
+            </a>
+            <div class="set-row">
+              <span class="set-row-label">Reset settings</span>
+              <button id="btnResetDefaults" class="set-btn" type="button" aria-label="Reset settings to defaults">Reset</button>
+            </div>
+            <div class="set-row">
+              <span class="set-row-text">
+                <span class="set-row-label">Clear all data</span>
+                <span id="clearAllDataHint" class="set-row-sub">Erases everything stored on this device</span>
+              </span>
+              <button id="btnClearAllData" class="set-btn set-btn--danger" type="button" aria-describedby="clearAllDataHint">Clear</button>
+            </div>
+          </div>
+        </section>
 
       </div>
 
