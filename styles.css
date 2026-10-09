@@ -9585,3 +9585,67 @@ body.stage-open .toast-region {
 .toast-action:active {
   transform: scale(0.97);
 }
+
+/* ===================================================================
+   Fullscreen beat visuals: a canvas layer behind the waves (visuals.js) and a thin neon
+   laser line around the whole screen edge. Both only show while the reel is fullscreen;
+   --fs-beat / --fs-energy (0..1) are set by visuals.js on #reelContainer.
+   =================================================================== */
+@property --laser-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.fs-visuals-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  display: none;
+}
+
+.fs-laser {
+  display: none;
+}
+
+.reel-container:fullscreen .fs-visuals-canvas {
+  display: block;
+}
+
+/* Outer layer carries the glow; the ring itself is the masked ::before (a mask would clip the glow) */
+.reel-container:fullscreen .fs-laser {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 15; /* above the lyrics, below the exit button */
+  pointer-events: none;
+  opacity: calc(0.7 + 0.3 * var(--fs-beat, 0));
+  filter: brightness(calc(1 + 0.6 * var(--fs-beat, 0)))
+    drop-shadow(0 0 calc(3px + 9px * var(--fs-beat, 0)) rgba(255, 255, 255, 0.5));
+}
+
+.reel-container:fullscreen .fs-laser::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: calc(2px + 1px * var(--fs-beat, 0));
+  background: conic-gradient(from var(--laser-angle),
+    #ff2bd6, #7a5cff, #00e5ff, #00ff9c, #ffe600, #ff6a00, #ff2bd6);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  animation: fs-laser-spin 6s linear infinite;
+}
+
+@keyframes fs-laser-spin {
+  to { --laser-angle: 360deg; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reel-container:fullscreen .fs-laser::before {
+    animation: none;
+  }
+}
