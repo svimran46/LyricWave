@@ -5639,6 +5639,15 @@ main.card {
   flex: none;
 }
 
+.charts-genius-link {
+  display: inline-block;
+  margin: 0 0 var(--space-3, 12px);
+  font-size: var(--fs-sm, 0.875rem);
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .discover-updated {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: var(--fs-xs);
