@@ -28,8 +28,6 @@ import { PhoneMediaSource } from './phone-source.js';
 import { UnifiedSyncEngine } from './engine.js';
 import { ReelVisualizer } from './reel.js';
 import { AudioReactive } from './audio-reactive.js';
-import { translateLyrics, defaultTargetLang, TRANSLATE_LANGUAGES, TranslationQuotaError } from './translate.js';
-import { BeatVisuals } from './visuals.js';
 import { signUp, logIn, logOut, getCurrentUser, updateUserPreferences, deleteCurrentAccount } from './user-auth.js';
 
 // DOM Elements: Navigation Tabs
@@ -243,9 +241,6 @@ const settingFontSize = document.getElementById('settingFontSize');
 const lblFontSize = document.getElementById('lblFontSize');
 const settingWordMode = document.getElementById('settingWordMode');
 const settingHaptics = document.getElementById('settingHaptics');
-const settingTranslate = document.getElementById('settingTranslate');
-const settingTranslateLang = document.getElementById('settingTranslateLang');
-const reelLineTranslation = document.getElementById('reelLineTranslation');
 const settingOffsetSlider = document.getElementById('settingOffsetSlider');
 const settingRecognitionProvider = document.getElementById('settingRecognitionProvider');
 const btnSettingsOffsetMinus = document.getElementById('btnSettingsOffsetMinus');
@@ -298,15 +293,6 @@ let currentTheme = THEME_IDS.includes(localStorage.getItem(STORAGE_THEME_KEY)) ?
 let currentAnimStyle = ANIM_STYLES.includes(safeGet(STORAGE_ANIM_KEY)) ? safeGet(STORAGE_ANIM_KEY) : DEFAULT_ANIM_STYLE;
 let hapticsEnabled = safeGet(STORAGE_HAPTICS_KEY) !== 'false';
 let isWordMode = localStorage.getItem(STORAGE_WORD_MODE_KEY) !== 'false';
-// Lyric translation (free MyMemory API, see translate.js)
-const STORAGE_TRANSLATE_KEY = 'lyricwave_translate';
-const STORAGE_TRANSLATE_LANG_KEY = 'lyricwave_translate_lang';
-let isTranslateOn = safeGet(STORAGE_TRANSLATE_KEY) === 'true';
-let translateLang = safeGet(STORAGE_TRANSLATE_LANG_KEY) || defaultTargetLang();
-let currentTranslations = [];
-let currentReelLineIndex = -1;
-let translateRequestId = 0;
-let translateAbort = null;
 let currentFontScale = parseInt(localStorage.getItem(STORAGE_FONT_SCALE_KEY) || '100', 10);
 let deferredInstallPrompt = null;
 let searchDebounceTimer = null;
@@ -625,12 +611,6 @@ reel.setAnimationStyle(currentAnimStyle);
 reel.setAudioReactive(audioReactive);
 reelContainer.dataset.anim = currentAnimStyle;
 
-// Fullscreen beat visuals (bloom / rings / particles + the laser border), active only while the reel is fullscreen.
-const fsVisualsCanvas = document.getElementById('fsVisualsCanvas');
-const beatVisuals = fsVisualsCanvas
-  ? new BeatVisuals(fsVisualsCanvas, reelContainer, { minFrameIntervalMs: reel.minFrameIntervalMs })
-  : null;
-
 // Stage / mini player state
 let stageOpen = false;          // the full-screen Now Playing stage is showing
 let hasTrack = false;           // the engine has a current track (mini player or stage visible)
@@ -716,16 +696,7 @@ function updateStageTick(tick) {
     progressTrack.setAttribute('aria-valuenow', progressInt);
     progressTrack.setAttribute('aria-valuetext', `${elapsedText} of ${durationText}`);
   }
-  const reelState = reel.render(tick.effectiveMs, tick.isPlaying);
-  applyReelState(reelState, tick.effectiveMs);
-  if (beatVisuals?.active) {
-    // 'pulse' already pulled this tick's beat frame; other styles don't read it, so pull it here.
-    let frame = reelState;
-    if (reelState.animationStyle !== 'pulse') {
-      try { frame = audioReactive.getFrame(tick.effectiveMs); } catch { frame = null; }
-    }
-    beatVisuals.render(frame, performance.now());
-  }
+  applyReelState(reel.render(tick.effectiveMs, tick.isPlaying), tick.effectiveMs);
 }
 
 /** Artwork for the stage header and the mini player, with a glyph fallback when missing or broken. */
@@ -844,8 +815,6 @@ const engine = new UnifiedSyncEngine({
 
   onLyricsLoaded: (lyrics) => {
     renderLyricsState(lyrics);
-    currentReelLineIndex = -1;
-    requestTranslations(lyrics);
     audioReactive.setLyrics(lyrics && lyrics.status === 'synced' ? lyrics.syncedLines : []);
     updateBeatSyncUI();
   },
@@ -1087,9 +1056,7 @@ btnMiniPlay?.addEventListener('click', (e) => {
 
 // --- Audio-reactive lifecycle: on while the stage is open (and the app visible) for beat-synced styles.
 function wantAudioReactive() {
-  if (!stageOpen || document.hidden) return false;
-  // Fullscreen always runs the beat visuals, whatever the lyric animation style.
-  return currentAnimStyle === 'pulse' || currentAnimStyle === 'karaoke' || Boolean(document.fullscreenElement);
+  return stageOpen && !document.hidden && (currentAnimStyle === 'pulse' || currentAnimStyle === 'karaoke');
 }
 
 /** Start/stop audio-reactive analysis to match the UI state. Resolves to the resulting mode. */
@@ -2777,93 +2744,10 @@ function renderLyricsState(lyrics) {
   }
 }
 
-// --- Lyric translation --------------------------------------------------------
-function setReelTranslation(text) {
-  if (!reelLineTranslation) return;
-  reelLineTranslation.textContent = text;
-  reelLineTranslation.classList.toggle('hidden', !text);
-}
-
-/** Paint currentTranslations onto the rendered lyrics (list, plain text and the stage line). */
-function applyTranslations() {
-  const lyrics = engine.lyricsData;
-  lineElements.forEach((el, i) => {
-    let sub = el.querySelector('.lyric-translation');
-    const text = currentTranslations[i] || '';
-    if (!text) { sub?.remove(); return; }
-    if (!sub) {
-      sub = document.createElement('span');
-      sub.className = 'lyric-translation';
-      sub.lang = translateLang;
-      el.appendChild(sub);
-    }
-    sub.textContent = text;
-  });
-
-  const plainWrap = lyricsContent.querySelector('.plain-lyrics-wrap');
-  if (plainWrap && lyrics && lyrics.status === 'plain') {
-    const original = String(lyrics.plainLyrics || '').split('\n');
-    if (currentTranslations.some(Boolean)) {
-      plainWrap.innerHTML = original.map((line, i) => {
-        const t = currentTranslations[i];
-        return escapeHtml(line) + (t ? `\n<span class="lyric-translation" lang="${escapeHtml(translateLang)}">${escapeHtml(t)}</span>` : '');
-      }).join('\n');
-    } else {
-      plainWrap.textContent = lyrics.plainLyrics;
-    }
-  }
-
-  setReelTranslation(currentTranslations[currentReelLineIndex] || '');
-}
-
-async function requestTranslations(lyrics) {
-  const requestId = ++translateRequestId;
-  translateAbort?.abort();
-  translateAbort = null;
-  currentTranslations = [];
-  applyTranslations();
-
-  if (!isTranslateOn || !lyrics || (lyrics.status !== 'synced' && lyrics.status !== 'plain')) return;
-
-  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-  translateAbort = controller;
-  try {
-    const translated = await translateLyrics(lyrics, translateLang, { signal: controller?.signal });
-    if (requestId !== translateRequestId || engine.lyricsData !== lyrics) return;
-    currentTranslations = translated;
-    applyTranslations();
-  } catch (err) {
-    if (requestId !== translateRequestId || err?.name === 'AbortError') return;
-    if (err instanceof TranslationQuotaError) {
-      showAlert('Free translation limit reached for today. Lyrics stay in the original language.', 'warning');
-    } else {
-      console.warn('Lyric translation failed:', err);
-    }
-  }
-}
-
-function setTranslateOn(enabled) {
-  isTranslateOn = enabled;
-  safeSet(STORAGE_TRANSLATE_KEY, enabled.toString());
-  if (settingTranslate) settingTranslate.checked = enabled;
-  if (settingTranslateLang) settingTranslateLang.disabled = !enabled;
-  requestTranslations(engine.lyricsData);
-}
-
-function setTranslateLang(lang) {
-  translateLang = lang;
-  safeSet(STORAGE_TRANSLATE_LANG_KEY, lang);
-  if (settingTranslateLang) settingTranslateLang.value = lang;
-  requestTranslations(engine.lyricsData);
-}
-
 function updateReelLine(lineIndex) {
   const lyrics = engine.lyricsData;
   if (!lyrics || !lyrics.syncedLines) return;
   const lines = lyrics.syncedLines;
-
-  currentReelLineIndex = lineIndex;
-  setReelTranslation(currentTranslations[lineIndex] || '');
 
   if (lineIndex < 0 || lineIndex >= lines.length) {
     reelLineText.innerHTML = '<span class="reel-placeholder-text">♫ Prelude / Intro</span>';
@@ -3473,8 +3357,6 @@ document.addEventListener('fullscreenchange', () => {
   btnReelExitFs?.classList.toggle('hidden', !isFs);
   resetCursorIdleTimer();
   reel.resizeCanvas();
-  beatVisuals?.setActive(isFs);
-  syncAudioReactive();
 
   if (isFs || (engine && engine.isPlaying)) {
     requestWakeLock();
@@ -3501,17 +3383,6 @@ if (settingThemeSelect) {
 }
 if (settingFontSize) {
   settingFontSize.addEventListener('input', (e) => applyFontScale(parseInt(e.target.value, 10)));
-}
-if (settingTranslateLang) {
-  settingTranslateLang.innerHTML = TRANSLATE_LANGUAGES
-    .map(([code, name]) => `<option value="${code}">${name}</option>`).join('');
-  settingTranslateLang.value = translateLang;
-  settingTranslateLang.disabled = !isTranslateOn;
-  settingTranslateLang.addEventListener('change', (e) => setTranslateLang(e.target.value));
-}
-if (settingTranslate) {
-  settingTranslate.checked = isTranslateOn;
-  settingTranslate.addEventListener('change', (e) => setTranslateOn(e.target.checked));
 }
 if (settingWordMode) {
   settingWordMode.addEventListener('change', (e) => setWordMode(e.target.checked));
