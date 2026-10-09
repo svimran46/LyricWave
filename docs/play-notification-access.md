@@ -8,14 +8,19 @@ Use the text below in Play Console. Adjust wording to your own voice if you like
 
 ## In-app prominent disclosure (already built)
 
-Shown on the **Phone** tab *before* the user is sent to Android's Notification access screen:
+Shown in the **Follow music on this phone** sheet (opened from **Set up** or **Music on this phone** on the **Now** tab)
+*before* the user is sent to Android's Notification access screen. The sheet always appears first; there is no path
+to the settings screen that skips it:
 
-> LyricWave can follow the song playing in any music app on this phone and keep the lyrics perfectly in sync — no login needed.
-> - Android calls this **Notification access**. LyricWave uses it **only** to read the current song's title, artist and playback position.
-> - It **never** reads your messages or any other notifications, and nothing is stored or uploaded. Only the song title and artist are sent to LRCLIB to find lyrics.
+> LyricWave follows the song playing in any music app on this phone and keeps the lyrics in sync. No login needed.
+> - Android calls this **Notification access**.
+> - Used **only** to read the song title, artist and playback position.
+> - It **never** reads your messages or other notifications.
+> - Nothing is stored or uploaded, except title and artist sent to LRCLIB to find lyrics.
 > - You can turn it off any time in Android settings.
 
-Buttons: **Turn on Notification access** / **Use microphone instead** (the feature is optional; the app works without it).
+Button: **Turn on Notification access**; the sheet can be closed (the feature is optional; the Now tab still offers
+**Identify a song playing nearby** with the microphone, and Search/Charts work without it).
 
 ## App content → Data safety
 
@@ -32,11 +37,11 @@ Buttons: **Turn on Notification access** / **Use microphone instead** (the featu
 > artist, duration and playback position — to apps with an enabled NotificationListenerService
 > (MediaSessionManager.getActiveSessions requires it). LyricWave's listener service does not read, store or transmit any
 > notification content; it exists solely to obtain media-session access. The permission is optional, requested from the
-> Phone tab after an in-app explanation, and users can use microphone recognition or search instead.
+> Now tab after an in-app explanation, and users can use microphone recognition or search instead.
 
 ## Demo video / screenshots (if requested)
 
-1. Open LyricWave → **Phone** tab → show the explanation screen.
+1. Open LyricWave → **Now** tab → tap **Set up** → show the explanation sheet.
 2. Tap **Turn on Notification access** → enable LyricWave → go back.
 3. Start a song in Spotify/YouTube Music → LyricWave shows synced lyrics; pause/seek in either app stays in sync.
 
