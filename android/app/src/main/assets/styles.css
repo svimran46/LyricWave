@@ -9789,10 +9789,16 @@ body.stage-open .toast-region {
   right: 0;
   bottom: calc(var(--dock-h) + var(--space-2));
   left: 0;
-  z-index: 5;
+  z-index: 8; /* above the tap-to-sync line targets (z 6) and the dock (z 4) */
   width: min(calc(100% - 2 * var(--gutter)), 560px);
   margin-inline: auto;
 }
+
+/* While the timing panel is open the reel recentres above it, so every line stays tappable. */
+.stage.sync-mode .stage-hero {
+  padding-bottom: calc(var(--sync-panel-h, 0px) + var(--space-3));
+}
+
 
 .sync-panel {
   display: flex;
@@ -10004,4 +10010,37 @@ body.stage-open .toast-region {
 body.stage-open .toast-region {
   top: calc(var(--stage-header-h) + var(--safe-t) + var(--space-2));
   bottom: auto;
+}
+
+/* Narrow phones: one row per side (label left, buttons right), Reset underneath. */
+@media (max-width: 380px) {
+  .sync-panel {
+    gap: var(--space-2);
+  }
+
+  .sync-steps {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+  }
+
+  .sync-side,
+  .sync-side--end {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .sync-side--end {
+    order: 1;
+  }
+
+  .sync-reset {
+    order: 2;
+    justify-self: center;
+  }
+}
+
+/* With the timing panel open, the line box hugs its text so prev / current / next all fit above the panel. */
+.stage.sync-mode .reel-line-box {
+  min-height: 0;
 }

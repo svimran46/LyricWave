@@ -111,7 +111,7 @@ for (const vp of KEY_VIEWPORTS) {
       await expect(page.locator('#btnSync')).toHaveAttribute('aria-expanded', 'true');
 
       // Songs picked in LyricWave are lyrics-only and the chip says so
-      await expect(page.locator('#trackSourceBadge')).toHaveText('Lyrics only, no audio');
+      await expect(page.locator('#trackSourceBadge')).toHaveText('Lyrics only');
 
       // Verify share button presence in DOM
       const shareBtn = page.locator('#btnShareSong');

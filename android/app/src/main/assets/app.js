@@ -782,8 +782,8 @@ function updateSourceChip(track) {
     label = 'Heard nearby';
     title = 'Identified with the microphone';
   } else {
-    label = 'Lyrics only, no audio';
-    title = 'LyricWave plays no sound for this song: the lyrics run on a timer. Play the song in your music app.';
+    label = 'Lyrics only';
+    title = 'No audio: LyricWave plays no sound for this song, the lyrics run on a timer. Play the song in your music app.';
   }
   trackSourceBadge.textContent = label;
   trackSourceBadge.title = title;
@@ -3116,7 +3116,9 @@ function openSyncPanel() {
   safeSet(STORAGE_SYNC_TIP_KEY, 'true');
   safeSet(STORAGE_SYNC_SEEN_KEY, 'true');
   syncPanel.classList.remove('hidden');
+  activePlaybackView.style.setProperty('--sync-panel-h', `${syncPanel.offsetHeight}px`);
   activePlaybackView.classList.add('sync-mode');
+  requestAnimationFrame(() => reel.resizeCanvas());
   btnSync?.setAttribute('aria-expanded', 'true');
   btnSync?.classList.add('active');
   tapLineBanner?.classList.add('hidden');
@@ -3131,6 +3133,7 @@ function closeSyncPanel({ restoreFocus = true, skipHistory = false, fromHistory 
   syncOpen = false;
   syncPanel.classList.add('hidden');
   activePlaybackView.classList.remove('sync-mode');
+  requestAnimationFrame(() => reel.resizeCanvas());
   btnSync?.setAttribute('aria-expanded', 'false');
   btnSync?.classList.remove('active');
   updateSyncPrompts();
