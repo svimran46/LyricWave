@@ -29,6 +29,7 @@ import { UnifiedSyncEngine } from './engine.js';
 import { ReelVisualizer } from './reel.js';
 import { AudioReactive } from './audio-reactive.js';
 import { translateLyrics, defaultTargetLang, TRANSLATE_LANGUAGES, TranslationQuotaError } from './translate.js';
+import { BeatVisuals } from './visuals.js';
 import { signUp, logIn, logOut, getCurrentUser, updateUserPreferences, deleteCurrentAccount } from './user-auth.js';
 
 // DOM Elements: Navigation Tabs
@@ -624,6 +625,12 @@ reel.setAnimationStyle(currentAnimStyle);
 reel.setAudioReactive(audioReactive);
 reelContainer.dataset.anim = currentAnimStyle;
 
+// Fullscreen beat visuals (bloom / rings / particles + the laser border), active only while the reel is fullscreen.
+const fsVisualsCanvas = document.getElementById('fsVisualsCanvas');
+const beatVisuals = fsVisualsCanvas
+  ? new BeatVisuals(fsVisualsCanvas, reelContainer, { minFrameIntervalMs: reel.minFrameIntervalMs })
+  : null;
+
 // Stage / mini player state
 let stageOpen = false;          // the full-screen Now Playing stage is showing
 let hasTrack = false;           // the engine has a current track (mini player or stage visible)
@@ -709,7 +716,16 @@ function updateStageTick(tick) {
     progressTrack.setAttribute('aria-valuenow', progressInt);
     progressTrack.setAttribute('aria-valuetext', `${elapsedText} of ${durationText}`);
   }
-  applyReelState(reel.render(tick.effectiveMs, tick.isPlaying), tick.effectiveMs);
+  const reelState = reel.render(tick.effectiveMs, tick.isPlaying);
+  applyReelState(reelState, tick.effectiveMs);
+  if (beatVisuals?.active) {
+    // 'pulse' already pulled this tick's beat frame; other styles don't read it, so pull it here.
+    let frame = reelState;
+    if (reelState.animationStyle !== 'pulse') {
+      try { frame = audioReactive.getFrame(tick.effectiveMs); } catch { frame = null; }
+    }
+    beatVisuals.render(frame, performance.now());
+  }
 }
 
 /** Artwork for the stage header and the mini player, with a glyph fallback when missing or broken. */
@@ -1071,7 +1087,9 @@ btnMiniPlay?.addEventListener('click', (e) => {
 
 // --- Audio-reactive lifecycle: on while the stage is open (and the app visible) for beat-synced styles.
 function wantAudioReactive() {
-  return stageOpen && !document.hidden && (currentAnimStyle === 'pulse' || currentAnimStyle === 'karaoke');
+  if (!stageOpen || document.hidden) return false;
+  // Fullscreen always runs the beat visuals, whatever the lyric animation style.
+  return currentAnimStyle === 'pulse' || currentAnimStyle === 'karaoke' || Boolean(document.fullscreenElement);
 }
 
 /** Start/stop audio-reactive analysis to match the UI state. Resolves to the resulting mode. */
@@ -3455,6 +3473,8 @@ document.addEventListener('fullscreenchange', () => {
   btnReelExitFs?.classList.toggle('hidden', !isFs);
   resetCursorIdleTimer();
   reel.resizeCanvas();
+  beatVisuals?.setActive(isFs);
+  syncAudioReactive();
 
   if (isFs || (engine && engine.isPlaying)) {
     requestWakeLock();
