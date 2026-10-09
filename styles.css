@@ -7966,11 +7966,13 @@ button.source-chip::after {
 }
 
 /* Fullscreen keeps a way out */
-.stage .reel-container:fullscreen {
+.stage .reel-container:fullscreen,
+.stage .reel-container.is-pseudo-fs {
   background: var(--bg);
 }
 
-.stage .reel-container:fullscreen .reel-toolbar {
+.stage .reel-container:fullscreen .reel-toolbar,
+.stage .reel-container.is-pseudo-fs .reel-toolbar {
   display: flex;
 }
 
@@ -9649,12 +9651,14 @@ body.stage-open .toast-region {
   display: none;
 }
 
-.reel-container:fullscreen .fs-visuals-canvas {
+.reel-container:fullscreen .fs-visuals-canvas,
+.reel-container.is-pseudo-fs .fs-visuals-canvas {
   display: block;
 }
 
 /* Outer layer carries the glow; the ring itself is the masked ::before (a mask would clip the glow) */
-.reel-container:fullscreen .fs-laser {
+.reel-container:fullscreen .fs-laser,
+.reel-container.is-pseudo-fs .fs-laser {
   display: block;
   position: absolute;
   inset: 0;
@@ -9665,7 +9669,8 @@ body.stage-open .toast-region {
     drop-shadow(0 0 calc(3px + 9px * var(--fs-beat, 0)) rgba(255, 255, 255, 0.5));
 }
 
-.reel-container:fullscreen .fs-laser::before {
+.reel-container:fullscreen .fs-laser::before,
+.reel-container.is-pseudo-fs .fs-laser::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -9683,7 +9688,23 @@ body.stage-open .toast-region {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .reel-container:fullscreen .fs-laser::before {
+  .reel-container:fullscreen .fs-laser::before,
+.reel-container.is-pseudo-fs .fs-laser::before {
     animation: none;
   }
+}
+
+/* Pseudo-fullscreen (app.js setPseudoFullscreen): the reel covers the whole window when the
+   Fullscreen API isn't available, e.g. inside the Android app's WebView or on iPhone Safari. */
+.reel-container.is-pseudo-fs {
+  position: fixed !important;
+  inset: 0;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-width: none !important;
+  margin: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  z-index: 2147483000;
 }
