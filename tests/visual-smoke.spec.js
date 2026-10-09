@@ -11,6 +11,7 @@
  * - Zero horizontal scroll (scrollWidth <= clientWidth)
  * - Touch targets >= 44x44px
  * - Dialog visibility & stage non-obscuring
+ * - Lyrics timing tip + Sync panel on the lyrics screen
  * - Captures baseline visual regression screenshots
  */
 
@@ -85,22 +86,32 @@ for (const vp of KEY_VIEWPORTS) {
       await page.screenshot({ path: `screenshots/smoke_${vp.name}_settings.png` });
     });
 
-    test('first-run onboarding hint is dismissible and share button exists', async ({ page }) => {
-      // Clear localStorage to test pristine first-run state
+    test('lyrics timing tip shows once on the lyrics screen, and Sync opens the timing panel', async ({ page }) => {
+      // A recently identified song opens the lyrics screen without any network lookups for the song itself.
       await page.goto('/');
-      await page.evaluate(() => localStorage.removeItem('lyricwave_first_run_dismissed'));
+      await page.evaluate(() => {
+        localStorage.removeItem('lyricwave_sync_tip_seen');
+        localStorage.setItem('lyricwave_recent_songs', JSON.stringify([
+          { title: 'Test Song', artist: 'Test Artist', album: '', albumArt: '', durationSec: 180, durationMs: 180000 }
+        ]));
+      });
       await page.reload();
+      await page.click('.recent-song-item');
 
-      const hint = page.locator('#firstRunHint');
-      await expect(hint).toBeVisible();
+      const tip = page.locator('#syncTip');
+      await expect(tip).toBeVisible();
+      await page.click('#btnDismissSyncTip');
+      await expect(tip).toBeHidden();
+      const seen = await page.evaluate(() => localStorage.getItem('lyricwave_sync_tip_seen'));
+      expect(seen).toBe('true');
 
-      // Dismiss first run hint
-      await page.click('#btnDismissFirstRun');
-      await expect(hint).toBeHidden();
+      // Timing lives behind the Sync dock button
+      await page.click('#btnSync');
+      await expect(page.locator('#syncPanel')).toBeVisible();
+      await expect(page.locator('#btnSync')).toHaveAttribute('aria-expanded', 'true');
 
-      // Verify dismissal persisted
-      const isDismissed = await page.evaluate(() => localStorage.getItem('lyricwave_first_run_dismissed'));
-      expect(isDismissed).toBe('true');
+      // Songs picked in LyricWave are lyrics-only and the chip says so
+      await expect(page.locator('#trackSourceBadge')).toHaveText('Lyrics only, no audio');
 
       // Verify share button presence in DOM
       const shareBtn = page.locator('#btnShareSong');

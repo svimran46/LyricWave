@@ -153,16 +153,6 @@
     <!-- Main Content Area / Right Pane -->
     <main class="card" id="mainCard">
 
-      <!-- First-Run Onboarding Hint Banner -->
-      <div id="firstRunHint" class="first-run-hint hidden" role="note" aria-label="First-time guidance">
-        <div class="first-run-icon" aria-hidden="true"><svg class="icon icon--lg" width="28" height="28" aria-hidden="true" focusable="false"><use href="#i-sparkles"/></svg></div>
-        <div class="first-run-body">
-          <strong>Welcome to LyricWave</strong>
-          <p>Pick a source below. Lyrics running early or late? Nudge them with <strong>−0.1s / +0.1s</strong>.</p>
-        </div>
-        <button id="btnDismissFirstRun" class="btn-dismiss-first-run" type="button" aria-label="Dismiss first-run hint"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
-      </div>
-
       <!-- Developer Mode Banner (Shown ONLY on localhost or with ?dev=1) -->
       <div id="devModeBanner" class="dev-mode-banner hidden" role="region" aria-label="Developer mode">
         <div class="dev-banner-header">
@@ -516,6 +506,39 @@
       </div>
     </div>
 
+    <!-- One-time tip: where lyric timing lives now -->
+    <div id="syncTip" class="sync-tip hidden" role="note">
+      <p class="sync-tip-text">Lyrics early or late? Fix the timing here.</p>
+      <button id="btnDismissSyncTip" class="sync-tip-close" type="button" aria-label="Dismiss tip"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
+    </div>
+
+    <!-- Lyrics timing (opened by the Sync dock button). + shows lyrics sooner, − shows them later. -->
+    <div id="syncPanel" class="sync-panel hidden" role="group" aria-labelledby="syncPanelTitle">
+      <div class="sync-panel-head">
+        <h3 id="syncPanelTitle" class="sync-panel-title">Lyrics timing</h3>
+        <span id="syncReadout" class="sync-readout" aria-live="polite">On time</span>
+        <button id="btnCloseSync" class="sync-close" type="button" aria-label="Close lyrics timing"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-close"/></svg></button>
+      </div>
+      <div class="sync-steps">
+        <div class="sync-side">
+          <span class="sync-side-label">Lyrics early?</span>
+          <div class="sync-side-btns">
+            <button id="btnSyncLater1" class="sync-step" type="button" aria-label="Lyrics early: show them 1 second later">&minus;1s</button>
+            <button id="btnNudgeMinus" class="sync-step" type="button" aria-label="Lyrics early: show them 0.1 seconds later" title="Show lyrics later (&minus;0.1s) [&darr;]">&minus;0.1s</button>
+          </div>
+        </div>
+        <button id="btnSyncReset" class="sync-reset" type="button" aria-label="Reset lyrics timing">Reset</button>
+        <div class="sync-side sync-side--end">
+          <span class="sync-side-label">Lyrics late?</span>
+          <div class="sync-side-btns">
+            <button id="btnNudgePlus" class="sync-step" type="button" aria-label="Lyrics late: show them 0.1 seconds sooner" title="Show lyrics sooner (+0.1s) [&uarr;]">+0.1s</button>
+            <button id="btnSyncSooner1" class="sync-step" type="button" aria-label="Lyrics late: show them 1 second sooner">+1s</button>
+          </div>
+        </div>
+      </div>
+      <p class="sync-hint">Or tap the line being sung right now.</p>
+    </div>
+
     <!-- Control dock (thumb zone) -->
     <div class="control-dock">
       <div class="dock-progress">
@@ -529,14 +552,16 @@
       </div>
 
       <div class="dock-row" role="group" aria-label="Playback controls">
-        <button id="btnNudgeMinus" class="dock-btn dock-nudge" type="button" aria-label="Nudge lyrics earlier 0.1 seconds" title="Lyrics earlier (&minus;0.1s) [&darr;]">&minus;0.1s</button>
+        <button id="btnSync" class="dock-btn dock-sync" type="button" aria-expanded="false" aria-controls="syncPanel" aria-label="Lyrics timing" title="Lyrics early or late? Fix the timing">
+          <svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-timer"/></svg>
+          <span id="syncAttentionDot" class="dock-attention-dot hidden" aria-hidden="true"></span>
+        </button>
         <button id="btnSeekBack" class="dock-btn" type="button" aria-label="Rewind 5 seconds" title="Rewind 5 seconds"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-rewind-5"/></svg></button>
         <button id="btnPlayPause" class="dock-btn dock-btn--primary" type="button" aria-label="Pause" title="Play / Pause (Space)">
           <svg id="iconPlay" class="icon hidden" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-play"/></svg>
           <svg id="iconPause" class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-pause"/></svg>
         </button>
         <button id="btnSeekForward" class="dock-btn" type="button" aria-label="Forward 5 seconds" title="Forward 5 seconds"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-forward-5"/></svg></button>
-        <button id="btnNudgePlus" class="dock-btn dock-nudge" type="button" aria-label="Nudge lyrics later 0.1 seconds" title="Lyrics later (+0.1s) [&uarr;]">+0.1s</button>
         <button id="btnMoreSheet" class="dock-btn dock-more" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="moreSheet" aria-label="More options" title="More options"><svg class="icon" width="24" height="24" aria-hidden="true" focusable="false"><use href="#i-more-horizontal"/></svg></button>
       </div>
     </div>
@@ -599,167 +624,6 @@
       </div>
 
       <div class="sheet-body">
-
-        <section class="sheet-section" aria-labelledby="sheetThemeTitle">
-          <h3 id="sheetThemeTitle" class="sheet-section-title">Theme</h3>
-          <div class="theme-grid" role="radiogroup" aria-labelledby="sheetThemeTitle">
-            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="adaptive">
-              <div class="theme-swatch-preview preview-adaptive">
-                <span class="theme-preview-dot dot-adaptive"></span>
-                <span class="theme-preview-lyric lyric-adaptive">♫ Adaptive Art</span>
-              </div>
-              <div class="theme-swatch-meta">
-                <span class="theme-swatch-name">Adaptive</span>
-                <span class="theme-swatch-desc">Album colors</span>
-              </div>
-              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
-            </button>
-
-            <button type="button" role="radio" aria-checked="true" class="theme-swatch-card active" data-theme-card="aurora">
-              <div class="theme-swatch-preview preview-aurora">
-                <span class="theme-preview-dot dot-aurora"></span>
-                <span class="theme-preview-lyric lyric-aurora">♫ Indigo Mint</span>
-              </div>
-              <div class="theme-swatch-meta">
-                <span class="theme-swatch-name">Aurora</span>
-                <span class="theme-swatch-desc">Indigo &amp; mint</span>
-              </div>
-              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
-            </button>
-
-            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="vinyl">
-              <div class="theme-swatch-preview preview-vinyl">
-                <span class="theme-preview-dot dot-vinyl"></span>
-                <span class="theme-preview-lyric lyric-vinyl">♫ Amber Serif</span>
-              </div>
-              <div class="theme-swatch-meta">
-                <span class="theme-swatch-name">Vinyl</span>
-                <span class="theme-swatch-desc">Warm charcoal</span>
-              </div>
-              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
-            </button>
-
-            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="paper">
-              <div class="theme-swatch-preview preview-paper">
-                <span class="theme-preview-dot dot-paper"></span>
-                <span class="theme-preview-lyric lyric-paper">♫ Ink Minimal</span>
-              </div>
-              <div class="theme-swatch-meta">
-                <span class="theme-swatch-name">Paper</span>
-                <span class="theme-swatch-desc">Clean light</span>
-              </div>
-              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
-            </button>
-
-            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="neon">
-              <div class="theme-swatch-preview preview-neon">
-                <span class="theme-preview-dot dot-neon"></span>
-                <span class="theme-preview-lyric lyric-neon">♫ Cyan Glow</span>
-              </div>
-              <div class="theme-swatch-meta">
-                <span class="theme-swatch-name">Neon</span>
-                <span class="theme-swatch-desc">High contrast</span>
-              </div>
-              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
-            </button>
-
-            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="pixel">
-              <div class="theme-swatch-preview preview-pixel">
-                <span class="theme-preview-dot dot-pixel"></span>
-                <span class="theme-preview-lyric lyric-pixel">♫ 8-bit Beat</span>
-              </div>
-              <div class="theme-swatch-meta">
-                <span class="theme-swatch-name">Pixel</span>
-                <span class="theme-swatch-desc">Retro arcade</span>
-              </div>
-              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
-            </button>
-
-            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="minimal">
-              <div class="theme-swatch-preview preview-minimal">
-                <span class="theme-preview-dot dot-minimal"></span>
-                <span class="theme-preview-lyric lyric-minimal">♫ Quiet Type</span>
-              </div>
-              <div class="theme-swatch-meta">
-                <span class="theme-swatch-name">Minimal</span>
-                <span class="theme-swatch-desc">Calm &amp; simple</span>
-              </div>
-              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
-            </button>
-
-            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="sunset">
-              <div class="theme-swatch-preview preview-sunset">
-                <span class="theme-preview-dot dot-sunset"></span>
-                <span class="theme-preview-lyric lyric-sunset">♫ Golden Hour</span>
-              </div>
-              <div class="theme-swatch-meta">
-                <span class="theme-swatch-name">Sunset</span>
-                <span class="theme-swatch-desc">Warm gradient</span>
-              </div>
-              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
-            </button>
-
-            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="ocean">
-              <div class="theme-swatch-preview preview-ocean">
-                <span class="theme-preview-dot dot-ocean"></span>
-                <span class="theme-preview-lyric lyric-ocean">♫ Teal Tide</span>
-              </div>
-              <div class="theme-swatch-meta">
-                <span class="theme-swatch-name">Ocean</span>
-                <span class="theme-swatch-desc">Deep blue</span>
-              </div>
-              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
-            </button>
-
-            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="sakura">
-              <div class="theme-swatch-preview preview-sakura">
-                <span class="theme-preview-dot dot-sakura"></span>
-                <span class="theme-preview-lyric lyric-sakura">♫ Cherry Bloom</span>
-              </div>
-              <div class="theme-swatch-meta">
-                <span class="theme-swatch-name">Sakura</span>
-                <span class="theme-swatch-desc">Soft pink</span>
-              </div>
-              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
-            </button>
-
-            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="mono">
-              <div class="theme-swatch-preview preview-mono">
-                <span class="theme-preview-dot dot-mono"></span>
-                <span class="theme-preview-lyric lyric-mono">♫ Pure White</span>
-              </div>
-              <div class="theme-swatch-meta">
-                <span class="theme-swatch-name">Mono</span>
-                <span class="theme-swatch-desc">True black OLED</span>
-              </div>
-              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
-            </button>
-
-            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="synthwave">
-              <div class="theme-swatch-preview preview-synthwave">
-                <span class="theme-preview-dot dot-synthwave"></span>
-                <span class="theme-preview-lyric lyric-synthwave">♫ Neon Grid</span>
-              </div>
-              <div class="theme-swatch-meta">
-                <span class="theme-swatch-name">Synthwave</span>
-                <span class="theme-swatch-desc">Pink &amp; purple</span>
-              </div>
-              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
-            </button>
-
-            <button type="button" role="radio" aria-checked="false" class="theme-swatch-card" data-theme-card="forest">
-              <div class="theme-swatch-preview preview-forest">
-                <span class="theme-preview-dot dot-forest"></span>
-                <span class="theme-preview-lyric lyric-forest">♫ Moss Light</span>
-              </div>
-              <div class="theme-swatch-meta">
-                <span class="theme-swatch-name">Forest</span>
-                <span class="theme-swatch-desc">Calm greens</span>
-              </div>
-              <span class="theme-swatch-check" aria-hidden="true"><svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-check"/></svg></span>
-            </button>
-          </div>
-        </section>
 
         <section class="sheet-section" aria-labelledby="sheetAnimTitle">
           <h3 id="sheetAnimTitle" class="sheet-section-title">Lyric animation</h3>
@@ -827,38 +691,6 @@
             <span class="sheet-row-label">Auto re-listen</span>
             <strong id="autoRelistenLabel" class="sheet-row-value">Off</strong>
           </button>
-        </section>
-
-        <section class="sheet-section" aria-labelledby="sheetSyncTitle">
-          <h3 id="sheetSyncTitle" class="sheet-section-title">Sync</h3>
-          <button id="btnNudgeReset" class="sheet-row" type="button" aria-label="Reset sync offset" title="Reset sync offset">
-            <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-timer"/></svg>
-            <span class="sheet-row-label">Sync offset (tap to reset)</span>
-            <span id="onStageOffsetLabel" class="sheet-row-value">0.0s</span>
-          </button>
-          <button id="btnToggleOffset" class="sheet-row" type="button" aria-expanded="false" aria-controls="offsetDrawer" aria-label="Toggle latency calibration drawer" title="Adjust latency offset">
-            <svg class="icon icon--sm" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-sliders"/></svg>
-            <span class="sheet-row-label">Fine-tune sync</span>
-            <svg class="icon icon--sm sheet-row-chevron" width="18" height="18" aria-hidden="true" focusable="false"><use href="#i-chevron-down"/></svg>
-          </button>
-
-          <!-- Latency calibration drawer -->
-          <div id="offsetDrawer" class="offset-drawer hidden">
-            <div class="offset-header">
-              <span class="offset-title">Latency Calibration</span>
-              <span class="offset-help">Adjust if lyrics lead or lag behind what you hear</span>
-            </div>
-            <div class="offset-controls-row">
-              <button id="btnOffsetMinus" class="btn-step" type="button" title="Shift earlier (-0.1s)">&minus;0.1s</button>
-              <input id="offsetSlider" type="range" min="-5000" max="5000" step="100" value="0" class="offset-slider" aria-label="Lyric latency offset in milliseconds">
-              <button id="btnOffsetPlus" class="btn-step" type="button" title="Shift later (+0.1s)">+0.1s</button>
-              <button id="btnOffsetReset" class="btn-reset" type="button" title="Reset offset to 0">Reset</button>
-            </div>
-            <div class="offset-readout">
-              <span>Current Offset: <strong id="offsetValueText">+0.0s (0 ms)</strong></span>
-              <span class="offset-hint">(Saved automatically)</span>
-            </div>
-          </div>
         </section>
 
         <section class="sheet-section" aria-labelledby="sheetAppTitle">
@@ -1415,7 +1247,7 @@
       <div class="modal-body">
         <div class="shortcut-list">
           <div class="shortcut-row">
-            <span class="shortcut-action">Listen / Stop Microphone</span>
+            <span class="shortcut-action">Play / pause (listen when nothing is loaded)</span>
             <kbd class="shortcut-key">Space</kbd>
           </div>
           <div class="shortcut-row">
@@ -1427,11 +1259,11 @@
             <kbd class="shortcut-key">S</kbd>
           </div>
           <div class="shortcut-row">
-            <span class="shortcut-action">Nudge Sync Earlier (−0.1s)</span>
+            <span class="shortcut-action">Lyrics early? Show them later (−0.1s)</span>
             <kbd class="shortcut-key">↓</kbd>
           </div>
           <div class="shortcut-row">
-            <span class="shortcut-action">Nudge Sync Later (+0.1s)</span>
+            <span class="shortcut-action">Lyrics late? Show them sooner (+0.1s)</span>
             <kbd class="shortcut-key">↑</kbd>
           </div>
           <div class="shortcut-row">

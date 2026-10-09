@@ -216,8 +216,16 @@ const btnSeekForward = document.getElementById('btnSeekForward');
 const btnResync = document.getElementById('btnResync');
 const btnListenAgain = document.getElementById('btnListenAgain');
 const btnShareSong = document.getElementById('btnShareSong');
-const firstRunHint = document.getElementById('firstRunHint');
-const btnDismissFirstRun = document.getElementById('btnDismissFirstRun');
+const btnSync = document.getElementById('btnSync');
+const syncPanel = document.getElementById('syncPanel');
+const syncReadout = document.getElementById('syncReadout');
+const btnCloseSync = document.getElementById('btnCloseSync');
+const btnSyncLater1 = document.getElementById('btnSyncLater1');
+const btnSyncSooner1 = document.getElementById('btnSyncSooner1');
+const btnSyncReset = document.getElementById('btnSyncReset');
+const syncAttentionDot = document.getElementById('syncAttentionDot');
+const syncTip = document.getElementById('syncTip');
+const btnDismissSyncTip = document.getElementById('btnDismissSyncTip');
 const progressTrack = document.getElementById('progressTrack');
 const progressBarFill = document.getElementById('progressBarFill');
 const timeElapsed = document.getElementById('timeElapsed');
@@ -284,7 +292,8 @@ const STORAGE_WORD_MODE_KEY = 'lyricwave_word_mode';
 const STORAGE_FONT_SCALE_KEY = 'lyricwave_font_scale';
 const STORAGE_LAST_SOURCE_KEY = 'lyricwave_last_source';
 const STORAGE_RECENT_SONGS_KEY = 'lyricwave_recent_songs';
-const STORAGE_FIRST_RUN_DISMISSED_KEY = 'lyricwave_first_run_dismissed';
+const STORAGE_SYNC_TIP_KEY = 'lyricwave_sync_tip_seen';     // one-time "timing lives under Sync" tip
+const STORAGE_SYNC_SEEN_KEY = 'lyricwave_sync_seen';         // the Sync panel has been opened at least once
 const STORAGE_DISCOVER_VIEW_KEY = 'lyricwave_discover_view';
 const STORAGE_ANIM_KEY = 'lyricwave_lyric_anim';
 const STORAGE_HAPTICS_KEY = 'lyricwave_haptics';
@@ -316,6 +325,7 @@ let nowUiReady = false;         // renderNow() waits until init() so it never to
 let nowMode = 'idle';           // 'following' a live source | 'paused' (user picked another song) | 'idle'
 let micExpanded = false;        // the microphone block is open on Now even though another block leads
 let phoneSheetOpen = false;     // the Notification access disclosure sheet (Android)
+let syncOpen = false;           // the Lyrics timing panel on the stage
 let isOffsetDrawerOpen = false;
 let currentTheme = THEME_IDS.includes(localStorage.getItem(STORAGE_THEME_KEY)) ? localStorage.getItem(STORAGE_THEME_KEY) : getDefaultTheme();
 let currentAnimStyle = ANIM_STYLES.includes(safeGet(STORAGE_ANIM_KEY)) ? safeGet(STORAGE_ANIM_KEY) : DEFAULT_ANIM_STYLE;
@@ -750,6 +760,37 @@ function setArtwork(url) {
   return clean;
 }
 
+/**
+ * Stage header chip: where these lyrics come from, in plain words. Songs picked from Search, Charts or
+ * Recently identified play no audio here, and the chip says so.
+ */
+function updateSourceChip(track) {
+  if (!trackSourceBadge) return;
+  const chip = trackSourceBadge.closest('.source-chip');
+  const source = track?.source;
+  let label;
+  let title = '';
+  if (source === 'phone') {
+    label = phoneAppName || 'This phone';
+    title = `Following ${phoneAppName || 'the music app'} on this phone`;
+  } else if (source === 'spotify') {
+    label = 'Spotify';
+    title = 'Following your Spotify playback';
+  } else if (source === 'lastfm') {
+    label = 'Last.fm (approximate)';
+    title = 'Last.fm lyrics start at 0:00 on each song. Use Sync to fix the timing.';
+  } else if (source === 'mic') {
+    label = 'Heard nearby';
+    title = 'Identified with the microphone';
+  } else {
+    label = 'Lyrics only, no audio';
+    title = 'LyricWave plays no sound for this song: the lyrics run on a timer. Play the song in your music app.';
+  }
+  trackSourceBadge.textContent = label;
+  trackSourceBadge.title = title;
+  chip?.classList.toggle('is-silent', !AUTONOMOUS_SOURCES.has(source) && source !== 'mic');
+}
+
 const engine = new UnifiedSyncEngine({
   onTrackChange: (track) => {
     hasTrack = true;
@@ -775,13 +816,7 @@ const engine = new UnifiedSyncEngine({
     if (nowLiveLine) nowLiveLine.textContent = '';
     btnMiniOpen?.setAttribute('aria-label', `Open now playing: ${track.title}${artistText ? ` by ${artistText}` : ''}`);
 
-    if (track.isApproximate || track.source === 'lastfm') {
-      trackSourceBadge.textContent = 'APPROXIMATE';
-      trackSourceBadge.title = 'Last.fm sync starts at 0s on track change. Use the sync offset in the More sheet to calibrate.';
-    } else {
-      trackSourceBadge.textContent = track.source?.toUpperCase() || 'LIVE';
-      trackSourceBadge.title = '';
-    }
+    updateSourceChip(track);
 
     const cleanArt = setArtwork(track.albumArt);
     // If user is on Album Adaptive theme, extract and apply palette immediately
@@ -1007,7 +1042,7 @@ function finishNavTraversal() {
   const queued = navPushQueue.splice(0);
   queued.forEach((name) => {
     // Only re-push overlays that are still open.
-    if ((name === 'stage' && stageOpen) || (name === 'sheet' && sheetOpen) || (name === 'phoneAccess' && phoneSheetOpen)) pushNav(name);
+    if ((name === 'stage' && stageOpen) || (name === 'sheet' && sheetOpen) || (name === 'phoneAccess' && phoneSheetOpen) || (name === 'sync' && syncOpen)) pushNav(name);
   });
 }
 
@@ -1039,6 +1074,7 @@ window.addEventListener('popstate', (event) => {
   // Close whatever is open but not part of the entry we landed on (closing is idempotent).
   if (phoneSheetOpen && !landed.includes('phoneAccess')) closePhoneAccessSheet({ fromHistory: true });
   if (sheetOpen && !landed.includes('sheet')) closeMoreSheet({ fromHistory: true });
+  if (syncOpen && !landed.includes('sync')) closeSyncPanel({ fromHistory: true, restoreFocus: false });
   if (stageOpen && !landed.includes('stage')) closeStage({ fromHistory: true, userInitiated: !navTraversalPending });
   if (navTraversalPending) finishNavTraversal();
 });
@@ -1059,12 +1095,14 @@ function openStage({ auto = false, focus = true } = {}) {
     centerActiveLine('auto');
   });
   syncAudioReactive();
-  if (focus) btnStageCollapse?.focus({ preventScroll: true });
+  updateSyncPrompts();
+  if (focus && !isModalOpen()) btnStageCollapse?.focus({ preventScroll: true });
 }
 
 function closeStage({ restoreFocus = true, fromHistory = false, userInitiated = false } = {}) {
   if (!stageOpen) return;
   if (sheetOpen) closeMoreSheet({ restoreFocus: false, skipHistory: true });
+  if (syncOpen) closeSyncPanel({ restoreFocus: false, skipHistory: true });
   if (document.fullscreenElement) {
     try { document.exitFullscreen?.()?.catch?.(() => {}); } catch {}
   }
@@ -1909,11 +1947,8 @@ function renderCharts(songs) {
     card.className = `chart-song-card rank-${rank <= 3 ? rank : 'other'}`;
 
     const showGenreTag = Boolean(song.genre) && song.genre !== 'Hot';
-    const tagRow = (showGenreTag || rank <= 5)
-      ? `<div class="chart-song-tag-row">
-          ${showGenreTag ? `<span class="chart-genre-tag">${escapeHtml(song.genre)}</span>` : ''}
-          ${rank <= 5 ? `<span class="chart-fire-tag">${icon('flame', 'sm')} Trending</span>` : ''}
-        </div>`
+    const tagRow = showGenreTag
+      ? `<div class="chart-song-tag-row"><span class="chart-genre-tag">${escapeHtml(song.genre)}</span></div>`
       : '';
 
     card.innerHTML = `
@@ -1925,9 +1960,9 @@ function renderCharts(songs) {
         ${tagRow}
       </div>
       <div class="chart-song-action">
-        <button class="btn-chart-play btn-chart-play--icon" type="button" aria-label="Play synced lyrics for #${rank}: ${escapeHtml(song.title)} by ${escapeHtml(song.artist)}">
-          ${icon('play', 'sm')}
-          <span class="btn-label">Play</span>
+        <button class="btn-chart-lyrics" type="button" aria-label="Open synced lyrics for #${rank}: ${escapeHtml(song.title)} by ${escapeHtml(song.artist)} (no audio)">
+          ${icon('file-text', 'sm')}
+          <span>Lyrics</span>
         </button>
       </div>
     `;
@@ -1948,14 +1983,18 @@ function renderCharts(songs) {
         durationEstimated: true,
         source: 'chart'
       }, true);
-      showAlert(`Lyrics for #${rank}: "${song.title}"`, 'success');
+      // Say once that chart songs are lyrics only (the stage chip keeps saying it after that).
+      if (safeGet('lyricwave_lyrics_only_hint') !== 'true') {
+        safeSet('lyricwave_lyrics_only_hint', 'true');
+        showAlert('Lyrics only: LyricWave plays no sound for chart songs. Play the song in your music app.', 'info');
+      }
     };
 
     // Pointer users can tap anywhere on the row; keyboard / screen-reader users use the Play button
     // (one tab stop per row, no nested interactive controls).
     card.addEventListener('click', startChartPlayback);
 
-    const playBtn = card.querySelector('.btn-chart-play');
+    const playBtn = card.querySelector('.btn-chart-lyrics');
     if (playBtn) {
       playBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -2805,11 +2844,8 @@ function renderLyricsState(lyrics) {
 
     // If no offset was returned by provider, show "Tap the line you're hearing" banner
     if (tapLineBanner) {
-      if (engine.track && engine.track.hasOffset === false) {
-        tapLineBanner.classList.remove('hidden');
-      } else {
-        tapLineBanner.classList.add('hidden');
-      }
+      const tipShowing = syncTip && !syncTip.classList.contains('hidden');
+      tapLineBanner.classList.toggle('hidden', !(engine.track && engine.track.hasOffset === false) || tipShowing || syncOpen);
     }
 
     const fragment = document.createDocumentFragment();
@@ -2819,9 +2855,10 @@ function renderLyricsState(lyrics) {
       el.id = `line-${index}`;
       el.textContent = line.text || '♪';
 
-      // Tapping a line performs non-destructive sync alignment (seeks playback without clearing state)
+      // With the timing panel open a tap fixes the timing; otherwise it jumps to that line.
       el.addEventListener('click', () => {
-        engine.seekMs(line.timeMs);
+        if (syncOpen) syncToLine(index);
+        else engine.seekMs(line.timeMs);
         if (tapLineBanner) tapLineBanner.classList.add('hidden');
       });
 
@@ -3012,6 +3049,11 @@ function updateOffsetUI() {
 
   if (settingOffsetSlider) settingOffsetSlider.value = ms.toString();
   if (lblSettingsOffset) lblSettingsOffset.textContent = text;
+  // The offset in words: a positive offset shows lyrics sooner (effective position = position + offset).
+  if (syncReadout) {
+    const abs = Math.abs(ms / 1000).toFixed(1);
+    syncReadout.textContent = ms === 0 ? 'On time' : (ms > 0 ? `Showing ${abs}s sooner` : `Showing ${abs}s later`);
+  }
 }
 
 function setOffset(newMs) {
@@ -3033,10 +3075,93 @@ if (btnOffsetMinus) btnOffsetMinus.addEventListener('click', () => setOffset(eng
 if (btnOffsetPlus) btnOffsetPlus.addEventListener('click', () => setOffset(engine.getOffset() + 100));
 if (btnOffsetReset) btnOffsetReset.addEventListener('click', () => setOffset(0));
 
-// On-stage live sync nudge controls
+// Lyrics timing panel (Sync in the dock). + shows lyrics sooner, − shows them later.
 if (btnNudgeMinus) btnNudgeMinus.addEventListener('click', () => setOffset(engine.getOffset() - 100));
 if (btnNudgePlus) btnNudgePlus.addEventListener('click', () => setOffset(engine.getOffset() + 100));
 if (btnNudgeReset) btnNudgeReset.addEventListener('click', () => setOffset(0));
+btnSyncLater1?.addEventListener('click', () => setOffset(engine.getOffset() - 1000));
+btnSyncSooner1?.addEventListener('click', () => setOffset(engine.getOffset() + 1000));
+btnSyncReset?.addEventListener('click', () => setOffset(0));
+syncPanel?.addEventListener('click', (e) => {
+  if (e.target.closest('.sync-step, .sync-reset')) haptic('light');
+});
+
+/** Sources whose clock drifts from what you hear: suggest Sync until it has been used once. */
+function isDriftingSource(track) {
+  return Boolean(track && (track.source === 'mic' || track.source === 'lastfm' || track.isApproximate));
+}
+
+/** One timing prompt at a time: the first-use tip, then the "tap the line" banner, then the dot on Sync. */
+function updateSyncPrompts() {
+  const tipSeen = safeGet(STORAGE_SYNC_TIP_KEY) === 'true';
+  const showTip = stageOpen && hasTrack && !tipSeen && !syncOpen;
+  syncTip?.classList.toggle('hidden', !showTip);
+  if (showTip) tapLineBanner?.classList.add('hidden');
+  const suggest = hasTrack && tipSeen && !syncOpen && safeGet(STORAGE_SYNC_SEEN_KEY) !== 'true' && isDriftingSource(engine.track);
+  syncAttentionDot?.classList.toggle('hidden', !suggest);
+  btnSync?.setAttribute('aria-label', suggest ? 'Lyrics timing (suggested)' : 'Lyrics timing');
+}
+
+function dismissSyncTip() {
+  safeSet(STORAGE_SYNC_TIP_KEY, 'true');
+  updateSyncPrompts();
+}
+
+function openSyncPanel() {
+  if (syncOpen || !stageOpen || !syncPanel) return;
+  syncOpen = true;
+  safeSet(STORAGE_SYNC_TIP_KEY, 'true');
+  safeSet(STORAGE_SYNC_SEEN_KEY, 'true');
+  syncPanel.classList.remove('hidden');
+  activePlaybackView.classList.add('sync-mode');
+  btnSync?.setAttribute('aria-expanded', 'true');
+  btnSync?.classList.add('active');
+  tapLineBanner?.classList.add('hidden');
+  updateOffsetUI();
+  updateSyncPrompts();
+  pushNav('sync');
+  setTimeout(() => { if (syncOpen) btnNudgePlus?.focus({ preventScroll: true }); }, 50);
+}
+
+function closeSyncPanel({ restoreFocus = true, skipHistory = false, fromHistory = false } = {}) {
+  if (!syncOpen) return;
+  syncOpen = false;
+  syncPanel.classList.add('hidden');
+  activePlaybackView.classList.remove('sync-mode');
+  btnSync?.setAttribute('aria-expanded', 'false');
+  btnSync?.classList.remove('active');
+  updateSyncPrompts();
+  if (!skipHistory && !fromHistory) unwindNav('sync');
+  if (restoreFocus && stageOpen) btnSync?.focus({ preventScroll: true });
+}
+
+btnSync?.addEventListener('click', () => (syncOpen ? closeSyncPanel() : openSyncPanel()));
+btnCloseSync?.addEventListener('click', () => closeSyncPanel());
+
+/**
+ * Tap-to-sync: while the timing panel is open, tapping a lyric line means "this line is being sung now",
+ * so the offset moves that line's start to the current position. Works for every source (no seeking the music app).
+ */
+function syncToLine(index) {
+  const lines = engine.lyricsData?.syncedLines;
+  const line = lines && lines[index];
+  if (!line) return;
+  const wanted = line.timeMs - engine.getPositionMs();
+  const clamped = Math.max(-5000, Math.min(5000, Math.round(wanted / 100) * 100));
+  setOffset(clamped);
+  haptic('success');
+  if (clamped !== Math.round(wanted / 100) * 100) {
+    showAlert('That line is more than 5 seconds away. Timing moved as far as it goes; seek to get closer.', 'info');
+  }
+}
+
+[[reelPrevLine, -1], [reelLineBox, 0], [reelNextLine, 1]].forEach(([el, delta]) => {
+  el?.addEventListener('click', () => {
+    if (!syncOpen) return;
+    const idx = engine.activeLineIndex;
+    syncToLine((idx < 0 ? -1 : idx) + delta);
+  });
+});
 
 // =====================================================================
 // Preferences & Settings Modal
@@ -3430,6 +3555,10 @@ window.addEventListener('keydown', (e) => {
       closeMoreSheet();
       return;
     }
+    if (syncOpen) {
+      closeSyncPanel();
+      return;
+    }
     if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => {});
       return;
@@ -3495,14 +3624,14 @@ window.addEventListener('keydown', (e) => {
     return;
   }
 
-  // 'ArrowUp': Nudge sync offset later (+100ms)
+  // 'ArrowUp': lyrics late? show them 0.1s sooner (+100ms offset)
   if (e.key === 'ArrowUp' && !e.ctrlKey && !e.metaKey) {
     e.preventDefault();
     setOffset(engine.getOffset() + 100);
     return;
   }
 
-  // 'ArrowDown': Nudge sync offset earlier (-100ms)
+  // 'ArrowDown': lyrics early? show them 0.1s later (-100ms offset)
   if (e.key === 'ArrowDown' && !e.ctrlKey && !e.metaKey) {
     e.preventDefault();
     setOffset(engine.getOffset() - 100);
@@ -3986,17 +4115,8 @@ async function init() {
   nowUiReady = true;
   lastPhoneAccess = phoneHasAccess();
 
-  // 6. First-Run Onboarding Hint
-  if (firstRunHint && btnDismissFirstRun) {
-    const isDismissed = localStorage.getItem(STORAGE_FIRST_RUN_DISMISSED_KEY) === 'true';
-    if (!isDismissed) {
-      firstRunHint.classList.remove('hidden');
-    }
-    btnDismissFirstRun.addEventListener('click', () => {
-      firstRunHint.classList.add('hidden');
-      localStorage.setItem(STORAGE_FIRST_RUN_DISMISSED_KEY, 'true');
-    });
-  }
+  // 6. Lyric timing tip on first use (shown by openStage, see updateSyncPrompts)
+  btnDismissSyncTip?.addEventListener('click', () => dismissSyncTip());
 
   // 7. Share Button: Copies a deep link (?q=artist+title)
   if (btnShareSong) {

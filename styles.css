@@ -9653,3 +9653,361 @@ body.stage-open .toast-region {
     animation: none !important;
   }
 }
+
+/* ---- Quieter chrome: primary buttons are flat (no glow halo) ------------- */
+.btn-spotify,
+.btn-settings-done {
+  box-shadow: none;
+}
+
+.btn-spotify:hover:not(:disabled),
+.btn-settings-done:hover {
+  box-shadow: none;
+}
+
+/* ---- Lyric reel: the one bold thing --------------------------------------
+   No box around the line; big left-aligned lyric type; the word being sung gets an accent bar that grows
+   with --word-progress (a background-size change on one element, so nothing reflows).
+   Pixel keeps its framed, centred, uppercase look. */
+:root:not([data-theme="pixel"]) .stage .reel-line-box {
+  justify-content: flex-start;
+  min-height: clamp(96px, 18vh, 180px);
+  min-height: clamp(96px, 18dvh, 180px);
+  padding: 0 clamp(2px, 1.5vw, 12px);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  text-align: left;
+}
+
+:root:not([data-theme="pixel"]) .stage .reel-box-anchor,
+:root:not([data-theme="pixel"]) .stage .reel-ambient-line {
+  max-width: 780px;
+}
+
+:root:not([data-theme="pixel"]) .stage .reel-line-text {
+  width: 100%;
+  font-family: var(--font-display);
+  font-size: calc(clamp(1.95rem, 1.05rem + 4.6vw, 3.1rem) * var(--lyrics-font-scale, 1));
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.024em;
+  text-wrap: pretty;
+}
+
+:root:not([data-theme="pixel"]) .stage .reel-word {
+  margin: 0 0.26em 0 0;
+}
+
+/* Pulse / Reveal: an accent bar under the word being sung grows with --word-progress.
+   Karaoke fills the word itself and Minimal keeps its static underline, so they are left alone. */
+:root:not([data-theme="pixel"]) .stage .reel-container:not([data-anim="karaoke"]):not([data-anim="minimal"]) .reel-word {
+  padding-bottom: 0.08em;
+  background-image: linear-gradient(var(--accent), var(--accent));
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 0 0.075em;
+}
+
+:root:not([data-theme="pixel"]) .stage .reel-container:not([data-anim="karaoke"]):not([data-anim="minimal"]) .reel-word.current {
+  transform: translateY(-0.04em);
+  background-size: calc(var(--word-progress, 0) * 100%) 0.075em;
+}
+
+:root:not([data-theme="pixel"]) .stage .reel-ambient-line {
+  font-family: var(--font-display);
+  font-size: calc(clamp(1.05rem, 0.8rem + 1.4vw, 1.45rem) * var(--lyrics-font-scale, 1));
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  text-align: left;
+  padding: 0 clamp(2px, 1.5vw, 12px);
+}
+
+:root:not([data-theme="pixel"]) .stage .reel-prev-line {
+  opacity: 0.55;
+}
+
+/* Soft glow behind the line, fading out well before its edges (no box to contain it any more). */
+:root:not([data-theme="pixel"]) .stage .reel-line-box::before {
+  inset: -35% -12%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--accent-soft), transparent);
+}
+
+@supports (color: color-mix(in srgb, red, blue)) {
+  :root:not([data-theme="pixel"]) .stage .reel-line-box::before {
+    background:
+      radial-gradient(closest-side at 30% 50%, color-mix(in srgb, var(--wave-1) 38%, transparent), transparent),
+      radial-gradient(closest-side at 70% 50%, color-mix(in srgb, var(--wave-2) 30%, transparent), transparent);
+  }
+}
+
+/* Line change: the new line rises into place (app.js toggles .line-pulse for one frame). */
+:root:not([data-theme="pixel"]) .stage .reel-line-box.line-pulse {
+  transform: translateY(12px);
+  opacity: 0;
+}
+
+/* The scrolling lyric list shares the lyric face. */
+.stage .lyric-line {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+/* ---- Stage header chip: where the lyrics come from ------------------------ */
+.source-chip {
+  max-width: 48%;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.source-chip.is-silent {
+  background: transparent;
+  border-color: var(--border-highlight);
+}
+
+.source-chip.is-silent .status-dot {
+  display: none;
+}
+
+/* ---- Dock: Sync button ------------------------------------------------------ */
+.dock-sync.active {
+  background: var(--fill-2);
+  color: var(--accent);
+}
+
+.dock-attention-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--bg);
+}
+
+/* ---- Lyrics timing panel + one-time tip (sit just above the sticky dock) -- */
+.sync-panel,
+.sync-tip {
+  position: fixed;
+  right: 0;
+  bottom: calc(var(--dock-h) + var(--space-2));
+  left: 0;
+  z-index: 5;
+  width: min(calc(100% - 2 * var(--gutter)), 560px);
+  margin-inline: auto;
+}
+
+.sync-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-highlight);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-3);
+  animation: syncPanelIn 180ms var(--ease-emph, ease-out);
+}
+
+@keyframes syncPanelIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+.sync-panel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.sync-panel-title {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.sync-readout {
+  flex: 1 1 auto;
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.sync-close,
+.sync-tip-close {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -8px -12px -8px 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  color: inherit;
+  cursor: pointer;
+}
+
+.sync-steps {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: end;
+  gap: var(--space-3);
+}
+
+.sync-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.sync-side--end {
+  align-items: flex-end;
+}
+
+.sync-side-label {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.sync-side-btns {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.sync-step,
+.sync-reset {
+  min-width: 52px;
+  min-height: 44px;
+  padding: 0 var(--space-2);
+  background: var(--fill-1);
+  border: 1px solid var(--border-highlight);
+  border-radius: var(--radius-full);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sync-reset {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-muted);
+}
+
+.sync-step:active,
+.sync-reset:active {
+  background: var(--fill-2);
+}
+
+.sync-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* Tip bubble pointing at the Sync button (first dock control) */
+.sync-tip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  background: var(--accent);
+  border-radius: var(--radius-md);
+  color: var(--accent-contrast);
+  box-shadow: var(--shadow-2);
+}
+
+.sync-tip::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 22px;
+  width: 12px;
+  height: 12px;
+  background: inherit;
+  transform: rotate(45deg);
+}
+
+.sync-tip-text {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.sync-tip-close {
+  margin: -4px 0;
+}
+
+/* Tap-to-sync: while the timing panel is open, the lines in the reel are targets. */
+.stage.sync-mode .reel-line-box,
+.stage.sync-mode .reel-ambient-line {
+  position: relative;
+  z-index: 6;
+  pointer-events: auto;
+  cursor: pointer;
+  outline: 1px dashed var(--border-highlight);
+  outline-offset: 6px;
+  border-radius: 6px;
+}
+
+/* ---- Charts: rows open lyrics (no audio) --------------------------------- */
+.btn-chart-lyrics {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  background: transparent;
+  border: 1px solid var(--border-highlight);
+  border-radius: var(--radius-full);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-chart-lyrics .icon {
+  color: var(--accent);
+}
+
+@media (hover: hover) {
+  .btn-chart-lyrics:hover {
+    background: var(--fill-1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sync-panel {
+    animation: none !important;
+  }
+
+  :root:not([data-theme="pixel"]) .stage .reel-line-box.line-pulse,
+  :root:not([data-theme="pixel"]) .stage .reel-container .reel-word.current {
+    transform: none !important;
+  }
+}
+
+/* While the lyrics are open, toasts drop in under the header: the area above the dock belongs to
+   the Sync panel and the timing tip, and a toast there would cover their controls. */
+body.stage-open .toast-region {
+  top: calc(var(--stage-header-h) + var(--safe-t) + var(--space-2));
+  bottom: auto;
+}
