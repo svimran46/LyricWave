@@ -3511,6 +3511,86 @@ if (btnResetDefaults) {
 }
 
 // =====================================================================
+// In-app updates (Android app)
+// =====================================================================
+
+/**
+ * The Android shell downloads signed web updates in the background (WebUpdater.java) and
+ * reports via window.__lyricwaveWebUpdate. Settings > About shows the version and a manual check.
+ */
+function setupNativeWebUpdates() {
+  const bridge = window.LyricWaveNative;
+  if (!IS_NATIVE_APP || !bridge || typeof bridge.getAppVersionInfo !== 'function') return;
+
+  const section = document.getElementById('secAbout');
+  const versionText = document.getElementById('appVersionText');
+  const btnCheck = document.getElementById('btnCheckUpdates');
+
+  const readInfo = () => {
+    try { return JSON.parse(bridge.getAppVersionInfo() || '{}'); } catch { return {}; }
+  };
+
+  const formatBuild = (seconds) => {
+    if (!seconds) return '';
+    const d = new Date(seconds * 1000);
+    return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const applyUpdate = () => {
+    try { bridge.applyWebUpdate(); } catch {}
+  };
+
+  const render = (state) => {
+    const info = readInfo();
+    if (versionText) {
+      const build = formatBuild(info.webVersion);
+      versionText.textContent = [info.versionName ? `v${info.versionName}` : '', build ? `updated ${build}` : '']
+        .filter(Boolean).join(' · ') || '—';
+    }
+    if (!btnCheck) return;
+    btnCheck.classList.toggle('hidden', !info.updatesEnabled);
+    btnCheck.disabled = state === 'checking';
+    btnCheck.textContent = info.updateReady ? 'Update' : (state === 'checking' ? 'Checking…' : 'Check');
+  };
+
+  const promptReload = () => {
+    showAlert('A new version of LyricWave is ready.', 'success', {
+      action: { label: 'Reload', onClick: applyUpdate },
+      duration: 0
+    });
+  };
+
+  let needsAppNoticeShown = false;
+  window.__lyricwaveWebUpdate = ({ status, manual } = {}) => {
+    render(status);
+    if (status === 'ready') {
+      promptReload();
+    } else if (manual && status === 'up-to-date') {
+      showAlert("You're on the latest version.", 'info');
+    } else if (status === 'needs-app-update' && (manual || !needsAppNoticeShown)) {
+      needsAppNoticeShown = true;
+      showAlert('This update needs a newer app. Download the latest APK from GitHub.', 'warning');
+    } else if (manual && status === 'error') {
+      showAlert("Couldn't check for updates. Try again later.", 'warning');
+    }
+  };
+
+  btnCheck?.addEventListener('click', () => {
+    if (readInfo().updateReady) {
+      applyUpdate();
+      return;
+    }
+    render('checking');
+    try { bridge.checkForWebUpdate(); } catch { render(); }
+  });
+
+  section?.classList.remove('hidden');
+  render();
+  // An update finished downloading before this page loaded (e.g. during a previous session).
+  if (readInfo().updateReady) promptReload();
+}
+
+// =====================================================================
 // PWA & Offline Support
 // =====================================================================
 
@@ -3628,10 +3708,16 @@ function scheduleToastDismiss(toast, durationMs) {
   toastDismissTimer = setTimeout(() => dismissToast(toast), durationMs);
 }
 
-function showAlert(message, type = 'info') {
+/**
+ * @param {string} message
+ * @param {'info'|'success'|'warning'|'danger'} [type]
+ * @param {{ action?: { label: string, onClick: () => void }, duration?: number }} [options]
+ *   action adds a button to the toast; duration (ms, 0 = stay until dismissed) overrides the default.
+ */
+function showAlert(message, type = 'info', options = {}) {
   if (!toastRegion) return;
   const kind = Object.prototype.hasOwnProperty.call(TOAST_DURATION_MS, type) ? type : 'info';
-  const duration = TOAST_DURATION_MS[kind];
+  const duration = typeof options.duration === 'number' ? options.duration : TOAST_DURATION_MS[kind];
 
   if (activeToast) dismissToast(activeToast, true);
 
@@ -3655,7 +3741,19 @@ function showAlert(message, type = 'info') {
   closeBtn.innerHTML = '&times;';
   closeBtn.addEventListener('click', () => dismissToast(toast));
 
-  toast.append(icon, msg, closeBtn);
+  toast.append(icon, msg);
+  if (options.action) {
+    const actionBtn = document.createElement('button');
+    actionBtn.className = 'toast-action';
+    actionBtn.type = 'button';
+    actionBtn.textContent = options.action.label;
+    actionBtn.addEventListener('click', () => {
+      dismissToast(toast);
+      options.action.onClick();
+    });
+    toast.append(actionBtn);
+  }
+  toast.append(closeBtn);
 
   // Keep the message on screen while the user is reading / interacting with it.
   // Resume only when neither the pointer nor keyboard focus is on it.
@@ -3720,6 +3818,7 @@ function sanitizeUrl(url) {
 
 async function init() {
   setupPWA();
+  setupNativeWebUpdates();
   setupNetworkMonitoring();
 
   applyTheme(currentTheme);

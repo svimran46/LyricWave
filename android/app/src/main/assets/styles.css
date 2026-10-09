@@ -75,7 +75,7 @@
 
   /* Layers */
   --z-nav: 900;
-  --z-toast: 1100;
+  --z-toast: 10100; /* above sheets, so feedback from inside Settings is visible */
   --z-modal: 10000;
 
   /* Type scale (rem on a 16px root) */
@@ -9563,4 +9563,25 @@ body.stage-open .toast-region {
 .spotify-view.account-card {
   align-items: stretch;
   text-align: left;
+}
+
+/* Optional action in a toast (e.g. "Reload" when an app update is ready) */
+.toast-action {
+  flex: none;
+  min-height: 36px;
+  margin: calc(var(--space-1) * -1) 0;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.toast-action:active {
+  transform: scale(0.97);
 }
