@@ -266,6 +266,39 @@ if (typeof window === 'undefined') {
   ar.disable();
   assert(globalThis.window.__lyricwaveAudioFrame === prevFrame, 'disable() restores the previous frame handler');
   assert(ar.mode === 'off' && ar.getFrame(0).energy === 0, 'disable() -> off, zeros');
+}
+
+// ---------------------------------------------------------------- audio mode without native onsets borrows the lyric beat
+{
+  const env = makeEnv();
+  const ar = new AudioReactive({ bridge: env.bridge, now: env.now });
+  ar.setLyrics(makeLines(120, 4, 8)); // lines every 2000ms from 4000ms, beats every 500ms
+  ar.setPlaying(true);
+  assert(await ar.enable() === 'audio', 'Audio mode for the onset-fallback test');
+
+  // level but no onsets (quiet / bass-light mix): the beat follows the lyric grid instead of staying dead
+  env.frame({ rms: 0.4, bass: 0.1 });
+  let f = ar.getFrame(4000);
+  assert(f.mode === 'audio' && near(f.beat, 0.85, 0.001), 'No native onsets yet -> beat follows the lyric grid (downbeat)');
+  env.t += 250; env.frame({ rms: 0.4 });
+  assert(ar.getFrame(4250).beat === 0, '... and is silent between lyric grid points');
+  env.t += 250; env.frame({ rms: 0.4 });
+  assert(ar.getFrame(4500).beat > 0.4, '... with the next lyric beat 500ms later');
+
+  // a real onset takes over: no lyric beats while native onsets keep arriving
+  env.t += 100; env.frame({ beat: true, beatStrength: 0.9, rms: 0.5 });
+  assert(near(ar.getFrame(4600).beat, 0.9, 0.001), 'A native onset drives the beat');
+  env.t += 400; env.frame({ rms: 0.5 });
+  assert(ar.getFrame(5000).beat === 0, 'Lyric grid is ignored while native onsets are fresh');
+
+  // onsets stop for > 2.5s -> back to the lyric grid
+  env.t += 2600; env.frame({ rms: 0.5 });
+  assert(near(ar.getFrame(6000).beat, 0.85, 0.001), 'Native onsets stale -> lyric grid again');
+
+  // paused: no borrowed beat
+  ar.setPlaying(false);
+  assert(ar.getFrame(6000).beat === 0, 'Paused -> no borrowed lyric beat');
+  ar.disable();
   delete globalThis.window.__lyricwaveAudioFrame;
 }
 

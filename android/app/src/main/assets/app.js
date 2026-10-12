@@ -637,6 +637,9 @@ let hasTrack = false;           // the engine has a current track (mini player o
 let stageDismissedByUser = false; // user collapsed the stage: background sources (phone/Last.fm/Spotify) won't re-open it
 let sheetOpen = false;          // More sheet
 let audioDesired = false;       // audioReactive.enable() has been requested for this stage session
+let pseudoFullscreen = false;   // reel fills the window with CSS (no Fullscreen API), see toggleFullscreen()
+let fullscreenFallbackTimer = null;
+const FULLSCREEN_SETTLE_MS = 800;
 let miniUpdatedAt = 0;
 let miniRatio = -1;
 let shownElapsedText = '';
@@ -881,7 +884,7 @@ const engine = new UnifiedSyncEngine({
       }
     }
 
-    if (stageOpen || document.fullscreenElement) {
+    if (stageOpen || isReelFullscreen()) {
       updateStageTick(tick);
     }
 
@@ -1003,7 +1006,7 @@ function finishNavTraversal() {
   const queued = navPushQueue.splice(0);
   queued.forEach((name) => {
     // Only re-push overlays that are still open.
-    if ((name === 'stage' && stageOpen) || (name === 'sheet' && sheetOpen)) pushNav(name);
+    if ((name === 'stage' && stageOpen) || (name === 'sheet' && sheetOpen) || (name === 'fs' && pseudoFullscreen)) pushNav(name);
   });
 }
 
@@ -1027,6 +1030,7 @@ window.addEventListener('popstate', (event) => {
   const landed = Array.isArray(event.state?.lwNav) ? event.state.lwNav : [];
   navStack = [...landed];
   // Close whatever is open but not part of the entry we landed on (closing is idempotent).
+  if (pseudoFullscreen && !landed.includes('fs')) setPseudoFullscreen(false, { fromHistory: true });
   if (sheetOpen && !landed.includes('sheet')) closeMoreSheet({ fromHistory: true });
   if (stageOpen && !landed.includes('stage')) closeStage({ fromHistory: true, userInitiated: !navTraversalPending });
   if (navTraversalPending) finishNavTraversal();
@@ -1054,9 +1058,12 @@ function openStage({ auto = false, focus = true } = {}) {
 function closeStage({ restoreFocus = true, fromHistory = false, userInitiated = false } = {}) {
   if (!stageOpen) return;
   if (sheetOpen) closeMoreSheet({ restoreFocus: false, skipHistory: true });
+  clearFullscreenFallback();
   if (document.fullscreenElement) {
     try { document.exitFullscreen?.()?.catch?.(() => {}); } catch {}
   }
+  // Leaving the stage also leaves fullscreen; its history entry sits above 'stage' and goes with it.
+  setPseudoFullscreen(false, { skipHistory: true });
   stageOpen = false;
   if (userInitiated) stageDismissedByUser = true;
   showActivePanels();
@@ -1089,7 +1096,7 @@ btnMiniPlay?.addEventListener('click', (e) => {
 function wantAudioReactive() {
   if (!stageOpen || document.hidden) return false;
   // Fullscreen always runs the beat visuals, whatever the lyric animation style.
-  return currentAnimStyle === 'pulse' || currentAnimStyle === 'karaoke' || Boolean(document.fullscreenElement);
+  return currentAnimStyle === 'pulse' || currentAnimStyle === 'karaoke' || isReelFullscreen();
 }
 
 /** Start/stop audio-reactive analysis to match the UI state. Resolves to the resulting mode. */
@@ -3174,21 +3181,66 @@ function setWordMode(enabled) {
   reelWordStates.fill(-1);
 }
 
+// --- Reel fullscreen
+// The beat visuals and laser border only run while the reel is fullscreen. The Android app's WebView has
+// no Fullscreen API support (requestFullscreen is refused or never settles), and iPhone Safari has none
+// for elements, so there the reel covers the window with CSS instead ("pseudo-fullscreen", .is-pseudo-fs).
+// It runs the same visuals and gets its own history entry, so Android Back leaves fullscreen first.
+
+function isReelFullscreen() {
+  return Boolean(document.fullscreenElement) || pseudoFullscreen;
+}
+
+function setPseudoFullscreen(on, { fromHistory = false, skipHistory = false } = {}) {
+  if (pseudoFullscreen === on) return;
+  pseudoFullscreen = on;
+  reelContainer.classList.toggle('is-pseudo-fs', on);
+  if (on) pushNav('fs');
+  else if (!fromHistory && !skipHistory) unwindNav('fs');
+  onReelFullscreenChange();
+}
+
+function clearFullscreenFallback() {
+  if (fullscreenFallbackTimer) {
+    clearTimeout(fullscreenFallbackTimer);
+    fullscreenFallbackTimer = null;
+  }
+}
+
 function toggleFullscreen() {
-  try {
-    if (!document.fullscreenElement) {
-      if (!stageOpen) return; // the reel is only on screen while the stage is open
-      const req = reelContainer.requestFullscreen
-        ? reelContainer.requestFullscreen()
-        : (reelContainer.webkitRequestFullscreen ? reelContainer.webkitRequestFullscreen() : null);
-      req?.catch?.(() => {});
-    } else {
+  clearFullscreenFallback();
+  if (pseudoFullscreen) {
+    setPseudoFullscreen(false);
+    return;
+  }
+  if (document.fullscreenElement) {
+    try {
       const ex = document.exitFullscreen
         ? document.exitFullscreen()
         : (document.webkitExitFullscreen ? document.webkitExitFullscreen() : null);
       ex?.catch?.(() => {});
-    }
-  } catch {}
+    } catch {}
+    return;
+  }
+  if (!stageOpen) return; // the reel is only on screen while the stage is open
+
+  const request = reelContainer.requestFullscreen || reelContainer.webkitRequestFullscreen;
+  if (IS_NATIVE_APP || !request || document.fullscreenEnabled === false) {
+    setPseudoFullscreen(true);
+    return;
+  }
+  const fallback = () => {
+    clearFullscreenFallback();
+    if (stageOpen && !isReelFullscreen()) setPseudoFullscreen(true);
+  };
+  try {
+    const req = request.call(reelContainer);
+    req?.catch?.(fallback);
+    // Some browsers neither enter fullscreen nor reject the request: don't leave the tap doing nothing.
+    fullscreenFallbackTimer = setTimeout(fallback, FULLSCREEN_SETTLE_MS);
+  } catch {
+    fallback();
+  }
 }
 
 function trapFocus(modalElement, event) {
@@ -3339,8 +3391,8 @@ window.addEventListener('keydown', (e) => {
       closeMoreSheet();
       return;
     }
-    if (document.fullscreenElement) {
-      document.exitFullscreen().catch(() => {});
+    if (isReelFullscreen()) {
+      toggleFullscreen();
       return;
     }
     // Escape collapses the stage to the mini player.
@@ -3440,9 +3492,9 @@ window.addEventListener('keydown', (e) => {
 function resetCursorIdleTimer() {
   document.body.classList.remove('cursor-idle');
   if (cursorIdleTimeout) clearTimeout(cursorIdleTimeout);
-  if (document.fullscreenElement) {
+  if (isReelFullscreen()) {
     cursorIdleTimeout = setTimeout(() => {
-      if (document.fullscreenElement) {
+      if (isReelFullscreen()) {
         document.body.classList.add('cursor-idle');
       }
     }, 3000);
@@ -3467,7 +3519,12 @@ btnFullscreen.addEventListener('click', () => {
 btnReelExitFs?.addEventListener('click', toggleFullscreen);
 
 document.addEventListener('fullscreenchange', () => {
-  const isFs = Boolean(document.fullscreenElement);
+  if (document.fullscreenElement) clearFullscreenFallback();
+  onReelFullscreenChange();
+});
+
+function onReelFullscreenChange() {
+  const isFs = isReelFullscreen();
   document.body.classList.toggle('fullscreen-reel-mode', isFs);
   fsLabel.textContent = isFs ? 'Exit fullscreen' : 'Fullscreen';
   btnReelExitFs?.classList.toggle('hidden', !isFs);
@@ -3481,7 +3538,7 @@ document.addEventListener('fullscreenchange', () => {
   } else {
     releaseWakeLock();
   }
-});
+}
 
 // Theme swatch cards in preferences modal
 if (themeCards && themeCards.length > 0) {

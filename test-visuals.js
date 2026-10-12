@@ -85,5 +85,23 @@ const afterFirst = calls.fill;
 throttled.render({ beat: 0 }, 110);
 assert(afterFirst > before && calls.fill === afterFirst, '30fps throttle skips frames inside the interval');
 
+// The Android WebView has no Fullscreen API: the visuals must also run in CSS pseudo-fullscreen.
+{
+  const { readFileSync } = await import('node:fs');
+  const app = readFileSync(new URL('./app.js', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('./styles.css', import.meta.url), 'utf8');
+  const toggle = app.slice(app.indexOf('function toggleFullscreen()'), app.indexOf('function trapFocus('));
+  assert(/IS_NATIVE_APP[^\n]*\n\s*setPseudoFullscreen\(true\)/.test(toggle), 'native app goes straight to pseudo-fullscreen');
+  assert(/\.catch\?\.\(fallback\)/.test(toggle) && /setTimeout\(fallback, FULLSCREEN_SETTLE_MS\)/.test(toggle),
+    'a refused or stuck Fullscreen request falls back to pseudo-fullscreen');
+  assert(!/stageOpen \|\| document\.fullscreenElement/.test(app) && /stageOpen \|\| isReelFullscreen\(\)/.test(app),
+    'the stage tick (which drives the visuals) runs in pseudo-fullscreen');
+  assert(/isReelFullscreen\(\);\s*\n\s*document\.body\.classList\.toggle\('fullscreen-reel-mode'/.test(app)
+    && /beatVisuals\?\.setActive\(isFs\)/.test(app), 'pseudo-fullscreen activates the beat visuals');
+  assert(/\.reel-container\.is-pseudo-fs \.fs-visuals-canvas/.test(css) && /\.reel-container\.is-pseudo-fs \.fs-laser\b/.test(css),
+    'CSS shows the visuals canvas and laser border in pseudo-fullscreen');
+  assert(/pseudoFullscreen && !landed\.includes\('fs'\)/.test(app), 'Android Back leaves pseudo-fullscreen before the stage');
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
