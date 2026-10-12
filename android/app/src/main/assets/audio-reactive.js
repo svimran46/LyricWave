@@ -27,6 +27,7 @@ const RELEASE_MS = 250;
 const SILENCE_TIMEOUT_MS = 3000;
 const FRAME_HOLD_MS = 300;         // hold last frame values this long if frames stop arriving, then fade out
 const MIN_BEAT_GAP_MS = 100;       // JS-side guard against duplicate onsets (native already has a 250ms refractory)
+const NATIVE_BEAT_STALE_MS = 2500;  // audio mode: no native onset for this long -> borrow the lyric beat grid
 const RECOVER_STREAK = 5;          // consecutive non-silent frames needed to leave the 'lyrics' fallback
 const DEFAULT_PERMISSION_TIMEOUT_MS = 20000;
 
@@ -353,7 +354,7 @@ export class AudioReactive {
       this._checkHealth(t);
       const dt = this._lastGetAt === -Infinity ? 16 : Math.max(0, Math.min(100, t - this._lastGetAt));
       this._lastGetAt = t;
-      if (this._mode === MODE_AUDIO) return this._audioFrame(t, dt);
+      if (this._mode === MODE_AUDIO) return this._audioFrame(t, dt, pos);
       return this._lyricsFrame(pos);
     } catch {
       return { energy: 0, beat: 0, vocal: 0, bpm: 0, mode: this._mode };
@@ -518,7 +519,7 @@ export class AudioReactive {
 
   // ---------------------------------------------------------------- audio mode frame
 
-  _audioFrame(t, dt) {
+  _audioFrame(t, dt, pos = 0) {
     const g = this._tgt;
     const sm = this._sm;
     const live = this._playing && t - this._frameAt <= FRAME_HOLD_MS;
@@ -534,7 +535,12 @@ export class AudioReactive {
     else this._bpmSm = 0;
 
     const age = t - this._beatAt;
-    const beat = age >= 0 && age < BEAT_DECAY_MS ? this._beatPeak * (1 - age / BEAT_DECAY_MS) : 0;
+    let beat = age >= 0 && age < BEAT_DECAY_MS ? this._beatPeak * (1 - age / BEAT_DECAY_MS) : 0;
+    // The Visualizer can deliver level without onsets (quiet or bass-light mixes, offloaded playback that
+    // only leaks noise). Rather than a dead beat, fall back to the lyric beat grid until real onsets return.
+    if (this._playing && !(age >= 0 && age < NATIVE_BEAT_STALE_MS)) {
+      beat = this._lyricsFrame(pos).beat;
+    }
 
     return { energy: sm.energy, beat, vocal: sm.vocal, bpm: this._bpmSm, mode: MODE_AUDIO };
   }
