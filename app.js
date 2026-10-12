@@ -1030,7 +1030,11 @@ window.addEventListener('popstate', (event) => {
   const landed = Array.isArray(event.state?.lwNav) ? event.state.lwNav : [];
   navStack = [...landed];
   // Close whatever is open but not part of the entry we landed on (closing is idempotent).
-  if (pseudoFullscreen && !landed.includes('fs')) setPseudoFullscreen(false, { fromHistory: true });
+  // Fullscreen opened while a programmatic traversal was still landing (e.g. the More sheet closing as
+  // Fullscreen is tapped) has its entry queued, not yet pushed: that landing is not a Back from fullscreen.
+  if (pseudoFullscreen && !landed.includes('fs') && !navPushQueue.includes('fs')) {
+    setPseudoFullscreen(false, { fromHistory: true });
+  }
   if (sheetOpen && !landed.includes('sheet')) closeMoreSheet({ fromHistory: true });
   if (stageOpen && !landed.includes('stage')) closeStage({ fromHistory: true, userInitiated: !navTraversalPending });
   if (navTraversalPending) finishNavTraversal();

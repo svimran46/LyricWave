@@ -101,6 +101,8 @@ assert(afterFirst > before && calls.fill === afterFirst, '30fps throttle skips f
   assert(/\.reel-container\.is-pseudo-fs \.fs-visuals-canvas/.test(css) && /\.reel-container\.is-pseudo-fs \.fs-laser\b/.test(css),
     'CSS shows the visuals canvas and laser border in pseudo-fullscreen');
   assert(/pseudoFullscreen && !landed\.includes\('fs'\)/.test(app), 'Android Back leaves pseudo-fullscreen before the stage');
+  assert(/pseudoFullscreen && !landed\.includes\('fs'\) && !navPushQueue\.includes\('fs'\)/.test(app),
+    'closing the More sheet as Fullscreen is tapped does not immediately exit fullscreen');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
