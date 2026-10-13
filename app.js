@@ -298,11 +298,12 @@ let currentTheme = THEME_IDS.includes(localStorage.getItem(STORAGE_THEME_KEY)) ?
 let currentAnimStyle = ANIM_STYLES.includes(safeGet(STORAGE_ANIM_KEY)) ? safeGet(STORAGE_ANIM_KEY) : DEFAULT_ANIM_STYLE;
 let hapticsEnabled = safeGet(STORAGE_HAPTICS_KEY) !== 'false';
 let isWordMode = localStorage.getItem(STORAGE_WORD_MODE_KEY) !== 'false';
-// Lyric translation (free MyMemory API, see translate.js)
+// Lyric letter conversion & romanization (see translate.js)
 const STORAGE_TRANSLATE_KEY = 'lyricwave_translate';
 const STORAGE_TRANSLATE_LANG_KEY = 'lyricwave_translate_lang';
 let isTranslateOn = safeGet(STORAGE_TRANSLATE_KEY) === 'true';
-let translateLang = safeGet(STORAGE_TRANSLATE_LANG_KEY) || defaultTargetLang();
+const storedLang = safeGet(STORAGE_TRANSLATE_LANG_KEY);
+let translateLang = (storedLang && TRANSLATE_LANGUAGES.some(([code]) => code === storedLang)) ? storedLang : defaultTargetLang();
 let currentTranslations = [];
 let currentReelLineIndex = -1;
 let translateRequestId = 0;
