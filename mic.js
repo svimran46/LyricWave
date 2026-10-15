@@ -269,8 +269,63 @@ export class MicSource {
           return;
         }
 
+        let finalBlob = audioBlob;
+        let finalMime = selectedMime;
+
+        // Automatically decode and resample to 16kHz mono WAV using Web Audio API when available
+        try {
+          const AudioCtx = (typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext));
+          const OfflineCtx = (typeof window !== 'undefined' && (window.OfflineAudioContext || window.webkitOfflineAudioContext));
+          if (AudioCtx && OfflineCtx && typeof audioBlob.arrayBuffer === 'function') {
+            const decodeCtx = new AudioCtx();
+            const arrayBuf = await audioBlob.arrayBuffer();
+            const audioBuf = await decodeCtx.decodeAudioData(arrayBuf).catch(() => null);
+            if (audioBuf) {
+              const targetFrames = Math.max(1, Math.round(audioBuf.duration * 16000));
+              const offline = new OfflineCtx(1, targetFrames, 16000);
+              const src = offline.createBufferSource();
+              src.buffer = audioBuf;
+              src.connect(offline.destination);
+              src.start(0);
+              const rendered = await offline.startRendering();
+              const channelData = rendered.getChannelData(0);
+
+              // 16-bit PCM WAV encoding
+              const byteLength = channelData.length * 2;
+              const wavBuf = new ArrayBuffer(44 + byteLength);
+              const view = new DataView(wavBuf);
+              view.setUint32(0, 0x52494646, false); // "RIFF"
+              view.setUint32(4, 36 + byteLength, true);
+              view.setUint32(8, 0x57415645, false); // "WAVE"
+              view.setUint32(12, 0x666d7420, false); // "fmt "
+              view.setUint32(16, 16, true);
+              view.setUint16(20, 1, true); // PCM
+              view.setUint16(22, 1, true); // Mono
+              view.setUint32(24, 16000, true);
+              view.setUint32(28, 32000, true);
+              view.setUint16(32, 2, true);
+              view.setUint16(34, 16, true);
+              view.setUint32(36, 0x64617461, false); // "data"
+              view.setUint32(40, byteLength, true);
+
+              for (let i = 0; i < channelData.length; i++) {
+                const clamped = Math.max(-1, Math.min(1, channelData[i]));
+                const s = clamped < 0 ? clamped * 0x8000 : clamped * 0x7FFF;
+                view.setInt16(44 + i * 2, s, true);
+              }
+
+              finalBlob = new Blob([new Uint8Array(wavBuf)], { type: 'audio/wav' });
+              finalMime = 'audio/wav';
+            }
+            decodeCtx.close().catch(() => {});
+          }
+        } catch {
+          finalBlob = audioBlob;
+          finalMime = selectedMime;
+        }
+
         // Send to backend
-        await this.dispatchToBackend(audioBlob, selectedMime);
+        await this.dispatchToBackend(finalBlob, finalMime);
       };
 
       this.recordStartTime = performance.now();
@@ -320,7 +375,7 @@ export class MicSource {
     const timeoutId = controller ? setTimeout(() => { timedOut = true; controller.abort(); }, 15000) : null;
 
     try {
-      const ext = mimeType.includes('mp4') ? 'mp4' : (mimeType.includes('ogg') ? 'ogg' : 'webm');
+      const ext = mimeType.includes('wav') ? 'wav' : (mimeType.includes('mp4') ? 'mp4' : (mimeType.includes('ogg') ? 'ogg' : 'webm'));
       const formData = new FormData();
       formData.append('sample', audioBlob, `sample.${ext}`);
       const headers = {};

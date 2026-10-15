@@ -4,7 +4,9 @@
 
 import { ACRCloudProvider } from './functions/api/providers/acrcloud.js';
 import { AudDProvider } from './functions/api/providers/audd.js';
+import { ShazamProvider } from './functions/api/providers/shazam.js';
 import { getRecognitionProvider } from './functions/api/providers/index.js';
+import { parseWavTo16kSamples, encode16kWav, generateShazamSignature, DecodedMessage } from './functions/api/providers/shazam-signature.js';
 
 let passed = 0;
 let failed = 0;
@@ -200,6 +202,116 @@ async function runTests() {
     auddErrorCaught = err.message.includes('Wrong API token');
   }
   assert(auddErrorCaught, 'AudD API error response throws descriptive exception');
+
+  // ===================================================================
+  // 11. Shazam Provider Factory & Recognition Tests
+  // ===================================================================
+  const shazamProvider = getRecognitionProvider({}, 'shazam');
+  assert(shazamProvider instanceof ShazamProvider, 'Factory instantiates ShazamProvider');
+  assert(shazamProvider.name === 'shazam', 'Shazam provider name is "shazam"');
+
+  const shazamEnvProvider = getRecognitionProvider({ RECOGNITION_PROVIDER: 'shazam' });
+  assert(shazamEnvProvider instanceof ShazamProvider, 'Factory respects RECOGNITION_PROVIDER=shazam env setting');
+
+  // 12. WAV encoder and parser roundtrip
+  const synthSamples = new Int16Array(16000 * 2); // 2 seconds of 16kHz audio
+  for (let i = 0; i < synthSamples.length; i++) {
+    synthSamples[i] = Math.round(Math.sin((2 * Math.PI * 440 * i) / 16000) * 16000);
+  }
+  const wavBytes = encode16kWav(synthSamples);
+  assert(wavBytes.length === 44 + synthSamples.length * 2, 'WAV bytes have valid 44-byte header + data length');
+  assert(wavBytes[0] === 0x52 && wavBytes[1] === 0x49 && wavBytes[2] === 0x46 && wavBytes[3] === 0x46, 'WAV starts with RIFF magic');
+
+  const parsedSamples = parseWavTo16kSamples(wavBytes);
+  assert(parsedSamples !== null && parsedSamples.length === synthSamples.length, 'parseWavTo16kSamples extracts matching sample count');
+  assert(parsedSamples[100] === synthSamples[100], 'Parsed sample values match encoded sample values');
+
+  // 13. Shazam signature generation & serialization
+  // Test note burst with sharp attack for acoustic peak detection
+  const musicalNotes = new Int16Array(16000 * 4);
+  for (let s = 0; s < 16000 * 4; s++) {
+    const t = s / 16000;
+    const env = Math.exp(-(s % 4000) / 1000);
+    musicalNotes[s] = Math.round(Math.sin(2 * Math.PI * 523.25 * t) * 25000 * env);
+  }
+  const wavNotes = encode16kWav(musicalNotes);
+  const sigResult = generateShazamSignature(wavNotes);
+
+  assert(typeof sigResult.uri === 'string', 'generateShazamSignature generates a string URI');
+  assert(sigResult.uri.startsWith('data:audio/vnd.shazam.sig;base64,'), 'URI has valid data:audio/vnd.shazam.sig;base64, prefix');
+  assert(sigResult.samplems > 0, 'samplems is positive duration');
+
+  // 14. Signature round-trip decode verification
+  const decodedMsg = DecodedMessage.decodeFromUri(sigResult.uri);
+  assert(decodedMsg.sampleRateHz === 16000, 'Decoded signature preserves 16000 Hz sample rate');
+  assert(decodedMsg.numberSamples > 0, 'Decoded signature has valid sample count');
+
+  // 15. Shazam Success Response Normalization
+  const sampleShazamSuccessResponse = {
+    matches: [
+      {
+        id: '12345678',
+        offset: 42.5,
+        timeskew: 0.002
+      }
+    ],
+    track: {
+      key: '54321',
+      title: 'Blinding Lights',
+      subtitle: 'The Weeknd',
+      sections: [
+        {
+          type: 'SONG',
+          metadata: [
+            { title: 'Album', text: 'After Hours' },
+            { title: 'Released', text: '2020' },
+            { title: 'Label', text: 'Republic Records' }
+          ]
+        }
+      ],
+      hub: {
+        providers: [
+          {
+            type: 'SPOTIFY',
+            actions: [
+              { uri: 'spotify:track:0VjIjW4GlUZAMYd2vXMi3b' }
+            ]
+          }
+        ]
+      },
+      myshazam: {
+        apple: {
+          actions: [
+            { uri: 'https://music.apple.com/us/album/blinding-lights/1499378108?i=1499378607&uo=4' }
+          ]
+        }
+      },
+      images: {
+        coverart: 'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/cover.jpg'
+      }
+    }
+  };
+
+  const normShazam = shazamProvider.normalizeResponse(sampleShazamSuccessResponse);
+  assert(normShazam.success === true, 'Shazam successful match marked success = true');
+  assert(normShazam.title === 'Blinding Lights', 'Shazam title extracted as Blinding Lights');
+  assert(normShazam.artist === 'The Weeknd', 'Shazam artist extracted as The Weeknd');
+  assert(normShazam.album === 'After Hours', 'Shazam album extracted as After Hours');
+  assert(normShazam.offsetMs === 42500, 'Shazam offset extracted in ms (42.5s -> 42500ms)');
+  assert(normShazam.confidence === 98, 'Shazam confidence computed from timeskew (98)');
+  assert(normShazam.provider === 'shazam', 'Shazam provider stamped as shazam');
+  assert(normShazam.raw.spotifyTrackId === '0VjIjW4GlUZAMYd2vXMi3b', 'Shazam extracts Spotify track ID');
+  assert(normShazam.raw.coverArt !== null, 'Shazam extracts album cover art');
+  assert(normShazam.lookupCandidates.some(c => c.title === 'Blinding Lights'), 'Shazam produces lyric lookup candidates');
+
+  // 16. Shazam No Match Response
+  const normShazamNoMatch = shazamProvider.normalizeResponse({
+    matches: [],
+    tagid: 'test-tag-id'
+  });
+  assert(normShazamNoMatch.success === false, 'Shazam empty matches marked success = false');
+  assert(normShazamNoMatch.title === null, 'Shazam title is null on no match');
+  assert(normShazamNoMatch.confidence === 0, 'Shazam confidence is 0 on no match');
 
   console.log(`\nResults: ${passed} passed, ${failed} failed.`);
 }

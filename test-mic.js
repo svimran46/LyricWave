@@ -108,11 +108,14 @@ async function runTests() {
 
   assert(cancelSource.isCancelled === true, 'Stopping mic sets isCancelled flag to prevent upload');
   // 9. Recognition Provider Setting & Persistence
-  const provMic = new MicSource({ provider: 'audd' });
-  assert(provMic.provider === 'audd', 'Initial provider is audd');
+  const provMic = new MicSource({ provider: 'shazam' });
+  assert(provMic.provider === 'shazam', 'Initial provider is shazam');
   provMic.setProvider('acrcloud');
   assert(provMic.provider === 'acrcloud', 'setProvider updates provider to acrcloud');
   assert(localStorage.getItem('lyricwave_recognition_provider') === 'acrcloud', 'Provider is saved to localStorage');
+  provMic.setProvider('shazam');
+  assert(provMic.provider === 'shazam', 'Switched to shazam in memory');
+  assert(localStorage.getItem('lyricwave_recognition_provider') === 'shazam', 'Saved shazam in localStorage');
   provMic.setProvider('audd');
   assert(localStorage.getItem('lyricwave_recognition_provider') === 'audd', 'Switched back to audd in localStorage');
 

@@ -47,9 +47,10 @@ export const CONFIG = {
   LASTFM_API_KEY: "bb89790d124ab6ab91be569d08e40481",
 
   /**
-   * Default Acoustic Recognition Provider ('acrcloud' or 'audd').
+   * Default Acoustic Recognition Provider ('shazam', 'acrcloud', or 'audd').
+   * Uses Shazam acoustic fingerprinting by default (free, unlimited requests).
    */
-  RECOGNITION_PROVIDER: "acrcloud",
+  RECOGNITION_PROVIDER: "shazam",
 
   /**
    * Base URL for serverless backend API endpoints (/api/recognize, /api/charts, /api/news).

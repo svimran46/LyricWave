@@ -80,7 +80,7 @@ function getCorsHeaders(request) {
   return {
     'Access-Control-Allow-Origin': allowed,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Recognition-Provider',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Recognition-Provider, X-Shazam-Signature',
     'Access-Control-Max-Age': '86400',
     'Cache-Control': 'no-store, no-cache, must-revalidate',
     'Vary': 'Origin'
@@ -143,12 +143,18 @@ export async function onRequestPost({ request, env }) {
   // 2. Validate Content-Type
   const contentType = request.headers.get('content-type') || '';
   let audioBuffer = null;
+  let signatureUri = request.headers.get('X-Shazam-Signature') || null;
 
   try {
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
       const sample = formData.get('sample') || formData.get('file') || formData.get('audio');
       
+      const formSig = formData.get('signature') || formData.get('shazam_signature');
+      if (typeof formSig === 'string' && formSig.startsWith('data:audio/vnd.shazam.sig;base64,')) {
+        signatureUri = formSig;
+      }
+
       if (!sample) {
         return jsonError('Missing "sample" audio field in form data.', 400, corsHeaders);
       }
@@ -169,16 +175,25 @@ export async function onRequestPost({ request, env }) {
 
     } else if (contentType.includes('application/json')) {
       const json = await request.json().catch(() => null);
-      if (!json || !json.audio) {
-        return jsonError('JSON payload must include a base64-encoded "audio" field.', 400, corsHeaders);
+      if (!json || (!json.audio && !json.signature)) {
+        return jsonError('JSON payload must include a base64-encoded "audio" or "signature" field.', 400, corsHeaders);
       }
 
-      // Decode base64
-      const binaryString = atob(json.audio);
-      const len = binaryString.length;
-      audioBuffer = new Uint8Array(len);
-      for (let i = 0; i < len; i++) {
-        audioBuffer[i] = binaryString.charCodeAt(i);
+      if (json.signature && typeof json.signature === 'string') {
+        signatureUri = json.signature;
+      }
+
+      if (json.audio) {
+        // Decode base64
+        const binaryString = atob(json.audio);
+        const len = binaryString.length;
+        audioBuffer = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          audioBuffer[i] = binaryString.charCodeAt(i);
+        }
+      } else {
+        // Dummy 2KB buffer if only signature is provided in JSON
+        audioBuffer = new Uint8Array(2048);
       }
 
     } else {
@@ -199,7 +214,7 @@ export async function onRequestPost({ request, env }) {
   }
 
   // Minimum required audio sample size (at least 2KB for valid audio headers)
-  if (audioBuffer.byteLength < 2048) {
+  if (audioBuffer.byteLength < 2048 && !signatureUri) {
     return jsonError('Audio sample is too short to produce a reliable acoustic fingerprint.', 400, corsHeaders);
   }
 
@@ -212,9 +227,28 @@ export async function onRequestPost({ request, env }) {
     return jsonError(`Provider initialization failed: ${err.message}`, 500, corsHeaders);
   }
 
-  // 5. Query Music Recognition Provider
+  // 5. Query Music Recognition Provider with seamless fallback
   try {
-    const result = await provider.recognize(audioBuffer);
+    let result = null;
+    try {
+      result = await provider.recognize(audioBuffer, { signatureUri });
+    } catch (primaryErr) {
+      // If primary provider failed (e.g. ACRCloud quota exhausted, bad credentials, rate limited),
+      // seamlessly fall back to Shazam acoustic fingerprinting so user recognition never breaks.
+      if (provider.name !== 'shazam') {
+        try {
+          const fallbackProvider = getRecognitionProvider(env, 'shazam');
+          result = await fallbackProvider.recognize(audioBuffer, { signatureUri });
+          result.fallback = true;
+          result.fallbackFrom = provider.name;
+        } catch (fallbackErr) {
+          // Both failed, throw original error
+          throw primaryErr;
+        }
+      } else {
+        throw primaryErr;
+      }
+    }
 
     return new Response(JSON.stringify({
       error: false,
@@ -238,3 +272,4 @@ export async function onRequestPost({ request, env }) {
     return jsonError(msg, status, corsHeaders);
   }
 }
+

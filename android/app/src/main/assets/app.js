@@ -1270,7 +1270,7 @@ if (moreSheetHandle && moreSheet) {
 // =====================================================================
 
 const mic = new MicSource({
-  provider: localStorage.getItem('lyricwave_recognition_provider') || CONFIG.RECOGNITION_PROVIDER || 'acrcloud',
+  provider: localStorage.getItem('lyricwave_recognition_provider') || CONFIG.RECOGNITION_PROVIDER || 'shazam',
   onStatusChange: (statusText, statusType) => {
 
 
@@ -3666,13 +3666,14 @@ if (btnSettingsOffsetReset) {
 }
 
 if (settingRecognitionProvider) {
-  const currentProvider = localStorage.getItem('lyricwave_recognition_provider') || CONFIG.RECOGNITION_PROVIDER || 'acrcloud';
+  const currentProvider = localStorage.getItem('lyricwave_recognition_provider') || CONFIG.RECOGNITION_PROVIDER || 'shazam';
   settingRecognitionProvider.value = currentProvider;
 
   settingRecognitionProvider.addEventListener('change', (e) => {
     const selected = e.target.value;
     mic.setProvider(selected);
-    showAlert(`Recognition engine switched to ${selected === 'audd' ? 'AudD' : 'ACRCloud'}.`, 'info');
+    const providerLabel = selected === 'shazam' ? 'Shazam' : (selected === 'audd' ? 'AudD' : 'ACRCloud');
+    showAlert(`Recognition engine switched to ${providerLabel}.`, 'info');
   });
 }
 
