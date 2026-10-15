@@ -1,0 +1,14 @@
+node_modules
+android
+dist-desktop
+.git
+.github
+tests
+test-*
+*.log
+*.pem
+*.keystore
+*.jks
+.wrangler
+.cloudflare
+package-lock.json
