@@ -245,6 +245,8 @@ const settingWordMode = document.getElementById('settingWordMode');
 const settingHaptics = document.getElementById('settingHaptics');
 const settingTranslate = document.getElementById('settingTranslate');
 const settingTranslateLang = document.getElementById('settingTranslateLang');
+const btnToggleRomanize = document.getElementById('btnToggleRomanize');
+const romToggleText = document.getElementById('romToggleText');
 const reelLineTranslation = document.getElementById('reelLineTranslation');
 const settingOffsetSlider = document.getElementById('settingOffsetSlider');
 const settingRecognitionProvider = document.getElementById('settingRecognitionProvider');
@@ -301,7 +303,7 @@ let isWordMode = localStorage.getItem(STORAGE_WORD_MODE_KEY) !== 'false';
 // Lyric letter conversion & romanization (see translate.js)
 const STORAGE_TRANSLATE_KEY = 'lyricwave_translate';
 const STORAGE_TRANSLATE_LANG_KEY = 'lyricwave_translate_lang';
-let isTranslateOn = safeGet(STORAGE_TRANSLATE_KEY) === 'true';
+let isTranslateOn = safeGet(STORAGE_TRANSLATE_KEY) !== 'false';
 const storedLang = safeGet(STORAGE_TRANSLATE_LANG_KEY);
 let translateLang = (storedLang && TRANSLATE_LANGUAGES.some(([code]) => code === storedLang)) ? storedLang : defaultTargetLang();
 let currentTranslations = [];
@@ -2891,11 +2893,27 @@ async function requestTranslations(lyrics) {
   }
 }
 
+function updateRomanizeToggleUI() {
+  if (!btnToggleRomanize) return;
+  if (isTranslateOn) {
+    btnToggleRomanize.classList.add('active');
+    btnToggleRomanize.classList.remove('off');
+    if (romToggleText) romToggleText.textContent = 'Romanize: On';
+    btnToggleRomanize.setAttribute('aria-pressed', 'true');
+  } else {
+    btnToggleRomanize.classList.remove('active');
+    btnToggleRomanize.classList.add('off');
+    if (romToggleText) romToggleText.textContent = 'Romanize: Off';
+    btnToggleRomanize.setAttribute('aria-pressed', 'false');
+  }
+}
+
 function setTranslateOn(enabled) {
   isTranslateOn = enabled;
   safeSet(STORAGE_TRANSLATE_KEY, enabled.toString());
   if (settingTranslate) settingTranslate.checked = enabled;
   if (settingTranslateLang) settingTranslateLang.disabled = !enabled;
+  updateRomanizeToggleUI();
   requestTranslations(engine.lyricsData);
 }
 
@@ -3619,6 +3637,10 @@ if (settingTranslate) {
   settingTranslate.checked = isTranslateOn;
   settingTranslate.addEventListener('change', (e) => setTranslateOn(e.target.checked));
 }
+if (btnToggleRomanize) {
+  btnToggleRomanize.addEventListener('click', () => setTranslateOn(!isTranslateOn));
+}
+updateRomanizeToggleUI();
 if (settingWordMode) {
   settingWordMode.addEventListener('change', (e) => setWordMode(e.target.checked));
 }

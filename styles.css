@@ -3026,6 +3026,50 @@ body::before {
   flex-wrap: wrap;
 }
 
+.btn-toggle-rom {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  padding: 0.2rem 0.65rem;
+  border-radius: var(--radius-full);
+  background: rgba(172, 88, 233, 0.16);
+  border: 1px solid rgba(172, 88, 233, 0.45);
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.btn-toggle-rom:hover {
+  background: rgba(172, 88, 233, 0.28);
+  border-color: #ac58e9;
+  transform: translateY(-1px);
+}
+
+.btn-toggle-rom.off {
+  background: var(--fill-1);
+  border-color: var(--border-subtle);
+  color: var(--text-muted);
+}
+
+.btn-toggle-rom .rom-badge-pill {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.08rem 0.35rem;
+  border-radius: 4px;
+  background: #ac58e9;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+}
+
+.btn-toggle-rom.off .rom-badge-pill {
+  background: rgba(255, 255, 255, 0.18);
+  color: var(--text-muted);
+}
+
 .lyrics-badge {
   display: inline-flex;
   align-items: center;

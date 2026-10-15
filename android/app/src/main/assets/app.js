@@ -245,6 +245,8 @@ const settingWordMode = document.getElementById('settingWordMode');
 const settingHaptics = document.getElementById('settingHaptics');
 const settingTranslate = document.getElementById('settingTranslate');
 const settingTranslateLang = document.getElementById('settingTranslateLang');
+const btnToggleRomanize = document.getElementById('btnToggleRomanize');
+const romToggleText = document.getElementById('romToggleText');
 const reelLineTranslation = document.getElementById('reelLineTranslation');
 const settingOffsetSlider = document.getElementById('settingOffsetSlider');
 const settingRecognitionProvider = document.getElementById('settingRecognitionProvider');
@@ -298,11 +300,12 @@ let currentTheme = THEME_IDS.includes(localStorage.getItem(STORAGE_THEME_KEY)) ?
 let currentAnimStyle = ANIM_STYLES.includes(safeGet(STORAGE_ANIM_KEY)) ? safeGet(STORAGE_ANIM_KEY) : DEFAULT_ANIM_STYLE;
 let hapticsEnabled = safeGet(STORAGE_HAPTICS_KEY) !== 'false';
 let isWordMode = localStorage.getItem(STORAGE_WORD_MODE_KEY) !== 'false';
-// Lyric translation (free MyMemory API, see translate.js)
+// Lyric letter conversion & romanization (see translate.js)
 const STORAGE_TRANSLATE_KEY = 'lyricwave_translate';
 const STORAGE_TRANSLATE_LANG_KEY = 'lyricwave_translate_lang';
-let isTranslateOn = safeGet(STORAGE_TRANSLATE_KEY) === 'true';
-let translateLang = safeGet(STORAGE_TRANSLATE_LANG_KEY) || defaultTargetLang();
+let isTranslateOn = safeGet(STORAGE_TRANSLATE_KEY) !== 'false';
+const storedLang = safeGet(STORAGE_TRANSLATE_LANG_KEY);
+let translateLang = (storedLang && TRANSLATE_LANGUAGES.some(([code]) => code === storedLang)) ? storedLang : defaultTargetLang();
 let currentTranslations = [];
 let currentReelLineIndex = -1;
 let translateRequestId = 0;
@@ -2667,7 +2670,18 @@ function renderLyricsState(lyrics) {
       const el = document.createElement('div');
       el.className = 'lyric-line upcoming-line';
       el.id = `line-${index}`;
-      el.textContent = line.text || '♪';
+      const orig = line.text || '♪';
+      const converted = currentTranslations[index] || '';
+      const mainText = converted || orig;
+      const subText = converted ? orig : '';
+      el.textContent = mainText;
+      if (subText) {
+        const sub = document.createElement('span');
+        sub.className = 'lyric-translation';
+        sub.lang = translateLang;
+        sub.textContent = subText;
+        el.appendChild(sub);
+      }
 
       // Tapping a line performs non-destructive sync alignment (seeks playback without clearing state)
       el.addEventListener('click', () => {
@@ -2682,7 +2696,7 @@ function renderLyricsState(lyrics) {
 
     reelLineText.innerHTML = '<span class="reel-placeholder-text">♫ Waiting for music...</span>';
     reelPrevLine.textContent = '';
-    reelNextLine.textContent = lyrics.syncedLines[0]?.text || '';
+    reelNextLine.textContent = currentTranslations[0] || lyrics.syncedLines[0]?.text || '';
 
   } else if (lyrics.status === 'plain' && lyrics.plainLyrics) {
     lyricsStatusBadge.classList.add('plain');
@@ -2795,36 +2809,62 @@ function setReelTranslation(text) {
   reelLineTranslation.classList.toggle('hidden', !text);
 }
 
-/** Paint currentTranslations onto the rendered lyrics (list, plain text and the stage line). */
+/** Paint letter conversion in primary lyrics position and original lyrics in sub-line position */
 function applyTranslations() {
   const lyrics = engine.lyricsData;
-  lineElements.forEach((el, i) => {
-    let sub = el.querySelector('.lyric-translation');
-    const text = currentTranslations[i] || '';
-    if (!text) { sub?.remove(); return; }
-    if (!sub) {
-      sub = document.createElement('span');
-      sub.className = 'lyric-translation';
-      sub.lang = translateLang;
-      el.appendChild(sub);
-    }
-    sub.textContent = text;
-  });
+  if (!lyrics) return;
+
+  if (lyrics.status === 'synced' && lyrics.syncedLines) {
+    lineElements.forEach((el, i) => {
+      const orig = lyrics.syncedLines[i]?.text || '♪';
+      const converted = currentTranslations[i] || '';
+      const mainText = converted || orig;
+      const subText = converted ? orig : '';
+
+      let sub = el.querySelector('.lyric-translation');
+      if (!subText) {
+        sub?.remove();
+        el.textContent = mainText;
+      } else {
+        if (!sub) {
+          sub = document.createElement('span');
+          sub.className = 'lyric-translation';
+          sub.lang = translateLang;
+          el.appendChild(sub);
+        }
+        sub.textContent = subText;
+        let firstNode = el.firstChild;
+        if (firstNode === sub) {
+          el.insertBefore(document.createTextNode(mainText), sub);
+        } else if (firstNode && firstNode.nodeType === Node.TEXT_NODE) {
+          firstNode.nodeValue = mainText;
+        } else {
+          el.insertBefore(document.createTextNode(mainText), sub);
+        }
+      }
+    });
+  }
 
   const plainWrap = lyricsContent.querySelector('.plain-lyrics-wrap');
-  if (plainWrap && lyrics && lyrics.status === 'plain') {
+  if (plainWrap && lyrics.status === 'plain') {
     const original = String(lyrics.plainLyrics || '').split('\n');
     if (currentTranslations.some(Boolean)) {
       plainWrap.innerHTML = original.map((line, i) => {
-        const t = currentTranslations[i];
-        return escapeHtml(line) + (t ? `\n<span class="lyric-translation" lang="${escapeHtml(translateLang)}">${escapeHtml(t)}</span>` : '');
+        const converted = currentTranslations[i];
+        const mainText = converted || line;
+        const subText = converted ? line : '';
+        return escapeHtml(mainText) + (subText ? `\n<span class="lyric-translation" lang="${escapeHtml(translateLang)}">${escapeHtml(subText)}</span>` : '');
       }).join('\n');
     } else {
       plainWrap.textContent = lyrics.plainLyrics;
     }
   }
 
-  setReelTranslation(currentTranslations[currentReelLineIndex] || '');
+  if (currentReelLineIndex >= 0 && lyrics.syncedLines && currentReelLineIndex < lyrics.syncedLines.length) {
+    updateReelLine(currentReelLineIndex);
+  } else if (lyrics.syncedLines) {
+    reelNextLine.textContent = currentTranslations[0] || lyrics.syncedLines[0]?.text || '';
+  }
 }
 
 async function requestTranslations(lyrics) {
@@ -2848,8 +2888,23 @@ async function requestTranslations(lyrics) {
     if (err instanceof TranslationQuotaError) {
       showAlert('Free translation limit reached for today. Lyrics stay in the original language.', 'warning');
     } else {
-      console.warn('Lyric translation failed:', err);
+      console.warn('Lyric romanization failed:', err);
     }
+  }
+}
+
+function updateRomanizeToggleUI() {
+  if (!btnToggleRomanize) return;
+  if (isTranslateOn) {
+    btnToggleRomanize.classList.add('active');
+    btnToggleRomanize.classList.remove('off');
+    if (romToggleText) romToggleText.textContent = 'Romanize: On';
+    btnToggleRomanize.setAttribute('aria-pressed', 'true');
+  } else {
+    btnToggleRomanize.classList.remove('active');
+    btnToggleRomanize.classList.add('off');
+    if (romToggleText) romToggleText.textContent = 'Romanize: Off';
+    btnToggleRomanize.setAttribute('aria-pressed', 'false');
   }
 }
 
@@ -2858,6 +2913,7 @@ function setTranslateOn(enabled) {
   safeSet(STORAGE_TRANSLATE_KEY, enabled.toString());
   if (settingTranslate) settingTranslate.checked = enabled;
   if (settingTranslateLang) settingTranslateLang.disabled = !enabled;
+  updateRomanizeToggleUI();
   requestTranslations(engine.lyricsData);
 }
 
@@ -2874,12 +2930,12 @@ function updateReelLine(lineIndex) {
   const lines = lyrics.syncedLines;
 
   currentReelLineIndex = lineIndex;
-  setReelTranslation(currentTranslations[lineIndex] || '');
 
   if (lineIndex < 0 || lineIndex >= lines.length) {
     reelLineText.innerHTML = '<span class="reel-placeholder-text">♫ Prelude / Intro</span>';
     reelPrevLine.textContent = '';
-    reelNextLine.textContent = lines[0]?.text || '';
+    reelNextLine.textContent = currentTranslations[0] || lines[0]?.text || '';
+    setReelTranslation('');
     reelWordElements = [];
     reelWordStates = [];
     reel.setActiveLine(null, -1);
@@ -2888,6 +2944,11 @@ function updateReelLine(lineIndex) {
 
   const currentLine = lines[lineIndex];
   const nextLineTime = lines[lineIndex + 1]?.timeMs || 0;
+  const converted = currentTranslations[lineIndex] || '';
+  const mainDisplayText = converted || currentLine.text;
+  const subDisplayText = converted ? currentLine.text : '';
+
+  setReelTranslation(subDisplayText);
 
   // Subtle pulse animation on line box
   reelLineBox.classList.remove('line-pulse');
@@ -2898,13 +2959,15 @@ function updateReelLine(lineIndex) {
     reelLineBox.classList.remove('line-pulse');
   }, 220);
 
-  reelPrevLine.textContent = lines[lineIndex - 1]?.text || '';
-  reelNextLine.textContent = lines[lineIndex + 1]?.text || '';
+  const prevConverted = currentTranslations[lineIndex - 1] || lines[lineIndex - 1]?.text || '';
+  const nextConverted = currentTranslations[lineIndex + 1] || lines[lineIndex + 1]?.text || '';
+  reelPrevLine.textContent = prevConverted;
+  reelNextLine.textContent = nextConverted;
 
   reel.setActiveLine(currentLine, lineIndex, nextLineTime);
 
   // Construct word spans for word reveal
-  const rawWords = currentLine.text.trim().split(/\s+/).filter(Boolean);
+  const rawWords = mainDisplayText.trim().split(/\s+/).filter(Boolean);
   reelLineText.innerHTML = '';
   reelWordElements = [];
   reelWordStates = [];
@@ -3574,6 +3637,10 @@ if (settingTranslate) {
   settingTranslate.checked = isTranslateOn;
   settingTranslate.addEventListener('change', (e) => setTranslateOn(e.target.checked));
 }
+if (btnToggleRomanize) {
+  btnToggleRomanize.addEventListener('click', () => setTranslateOn(!isTranslateOn));
+}
+updateRomanizeToggleUI();
 if (settingWordMode) {
   settingWordMode.addEventListener('change', (e) => setWordMode(e.target.checked));
 }

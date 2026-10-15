@@ -115,6 +115,69 @@ assert(detectCyrillicLang('Привет, как дела?') === 'ru', 'Detects R
   assert(resEl === 'Kalimera', `Greek romanization: got "${resEl}"`);
 }
 
+// Chinese Hanzi / Pinyin romanization
+{
+  const resZh = romanizeLine('我爱你中国', 'zh');
+  assert(resZh === 'wo ai ni zhong guo', `Chinese lyrics romanized to Pinyin: got "${resZh}"`);
+
+  const resZhAuto = romanizeLine('你是我心中的歌', 'auto');
+  assert(resZhAuto.includes('ni') && resZhAuto.includes('wo'), `Chinese auto-detection Pinyin: got "${resZhAuto}"`);
+}
+
+// Hindi / Devanagari romanization
+{
+  const resHi = romanizeLine('तुम ही हो', 'hi');
+  assert(resHi === 'tum hee ho', `Hindi Devanagari romanized: got "${resHi}"`);
+
+  const resHiAuto = romanizeLine('नमस्ते', 'auto');
+  assert(resHiAuto === 'namaste', `Hindi auto-detection: got "${resHiAuto}"`);
+}
+
+// Arabic & Persian romanization
+{
+  const resAr = romanizeLine('حبيبي', 'ar');
+  assert(resAr === 'hbibi', `Arabic romanized: got "${resAr}"`);
+
+  const resAr2 = romanizeLine('موسيقى', 'auto');
+  assert(resAr2 === 'musiqa', `Arabic auto-detection: got "${resAr2}"`);
+}
+
+// Hebrew romanization
+{
+  const resHe = romanizeLine('שלום', 'he');
+  assert(resHe === 'shlom', `Hebrew romanized: got "${resHe}"`);
+}
+
+// Thai romanization
+{
+  const resTh = romanizeLine('สวัสดี', 'th');
+  assert(resTh === 'swasdee', `Thai romanized: got "${resTh}"`);
+}
+
+// Georgian romanization
+{
+  const resKa = romanizeLine('გამარჯობა', 'ka');
+  assert(resKa === 'gamarjoba', `Georgian romanized: got "${resKa}"`);
+}
+
+// Armenian romanization
+{
+  const resHy = romanizeLine('Բարև', 'hy');
+  assert(resHy === 'Barev', `Armenian romanized: got "${resHy}"`);
+}
+
+// Bengali romanization
+{
+  const resBn = romanizeLine('আমি তোমাকে ভালোবাসি', 'bn');
+  assert(resBn === 'ami tomake bhalobashi', `Bengali romanized: got "${resBn}"`);
+}
+
+// Punjabi / Gurmukhi romanization
+{
+  const resPa = romanizeLine('ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ', 'pa');
+  assert(resPa.includes('sat'), `Gurmukhi Punjabi romanized: got "${resPa}"`);
+}
+
 // Pure Latin / English is untouched (no redundant display)
 {
   const english = romanizeLine('Never gonna give you up', 'auto');
@@ -150,3 +213,5 @@ assert(detectCyrillicLang('Привет, как дела?') === 'ru', 'Detects R
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
+
+

@@ -16,6 +16,8 @@
 
   <!-- Web Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://api.fontshare.com">
+  <link href="https://api.fontshare.com/v2/css?f[]=switzer@300,400,500,600,700,800,900&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=Fraunces:opsz,wght@9..144,500;9..144,700&display=swap" rel="stylesheet">
   <!-- Apply the saved theme before first paint (avoids a flash of the wrong theme) -->
   <script>try{var t=localStorage.getItem("lyricwave_theme");if(!t)t=matchMedia("(prefers-color-scheme: light)").matches?"paper":"aurora";document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
@@ -628,6 +630,12 @@
             <span id="lyricsStatusText">Searching lyrics...</span>
           </span>
         </div>
+        <div class="lyrics-topbar-controls">
+          <button id="btnToggleRomanize" class="btn-toggle-rom active" type="button" aria-label="Toggle Romanization" title="Convert non-Latin lyrics to English letters">
+            <span class="rom-badge-pill">Aa</span>
+            <span id="romToggleText" class="rom-text">Romanize: On</span>
+          </button>
+        </div>
       </div>
 
       <!-- Tap the line you're hearing banner -->
@@ -1033,14 +1041,14 @@
               </label>
             </div>
             <div class="set-row">
-              <label class="set-row-label" for="settingTranslate">Translate lyrics</label>
+              <label class="set-row-label" for="settingTranslate">Romanize lyrics</label>
               <label class="switch">
                 <input id="settingTranslate" type="checkbox">
                 <span class="slider-round"></span>
               </label>
             </div>
             <div class="set-row">
-              <label class="set-row-label" for="settingTranslateLang">Translate into</label>
+              <label class="set-row-label" for="settingTranslateLang">Letter conversion</label>
               <select id="settingTranslateLang" class="set-select" disabled></select>
             </div>
             <div class="set-row">
