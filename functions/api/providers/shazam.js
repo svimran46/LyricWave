@@ -1,45 +1,26 @@
 /**
  * Shazam Music Recognition Provider
- * 
- * Implements the RecognitionProvider interface using Shazam's
- * acoustic fingerprinting and Discovery API (amp.shazam.com).
- * 
- * Features:
- * - Pure JavaScript STFT acoustic fingerprint generator (no FFmpeg or native binary needed).
- * - Generates Shazam container signatures (data:audio/vnd.shazam.sig;base64,...).
- * - Full track metadata normalization (title, artist, album, duration, offsetMs, confidence).
- * - Extract linked Spotify & Apple Music identifiers and lookup candidates.
- * 
- * Privacy & Security:
- * - Operates entirely in memory.
- * - Never logs or stores raw audio samples.
+ *
+ * Implements the RecognitionProvider interface on Shazam's discovery ("tag") API.
+ *
+ * The client normally fingerprints the audio itself and sends only the signature
+ * (`data:audio/vnd.shazam.sig;base64,...`, a few KB), so this provider is a thin proxy:
+ * it costs the Worker almost no CPU. Raw WAV/PCM is still accepted and fingerprinted here
+ * as a fallback for old clients.
+ *
+ * Privacy: everything runs in memory; audio and signatures are never logged or stored.
  */
 
 import { RecognitionProvider } from './base.js';
-import { generateShazamSignature, DATA_URI_PREFIX } from './shazam-signature.js';
+import {
+  generateShazamSignature,
+  isValidSignatureUri,
+  samplemsFromUri,
+  buildShazamRequest,
+  normalizeShazamResponse
+} from '../../../shazam-core.js';
 
-const SHAZAM_USER_AGENTS = [
-  'Dalvik/2.1.0 (Linux; U; Android 6.0.1; SM-G920F Build/MMB29K)',
-  'Dalvik/2.1.0 (Linux; U; Android 7.0; SM-G930F Build/NRD90M)',
-  'Dalvik/2.1.0 (Linux; U; Android 8.0.0; Pixel 2 Build/OPD1.170816.010)',
-  'Dalvik/2.1.0 (Linux; U; Android 9; SM-G960F Build/PPR1.180610.011)',
-  'Dalvik/2.1.0 (Linux; U; Android 10; SM-G973F Build/QP1A.190711.020)',
-  'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 5 Build/RD1A.201105.003)',
-  'Dalvik/2.1.0 (Linux; U; Android 12; Pixel 6 Build/SQ1D.211205.016.A1)'
-];
-
-function getRandomUserAgent() {
-  const index = Math.floor(Math.random() * SHAZAM_USER_AGENTS.length);
-  return SHAZAM_USER_AGENTS[index];
-}
-
-function generateUuid() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  }).toUpperCase();
-}
+const REQUEST_TIMEOUT_MS = 9000;
 
 export class ShazamProvider extends RecognitionProvider {
   /**
@@ -51,197 +32,63 @@ export class ShazamProvider extends RecognitionProvider {
     super(options);
     this.name = 'shazam';
     this.timezone = options.timezone || 'UTC';
-    this.endpoint = (options.endpoint || 'https://amp.shazam.com').replace(/\/+$/, '');
+    this.endpoint = options.endpoint || undefined;
+    this.fetchImpl = options.fetch || null;
+  }
+
+  /** Shazam needs no credentials. */
+  isConfigured() {
+    return true;
   }
 
   /**
-   * Recognize an audio sample (WAV buffer, raw PCM, or precomputed signature URI)
-   * 
-   * @param {Uint8Array|ArrayBuffer|string} audioBuffer
-   * @param {Object} [options]
-   * @param {string} [options.signatureUri] - Optional precomputed signature URI
+   * @param {Uint8Array|ArrayBuffer|null} audioBuffer
+   * @param {{ signatureUri?: string, samplems?: number }} [options]
    * @returns {Promise<import('./base.js').NormalizedRecognitionResult>}
    */
   async recognize(audioBuffer, options = {}) {
     let signature;
-
-    if (options.signatureUri && typeof options.signatureUri === 'string' && options.signatureUri.startsWith(DATA_URI_PREFIX)) {
+    if (isValidSignatureUri(options.signatureUri)) {
       signature = {
         uri: options.signatureUri,
-        samplems: options.samplems || 8000
+        samplems: Number(options.samplems) > 0 ? Number(options.samplems) : samplemsFromUri(options.signatureUri)
       };
+    } else if (audioBuffer && audioBuffer.byteLength > 0) {
+      const bytes = audioBuffer instanceof Uint8Array ? audioBuffer : new Uint8Array(audioBuffer);
+      const isWav = bytes.length > 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46;
+      if (!isWav && !options.allowRawPcm) {
+        // WebM/MP4 can't be decoded in a Worker; fingerprinting it as PCM would only produce noise.
+        throw new Error('Shazam needs a WAV sample or a client-side signature.');
+      }
+      signature = generateShazamSignature(bytes);
     } else {
-      signature = generateShazamSignature(audioBuffer);
+      throw new Error('No audio or valid Shazam signature was provided.');
     }
 
-    if (!signature || !signature.uri) {
-      throw new Error('Failed to generate acoustic fingerprint signature for Shazam.');
+    const { url, init } = buildShazamRequest(signature, { endpoint: this.endpoint, timezone: this.timezone });
+    const doFetch = this.fetchImpl || fetch;
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS) : null;
+    let response;
+    try {
+      response = await doFetch(url, { ...init, signal: controller ? controller.signal : undefined });
+    } catch (err) {
+      throw new Error(err && err.name === 'AbortError' ? 'Shazam did not answer in time.' : `Shazam request failed: ${err.message}`);
+    } finally {
+      if (timer) clearTimeout(timer);
     }
-
-    const tagUuid1 = generateUuid();
-    const tagUuid2 = generateUuid();
-    const url = `${this.endpoint}/discovery/v5/en/US/android/-/tag/${tagUuid1}/${tagUuid2}?sync=true&webv3=true&sampling=true&connected=&shazamapiversion=v3&sharehub=true&video=v3`;
-
-    const payload = {
-      timezone: this.timezone,
-      signature: {
-        uri: signature.uri,
-        samplems: signature.samplems
-      },
-      timestamp: Date.now(),
-      context: {},
-      geolocation: {}
-    };
-
-    const headers = {
-      'Content-Type': 'application/json',
-      'User-Agent': getRandomUserAgent(),
-      'X-Shazam-Platform': 'IPHONE',
-      'X-Shazam-AppVersion': '14.1.0',
-      'Accept': 'application/json'
-    };
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload)
-    });
 
     if (!response.ok) {
       const errText = await response.text().catch(() => '');
-      throw new Error(`Shazam discovery API failed with HTTP ${response.status}: ${errText.slice(0, 200)}`);
+      const err = new Error(`Shazam discovery API failed with HTTP ${response.status}: ${errText.slice(0, 160)}`);
+      err.upstreamStatus = response.status;
+      throw err;
     }
 
-    const data = await response.json();
-    return this.normalizeResponse(data);
+    return this.normalizeResponse(await response.json());
   }
 
-  /**
-   * Normalize Shazam JSON response into standard NormalizedRecognitionResult
-   * 
-   * @param {Object} rawData
-   * @returns {import('./base.js').NormalizedRecognitionResult}
-   */
   normalizeResponse(rawData) {
-    if (!rawData) {
-      return {
-        success: false,
-        title: null,
-        artist: null,
-        album: null,
-        duration: 0,
-        offsetMs: null,
-        confidence: 0,
-        provider: this.name,
-        raw: null
-      };
-    }
-
-    const matches = rawData.matches || [];
-    if (matches.length === 0 || !rawData.track) {
-      return {
-        success: false,
-        title: null,
-        artist: null,
-        album: null,
-        duration: 0,
-        offsetMs: null,
-        confidence: 0,
-        provider: this.name,
-        raw: null
-      };
-    }
-
-    const track = rawData.track;
-    const match = matches[0] || {};
-
-    const title = track.title || 'Unknown Title';
-    const artist = track.subtitle || 'Unknown Artist';
-
-    // Extract song section metadata (Album, Released, Label)
-    const songSection = track.sections?.find((s) => s.type === 'SONG');
-    const songMeta = songSection?.metadata || [];
-
-    const album = songMeta.find((m) => m.title === 'Album')?.text || '';
-    const releaseDate = songMeta.find((m) => m.title === 'Released')?.text || null;
-    const label = songMeta.find((m) => m.title === 'Label')?.text || null;
-
-    // Offset in milliseconds
-    let offsetMs = null;
-    if (typeof match.offset === 'number') {
-      offsetMs = Math.round(match.offset * 1000);
-    }
-
-    // Confidence estimation from match
-    let confidence = 100;
-    if (typeof match.timeskew === 'number') {
-      confidence = Math.max(50, Math.min(100, Math.round(100 - Math.abs(match.timeskew) * 1000)));
-    }
-
-    // Extract Spotify track ID or Apple Music ID if available
-    let spotifyTrackId = null;
-    let appleMusicId = null;
-
-    if (track.hub?.providers) {
-      for (const prov of track.hub.providers) {
-        if (prov.type === 'SPOTIFY' && prov.actions) {
-          for (const act of prov.actions) {
-            if (act.uri && act.uri.includes('spotify:track:')) {
-              spotifyTrackId = act.uri.replace('spotify:track:', '').split('?')[0];
-            }
-          }
-        }
-      }
-    }
-
-    if (track.myshazam?.apple?.actions) {
-      for (const act of track.myshazam.apple.actions) {
-        if (act.uri && act.uri.includes('id=')) {
-          const matchId = act.uri.match(/id=(\d+)/);
-          if (matchId) appleMusicId = matchId[1];
-        }
-      }
-    }
-
-    // Lookup candidates for resilient lyric fetching
-    const lookupCandidates = [];
-    const addCand = (t, a) => {
-      const ct = String(t || '').trim();
-      const ca = String(a || '').trim();
-      if (!ct) return;
-      const key = `${ct}__${ca}`.toLowerCase();
-      if (!lookupCandidates.some((c) => `${c.title}__${c.artist}`.toLowerCase() === key)) {
-        lookupCandidates.push({ title: ct, artist: ca, duration: 0 });
-      }
-    };
-
-    addCand(title, artist);
-    // Remove "feat. ..." or parentheses in alternate candidate
-    const cleanTitle = title.replace(/\s*\([^)]*\)/g, '').replace(/\s*-\s*.*$/, '').trim();
-    if (cleanTitle !== title) {
-      addCand(cleanTitle, artist);
-    }
-
-    return {
-      success: true,
-      title,
-      artist,
-      album,
-      duration: 0,
-      offsetMs,
-      confidence,
-      provider: this.name,
-      lookupCandidates,
-      raw: {
-        shazamKey: track.key || null,
-        isrc: track.isrc || null,
-        genres: track.genres?.primary ? [track.genres.primary] : [],
-        releaseDate,
-        label,
-        spotifyTrackId,
-        appleMusicId,
-        coverArt: track.images?.coverart || track.images?.coverarthq || null
-      }
-    };
+    return normalizeShazamResponse(rawData);
   }
 }

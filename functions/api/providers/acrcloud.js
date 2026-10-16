@@ -24,6 +24,11 @@ export class ACRCloudProvider extends RecognitionProvider {
     this.accessSecret = (options.accessSecret || '').trim();
   }
 
+  /** True when host, access key and secret are all set. */
+  isConfigured() {
+    return Boolean(this.host && this.accessKey && this.accessSecret);
+  }
+
   /**
    * Generate HMAC-SHA1 signature using standard Web Crypto API (SubtleCrypto)
    * Compatible with Cloudflare Workers / Pages Functions and modern Node.

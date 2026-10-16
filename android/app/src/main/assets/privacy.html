@@ -112,8 +112,10 @@
       </ul>
       <p>Switching to another source, cancelling, or leaving the Microphone tab stops recording and any pending re-listen.</p>
       <ul>
-        <li><strong>Short samples:</strong> each recording is about 5 seconds long and is used only to identify the music playing.</li>
-        <li><strong>Processors:</strong> the sample is sent over HTTPS to our recognition endpoint (hosted on Cloudflare) and matched via <strong>Shazam</strong> (<a href="https://www.apple.com/legal/privacy/" target="_blank" rel="noopener" style="color:var(--accent);">Privacy Policy</a>), <strong>ACRCloud</strong> (<a href="https://www.acrcloud.com/privacy" target="_blank" rel="noopener" style="color:var(--accent);">Privacy Policy</a>) or <strong>AudD</strong> (<a href="https://audd.io/privacy" target="_blank" rel="noopener" style="color:var(--accent);">Privacy Policy</a>), depending on the engine selected in Settings.</li>
+        <li><strong>Short samples:</strong> each listen lasts at most 12 seconds and stops as soon as the song is found; it is used only to identify the music playing.</li>
+        <li><strong>Fingerprint on your device:</strong> the audio is converted into an acoustic fingerprint on your device. With Shazam (the default) only that fingerprint leaves the device &mdash; never the audio itself. ACRCloud and AudD, if you select them, receive the audio sample.</li>
+        <li><strong>Desktop app:</strong> the desktop app sends the fingerprint directly to Shazam instead of through our endpoint.</li>
+        <li><strong>Processors:</strong> the fingerprint (or sample) is sent over HTTPS to our recognition endpoint (hosted on Cloudflare) and matched via <strong>Shazam</strong> (<a href="https://www.apple.com/legal/privacy/" target="_blank" rel="noopener" style="color:var(--accent);">Privacy Policy</a>), <strong>ACRCloud</strong> (<a href="https://www.acrcloud.com/privacy" target="_blank" rel="noopener" style="color:var(--accent);">Privacy Policy</a>) or <strong>AudD</strong> (<a href="https://audd.io/privacy" target="_blank" rel="noopener" style="color:var(--accent);">Privacy Policy</a>), depending on the engine selected in Settings.</li>
         <li><strong>No audio storage:</strong> LyricWave does not keep, log or sell audio samples. Your IP address is used briefly in memory to rate-limit recognition requests and is not stored.</li>
       </ul>
     </section>
@@ -141,6 +143,20 @@
         <li>Only a handful of numbers (bass, vocal and overall levels, and beat timing) are calculated on your device to animate the lyrics. Nothing is stored or sent anywhere.</li>
         <li>It only runs while the lyrics screen is open and the app is on screen. If you don't grant the permission, the animation follows the rhythm of the lyrics instead.</li>
       </ul>
+    </section>
+
+    <section>
+      <h2>2c. Music Playing on Your Computer (desktop app)</h2>
+      <p>
+        The <strong>This PC</strong> tab of the desktop app reads the song title, artist, album and playback position that your operating system's media controls already show (Windows media sessions, Spotify/Music on macOS, MPRIS players on Linux). It does not record audio. Only the title and artist are sent to LRCLIB to find lyrics.
+      </p>
+    </section>
+
+    <section>
+      <h2>2d. projectM Visualizer Audio (optional)</h2>
+      <p>
+        By default the fullscreen projectM visualizer follows the song's beat without listening to anything. If you turn on <strong>projectM reacts to live audio</strong>, it analyses system audio (desktop app) or the microphone (elsewhere) frame by frame on your device to drive the visuals. This audio is never recorded, stored or sent anywhere, and capture stops when you leave fullscreen.
+      </p>
     </section>
 
     <section>

@@ -27,6 +27,11 @@ export class RecognitionProvider {
     this.config = config;
   }
 
+  /** Whether the provider has the credentials it needs (Shazam needs none). */
+  isConfigured() {
+    return false;
+  }
+
   /**
    * Recognize an audio sample
    * @param {Uint8Array|ArrayBuffer} audioBuffer - Audio sample bytes

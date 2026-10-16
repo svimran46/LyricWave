@@ -3,6 +3,7 @@
  */
 
 import { BeatVisuals, computeVisualParams, detectOnset } from './visuals.js';
+import { synthesizePcm, isProjectMSupported } from './projectm-visualizer.js';
 
 let passed = 0;
 let failed = 0;
@@ -103,6 +104,22 @@ assert(afterFirst > before && calls.fill === afterFirst, '30fps throttle skips f
   assert(/pseudoFullscreen && !landed\.includes\('fs'\)/.test(app), 'Android Back leaves pseudo-fullscreen before the stage');
   assert(/pseudoFullscreen && !landed\.includes\('fs'\) && !navPushQueue\.includes\('fs'\)/.test(app),
     'closing the More sheet as Fullscreen is tapped does not immediately exit fullscreen');
+}
+
+// --- projectM beat-synth ------------------------------------------------------
+{
+  const rms = (a) => Math.sqrt(a.reduce((x, v) => x + v * v, 0) / a.length);
+  const state = { phase: [0, 0, 0, 0, 0], seed: 1, kick: 0 };
+  const quiet = rms(synthesizePcm({ beat: 0, energy: 0, vocal: 0 }, state, new Float32Array(1024)));
+  const loud = rms(synthesizePcm({ beat: 1, energy: 1, vocal: 1 }, state, new Float32Array(1024)));
+  assert(loud > quiet * 5, 'projectM synth: a beat frame is much louder than silence');
+  const block = synthesizePcm({ beat: 1, energy: 1, vocal: 1 }, { phase: [0, 0, 0, 0, 0], seed: 1, kick: 0 }, new Float32Array(2048));
+  assert(block.every((v) => v >= -1 && v <= 1), 'projectM synth: samples stay within [-1, 1]');
+  const s2 = { phase: [0, 0, 0, 0, 0], seed: 1, kick: 0 };
+  const a = synthesizePcm({ energy: 0.5 }, s2, new Float32Array(256));
+  const b = synthesizePcm({ energy: 0.5 }, s2, new Float32Array(256));
+  assert(Math.abs(a[255] - b[0]) < 0.2, 'projectM synth: waveform is continuous across blocks');
+  assert(isProjectMSupported() === false, 'projectM support probe is false without a DOM (and never throws)');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

@@ -26,6 +26,11 @@ export class AudDProvider extends RecognitionProvider {
     this.endpoint = (options.endpoint || 'https://api.audd.io/').trim();
   }
 
+  /** The shared 'test' token allows ~10 requests a day, so it doesn't count as configured. */
+  isConfigured() {
+    return Boolean(this.apiToken) && this.apiToken !== 'test';
+  }
+
   /**
    * Parse AudD timecode string (e.g. "01:23" or "00:45.50" or "01:12:05") into milliseconds
    * @param {string|number|null} timecode

@@ -2,7 +2,7 @@
  * Unit Test for MicSource Logic, Lifecycle & Error Handling
  */
 
-import { MicSource } from './mic.js';
+import { MicSource, computeTrackPosition, DEFAULT_ATTEMPT_SECONDS } from './mic.js';
 
 let passed = 0;
 let failed = 0;
@@ -87,12 +87,14 @@ async function runTests() {
   assert(mic.autoRelistenEnabled === false, 'Auto re-listen can be disabled');
   assert(mic.autoRelistenTimer === null, 'Auto re-listen timer cleared when disabled');
 
-  // 7. Latency & Position Compensation Logic
-  // Sample: offsetMs = 45000, upload/backend RTT = 850ms (post-recording delay)
-  const mockOffsetMs = 45000;
-  const mockPostRecordingDelayMs = 850;
-  const expectedPositionSec = (mockOffsetMs + mockPostRecordingDelayMs) / 1000; // 45.85s (NOT 55.85s which double-counted 10s recording)
-  assert(expectedPositionSec === 45.85, 'Position correctly compensates for post-recording RTT without double-counting sample duration');
+  // 7. Position compensation
+  // ACRCloud/AudD: offset marks the END of the sample -> add only the time since capture ended.
+  const acrPos = computeTrackPosition({ offsetMs: 45000 }, { sampleMs: 8000, captureEndAt: 1000, now: 1850 });
+  assert(Math.abs(acrPos - 45.85) < 1e-9, 'End-anchored offset adds only post-capture delay (45.85s)');
+  // Shazam: offset marks the START of the sample -> add sample length + time since capture ended.
+  const szPos = computeTrackPosition({ offsetMs: 45000, offsetRef: 'start' }, { sampleMs: 4000, captureEndAt: 1000, now: 1850 });
+  assert(Math.abs(szPos - 49.85) < 1e-9, 'Start-anchored (Shazam) offset adds sample length + delay (49.85s)');
+  assert(computeTrackPosition({ offsetMs: null }, { sampleMs: 0, captureEndAt: 0, now: 0 }) === null, 'No offset -> null position');
 
   // 8. Cancellation behavior
   const cancelSource = new MicSource();
@@ -119,10 +121,27 @@ async function runTests() {
   provMic.setProvider('audd');
   assert(localStorage.getItem('lyricwave_recognition_provider') === 'audd', 'Switched back to audd in localStorage');
 
-  // 10. Sample Duration Configuration (Default to 5s for reliable ACRCloud fingerprinting)
-  assert(mic.sampleDurationSec === 5, 'Default sampleDurationSec is 5s for reliable recognition');
+  // 10. Progressive attempts (4s, 8s, 12s by default; the longest is the capture limit)
+  assert(JSON.stringify(mic.attemptSeconds) === JSON.stringify(DEFAULT_ATTEMPT_SECONDS), 'Default attempts are 4s, 8s, 12s');
+  assert(mic.sampleDurationSec === 12, 'Capture stops after the last attempt (12s)');
   const customDurationMic = new MicSource({ sampleDurationSec: 6 });
-  assert(customDurationMic.sampleDurationSec === 6, 'Custom sampleDurationSec is respected');
+  assert(customDurationMic.sampleDurationSec === 6 && customDurationMic.attemptSeconds.length === 1, 'Legacy sampleDurationSec gives one 6s attempt');
+  const customAttempts = new MicSource({ attemptSeconds: [9, 3] });
+  assert(JSON.stringify(customAttempts.attemptSeconds) === '[3,9]', 'Custom attempts are sorted');
+
+  // 11. snapshotPcm returns the newest audio across chunk boundaries
+  const snap = new MicSource();
+  snap.captureRate = 4;
+  snap.pcmChunks = [new Float32Array([1, 2, 3]), new Float32Array([4, 5, 6])];
+  snap.pcmFrames = 6;
+  assert(JSON.stringify(Array.from(snap.snapshotPcm(1))) === '[3,4,5,6]', 'snapshotPcm(1s) takes the newest 4 frames');
+  assert(snap.snapshotPcm(10).length === 6, 'snapshotPcm never returns more than was captured');
+
+  // 12. A stale session never reports a result after stop()
+  const stale = new MicSource();
+  const sessionBefore = stale.session;
+  stale.stop();
+  assert(stale.session !== sessionBefore, 'stop() invalidates the running capture session');
 
   console.log(`\nResults: ${passed} passed, ${failed} failed.`);
 
