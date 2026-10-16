@@ -1,6 +1,6 @@
 # projectM for LyricWave
 
-- `projectm.mjs` + `projectm.wasm`: [libprojectM](https://github.com/projectM-visualizer/projectm) 4
+- `projectm.js` + `projectm.wasm`: [libprojectM](https://github.com/projectM-visualizer/projectm) 4
   (commit `349b7cc2`), compiled with Emscripten 6.0.12 to WebAssembly + WebGL 2, together with the
   small bridge in `scripts/projectm/lw_projectm.cpp`. Rebuild with `scripts/projectm/build.sh`.
   License: LGPL-2.1 (`LICENSE-projectM.txt`). The library is loaded as a separate, replaceable module.

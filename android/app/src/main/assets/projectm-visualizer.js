@@ -15,7 +15,7 @@
  * Nothing is recorded: samples go straight from the analyser into projectM's ring buffer.
  */
 
-const MODULE_URL = './vendor/projectm/projectm.mjs';
+const MODULE_URL = './vendor/projectm/projectm.js';
 const WASM_URL = './vendor/projectm/projectm.wasm';
 const PRESETS_URL = './vendor/projectm/presets.json';
 const PCM_FRAME = 1024;          // samples handed to projectM per rendered frame (max it keeps is 2048)

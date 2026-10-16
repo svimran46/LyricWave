@@ -47,6 +47,6 @@ em++ -O3 -std=c++17 -I"$WORK/pm-install/include" "$ROOT/scripts/projectm/lw_proj
   -sFILESYSTEM=0 -sASSERTIONS=0 \
   "-sEXPORTED_FUNCTIONS=['_malloc','_free','_lw_pm_init','_lw_pm_resize','_lw_pm_add_pcm','_lw_pm_max_samples','_lw_pm_render','_lw_pm_load_preset','_lw_pm_set_preset_duration','_lw_pm_set_beat_sensitivity','_lw_pm_set_locked','_lw_pm_destroy']" \
   "-sEXPORTED_RUNTIME_METHODS=['ccall','stringToNewUTF8','HEAPF32']" \
-  -o "$OUT/projectm.mjs"
+  -o "$OUT/projectm.js"
 
-echo "Built $OUT/projectm.mjs + projectm.wasm"
+echo "Built $OUT/projectm.js + projectm.wasm"

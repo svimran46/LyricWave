@@ -46,7 +46,7 @@ assert(allowed.has('index.html') && allowed.has('styles.css'), 'index.html and s
 
 // projectM loads its WASM module and presets dynamically, which the import scan above can't see.
 assert(/include 'vendor\/projectm\/\*\*'/.test(gradle), 'vendor/projectm/** (projectM WASM + presets) is packed into the APK');
-for (const f of ['vendor/projectm/projectm.mjs', 'vendor/projectm/projectm.wasm', 'vendor/projectm/presets.json']) {
+for (const f of ['vendor/projectm/projectm.js', 'vendor/projectm/projectm.wasm', 'vendor/projectm/presets.json']) {
   assert(existsSync(f), `${f} exists`);
 }
 
