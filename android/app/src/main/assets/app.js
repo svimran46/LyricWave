@@ -30,6 +30,7 @@ import { ReelVisualizer } from './reel.js';
 import { AudioReactive } from './audio-reactive.js';
 import { translateLyrics, defaultTargetLang, TRANSLATE_LANGUAGES, TranslationQuotaError } from './translate.js';
 import { BeatVisuals } from './visuals.js';
+import { LyricCardMaker } from './card.js';
 import { signUp, logIn, logOut, getCurrentUser, updateUserPreferences, deleteCurrentAccount } from './user-auth.js';
 
 // DOM Elements: Navigation Tabs
@@ -195,6 +196,8 @@ const btnSeekForward = document.getElementById('btnSeekForward');
 const btnResync = document.getElementById('btnResync');
 const btnListenAgain = document.getElementById('btnListenAgain');
 const btnShareSong = document.getElementById('btnShareSong');
+const btnMakeLyricCard = document.getElementById('btnMakeLyricCard');
+const lyricCardBackdrop = document.getElementById('lyricCardBackdrop');
 const firstRunHint = document.getElementById('firstRunHint');
 const btnDismissFirstRun = document.getElementById('btnDismissFirstRun');
 const progressTrack = document.getElementById('progressTrack');
@@ -3398,6 +3401,29 @@ btnMoreOpenSettings?.addEventListener('click', () => {
   closeMoreSheet({ restoreFocus: false });
   openSettings();
 });
+
+// Lyrics card maker: pick a few lines of the current song and export them as an image
+const lyricCard = lyricCardBackdrop ? new LyricCardMaker({
+  backdrop: lyricCardBackdrop,
+  notify: (msg, type) => showAlert(msg, type),
+  haptic,
+  onClose: () => { if (stageOpen) btnMoreSheet?.focus({ preventScroll: true }); }
+}) : null;
+
+function openLyricCard() {
+  if (!lyricCard) return;
+  const positionMs = engine.track ? engine.getEffectivePositionMs() : NaN;
+  lyricCard.open(engine.track, engine.lyricsData, positionMs);
+}
+
+btnMakeLyricCard?.addEventListener('click', () => {
+  closeMoreSheet({ restoreFocus: false });
+  openLyricCard();
+});
+
+lyricCardBackdrop?.addEventListener('keydown', (e) => {
+  if (e.key === 'Tab') trapFocus(lyricCardBackdrop, e);
+});
 if (btnCloseShortcuts) btnCloseShortcuts.addEventListener('click', closeShortcuts);
 if (btnDoneShortcuts) btnDoneShortcuts.addEventListener('click', closeShortcuts);
 if (shortcutsBackdrop) {
@@ -3450,6 +3476,10 @@ window.addEventListener('keydown', (e) => {
       closeShortcuts();
       return;
     }
+    if (lyricCard?.isOpen) {
+      lyricCard.close();
+      return;
+    }
     if (micConsentBackdrop && !micConsentBackdrop.classList.contains('hidden')) {
       micConsentBackdrop.classList.add('hidden');
       return;
@@ -3477,6 +3507,7 @@ window.addEventListener('keydown', (e) => {
     const overlayOpen = sheetOpen
       || !settingsBackdrop.classList.contains('hidden')
       || (shortcutsBackdrop && !shortcutsBackdrop.classList.contains('hidden'))
+      || lyricCard?.isOpen
       || (micConsentBackdrop && !micConsentBackdrop.classList.contains('hidden'));
     if (overlayOpen) return;
     // On the stage, real controls keep their native Space behaviour (except the collapse button, which has
@@ -3512,6 +3543,13 @@ window.addEventListener('keydown', (e) => {
     } else {
       closeSettings();
     }
+    return;
+  }
+
+  // 'C' or 'c': Lyrics card maker for the current song
+  if ((e.key === 'c' || e.key === 'C') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    e.preventDefault();
+    if (lyricCard?.isOpen) lyricCard.close(); else openLyricCard();
     return;
   }
 
