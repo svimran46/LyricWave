@@ -6,15 +6,17 @@
  * 1. Checks CORS preflight and allowed origins.
  * 2. Enforces basic client IP rate limiting (in-memory per edge node).
  * 3. Validates incoming payload format and enforces 3.5 MB sample cap.
- * 4. Dispatches sample to configured recognition provider (ACRCloud).
- * 5. Returns normalized response (title, artist, album, duration, offsetMs, confidence).
+ * 4. Accepts a client-side Shazam signature (preferred: a few KB, no server CPU) and/or the
+ *    audio sample, and walks a provider chain (Shazam, then any configured ACRCloud / AudD).
+ * 5. Returns normalized response (title, artist, album, duration, offsetMs, offsetRef, confidence).
  * 
  * SECURITY & PRIVACY:
- * - Credentials read strictly from env (ACR_HOST, ACR_ACCESS_KEY, ACR_ACCESS_SECRET).
+ * - Credentials read strictly from env (ACR_HOST, ACR_ACCESS_KEY, ACR_ACCESS_SECRET, AUDD_API_TOKEN).
  * - Never logs or stores raw audio samples to disk, console, or cache.
  */
 
-import { getRecognitionProvider } from './providers/index.js';
+import { getProviderChain } from './providers/index.js';
+import { isValidSignatureUri } from '../../shazam-core.js';
 
 // Max allowed sample size: strictly 1 MB (~1,048,576 bytes)
 const MAX_SAMPLE_SIZE_BYTES = 1 * 1024 * 1024;
@@ -140,62 +142,40 @@ export async function onRequestPost({ request, env }) {
     }
   }
 
-  // 2. Validate Content-Type
+  // 2. Parse the payload: a client-side Shazam signature and/or the audio sample itself.
   const contentType = request.headers.get('content-type') || '';
   let audioBuffer = null;
   let signatureUri = request.headers.get('X-Shazam-Signature') || null;
+  let samplems = 0;
 
   try {
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
       const sample = formData.get('sample') || formData.get('file') || formData.get('audio');
-      
       const formSig = formData.get('signature') || formData.get('shazam_signature');
-      if (typeof formSig === 'string' && formSig.startsWith('data:audio/vnd.shazam.sig;base64,')) {
-        signatureUri = formSig;
+      if (typeof formSig === 'string' && formSig) signatureUri = formSig;
+      samplems = Number(formData.get('samplems')) || 0;
+
+      if (sample && typeof sample !== 'string') {
+        if (typeof sample.arrayBuffer !== 'function') {
+          return jsonError('Invalid audio file upload in form data.', 400, corsHeaders);
+        }
+        audioBuffer = new Uint8Array(await sample.arrayBuffer());
       }
-
-      if (!sample) {
-        return jsonError('Missing "sample" audio field in form data.', 400, corsHeaders);
-      }
-
-      if (typeof sample.arrayBuffer !== 'function') {
-        return jsonError('Invalid audio file upload in form data.', 400, corsHeaders);
-      }
-
-      const buffer = await sample.arrayBuffer();
-      audioBuffer = new Uint8Array(buffer);
-
-    } else if (
-      contentType.includes('audio/') || 
-      contentType.includes('application/octet-stream')
-    ) {
-      const buffer = await request.arrayBuffer();
-      audioBuffer = new Uint8Array(buffer);
-
+    } else if (contentType.includes('audio/') || contentType.includes('application/octet-stream')) {
+      audioBuffer = new Uint8Array(await request.arrayBuffer());
     } else if (contentType.includes('application/json')) {
       const json = await request.json().catch(() => null);
       if (!json || (!json.audio && !json.signature)) {
         return jsonError('JSON payload must include a base64-encoded "audio" or "signature" field.', 400, corsHeaders);
       }
-
-      if (json.signature && typeof json.signature === 'string') {
-        signatureUri = json.signature;
-      }
-
+      if (typeof json.signature === 'string') signatureUri = json.signature;
+      samplems = Number(json.samplems) || 0;
       if (json.audio) {
-        // Decode base64
         const binaryString = atob(json.audio);
-        const len = binaryString.length;
-        audioBuffer = new Uint8Array(len);
-        for (let i = 0; i < len; i++) {
-          audioBuffer[i] = binaryString.charCodeAt(i);
-        }
-      } else {
-        // Dummy 2KB buffer if only signature is provided in JSON
-        audioBuffer = new Uint8Array(2048);
+        audioBuffer = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) audioBuffer[i] = binaryString.charCodeAt(i);
       }
-
     } else {
       return jsonError('Unsupported Content-Type. Please send multipart/form-data, audio/*, or application/json with base64.', 415, corsHeaders);
     }
@@ -203,73 +183,70 @@ export async function onRequestPost({ request, env }) {
     return jsonError(`Failed to parse request payload: ${err.message}`, 400, corsHeaders);
   }
 
-  // 3. Validate audio buffer size
-  if (!audioBuffer || audioBuffer.byteLength === 0) {
+  // 3. Validate what we got
+  const hasSignature = isValidSignatureUri(signatureUri);
+  if (signatureUri && !hasSignature) signatureUri = null; // ignore a malformed signature, use the audio
+  const hasAudio = Boolean(audioBuffer && audioBuffer.byteLength > 0);
+
+  if (!hasSignature && !hasAudio) {
     return jsonError('Audio sample is empty. Please record audio before submitting.', 400, corsHeaders);
   }
-
-  if (audioBuffer.byteLength > MAX_SAMPLE_SIZE_BYTES) {
+  if (hasAudio && audioBuffer.byteLength > MAX_SAMPLE_SIZE_BYTES) {
     const sizeMb = (audioBuffer.byteLength / (1024 * 1024)).toFixed(2);
     return jsonError(`Audio sample too large (${sizeMb} MB). Maximum size allowed is 1 MB.`, 413, corsHeaders);
   }
-
-  // Minimum required audio sample size (at least 2KB for valid audio headers)
-  if (audioBuffer.byteLength < 2048 && !signatureUri) {
+  if (!hasSignature && audioBuffer.byteLength < 2048) {
     return jsonError('Audio sample is too short to produce a reliable acoustic fingerprint.', 400, corsHeaders);
   }
 
-  // 4. Initialize Provider
-  let provider;
+  // 4. Provider chain: requested/default provider first, then every configured fallback.
+  let chain;
   try {
-    const requestedProvider = request.headers.get('X-Recognition-Provider');
-    provider = getRecognitionProvider(env, requestedProvider);
+    chain = getProviderChain(env, request.headers.get('X-Recognition-Provider'), { hasSignature, hasAudio });
   } catch (err) {
     return jsonError(`Provider initialization failed: ${err.message}`, 500, corsHeaders);
   }
 
-  // 5. Query Music Recognition Provider with seamless fallback
-  try {
-    let result = null;
+  // 5. Try each provider until one identifies the song. A clean "no match" from any provider
+  //    is a normal 200 answer (the client retries with more audio); only when every provider
+  //    failed outright does the client get an error status.
+  const failures = [];
+  let noMatch = null;
+  for (const provider of chain) {
     try {
-      result = await provider.recognize(audioBuffer, { signatureUri });
-    } catch (primaryErr) {
-      // If primary provider failed (e.g. ACRCloud quota exhausted, bad credentials, rate limited),
-      // seamlessly fall back to Shazam acoustic fingerprinting so user recognition never breaks.
-      if (provider.name !== 'shazam') {
-        try {
-          const fallbackProvider = getRecognitionProvider(env, 'shazam');
-          result = await fallbackProvider.recognize(audioBuffer, { signatureUri });
+      const result = await provider.recognize(hasAudio ? audioBuffer : null, { signatureUri, samplems });
+      if (result && result.success) {
+        if (provider !== chain[0]) {
           result.fallback = true;
-          result.fallbackFrom = provider.name;
-        } catch (fallbackErr) {
-          // Both failed, throw original error
-          throw primaryErr;
+          result.fallbackFrom = chain[0].name;
         }
-      } else {
-        throw primaryErr;
+        return jsonOk(result, corsHeaders);
       }
+      if (!noMatch) noMatch = result;
+    } catch (err) {
+      failures.push({ provider: provider.name, message: String(err && err.message || err), upstreamStatus: err && err.upstreamStatus });
     }
-
-    return new Response(JSON.stringify({
-      error: false,
-      ...result
-    }), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        ...corsHeaders
-      }
-    });
-
-  } catch (err) {
-    // Return friendly error without leaking secrets or logging audio
-    const isConfigError = err.message.includes('credentials') || err.message.includes('configured');
-    const status = isConfigError ? 503 : 502;
-    const msg = isConfigError
-      ? 'Music recognition service is temporarily unconfigured or unavailable.'
-      : `Recognition service error: ${err.message}`;
-
-    return jsonError(msg, status, corsHeaders);
   }
+
+  if (noMatch) {
+    return jsonOk({ ...noMatch, success: false, triedProviders: chain.map((p) => p.name) }, corsHeaders);
+  }
+
+  // Every provider errored. 429 upstream -> tell the client to back off; otherwise a gateway error.
+  const rateLimited = failures.some((f) => f.upstreamStatus === 429);
+  const detail = failures.map((f) => `${f.provider}: ${f.message}`).join(' | ');
+  return jsonError(
+    rateLimited
+      ? 'The recognition service is busy right now. Please try again in a few seconds.'
+      : `Recognition service error: ${detail || 'no provider available'}`,
+    rateLimited ? 429 : 502,
+    corsHeaders
+  );
 }
 
+function jsonOk(body, corsHeaders) {
+  return new Response(JSON.stringify({ error: false, ...body }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...corsHeaders }
+  });
+}

@@ -2,7 +2,7 @@
  * LyricWave Service Worker (PWA Offline & Shell Caching)
  */
 
-const CACHE_NAME = 'lyricwave-v21';
+const CACHE_NAME = 'lyricwave-v22';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -19,6 +19,8 @@ const STATIC_ASSETS = [
   './audio-reactive.js',
   './visuals.js',
   './mic.js',
+  './shazam-core.js',
+  './projectm-visualizer.js',
   './search.js',
   './lastfm.js',
   './spotify-source.js',

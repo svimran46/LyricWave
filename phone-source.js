@@ -46,8 +46,30 @@ const VIDEO_STYLE_PACKAGES = new Set([
   'com.sec.android.app.sbrowser'
 ]);
 
+// Desktop media-session ids (Windows AppUserModelIds, macOS app names, MPRIS player names).
+const DESKTOP_APP_PATTERNS = [
+  [/spotify/i, 'Spotify'],
+  [/applemusic|^music$|itunes/i, 'Apple Music'],
+  [/tidal/i, 'Tidal'],
+  [/deezer/i, 'Deezer'],
+  [/amazon/i, 'Amazon Music'],
+  [/foobar/i, 'foobar2000'],
+  [/musicbee/i, 'MusicBee'],
+  [/vlc/i, 'VLC'],
+  [/zunemusic|groove|media ?player/i, 'Media Player'],
+  [/msedge|edge/i, 'Edge'],
+  [/chrome|chromium/i, 'Chrome'],
+  [/firefox/i, 'Firefox'],
+  [/brave/i, 'Brave'],
+  [/opera/i, 'Opera']
+];
+const DESKTOP_BROWSER_RE = /chrome|chromium|msedge|firefox|brave|opera|vivaldi/i;
+
 export function appNameFor(pkg) {
-  return MUSIC_APP_NAMES[pkg] || '';
+  if (MUSIC_APP_NAMES[pkg]) return MUSIC_APP_NAMES[pkg];
+  const id = String(pkg || '');
+  for (const [re, name] of DESKTOP_APP_PATTERNS) if (re.test(id)) return name;
+  return '';
 }
 
 /**
@@ -70,7 +92,7 @@ export function cleanNowPlayingMetadata({ title = '', artist = '', package: pkg 
     .replace(/VEVO$/i, '')
     .trim();
 
-  const videoStyle = VIDEO_STYLE_PACKAGES.has(pkg) || !a;
+  const videoStyle = VIDEO_STYLE_PACKAGES.has(pkg) || DESKTOP_BROWSER_RE.test(String(pkg || '')) || !a;
   if (videoStyle) {
     const sep = t.match(/\s[-–—]\s/);
     if (sep) {
@@ -148,6 +170,7 @@ export class PhoneMediaSource {
     if (typeof window !== 'undefined' && window.__lyricwaveNowPlaying === this._pushHandler) {
       window.__lyricwaveNowPlaying = null;
     }
+    try { this._getBridge()?.stopNowPlaying?.(); } catch {}
     const hadTrack = this.currentKey !== null;
     this.currentKey = null;
     this.currentTrack = null;

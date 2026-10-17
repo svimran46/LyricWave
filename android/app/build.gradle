@@ -111,14 +111,15 @@ dependencies {
 def webAppFiles = [
     'index.html', 'privacy.html', 'styles.css', 'manifest.webmanifest',
     'app.js', 'audio-reactive.js', 'auth.js', 'config.js', 'engine.js', 'lastfm.js', 'lyrics.js',
-    'mic.js', 'phone-source.js', 'reel.js', 'search.js', 'spotify-source.js', 'translate.js', 'types.js',
-    'user-auth.js', 'visuals.js'
+    'mic.js', 'phone-source.js', 'projectm-visualizer.js', 'reel.js', 'search.js', 'shazam-core.js',
+    'spotify-source.js', 'translate.js', 'types.js', 'user-auth.js', 'visuals.js'
 ]
 
 task copyWebAssets(type: Sync) {
     from(rootDir.parentFile) {
         include webAppFiles
         include 'icons/**'
+        include 'vendor/projectm/**'
     }
     into file("${projectDir}/src/main/assets")
 }

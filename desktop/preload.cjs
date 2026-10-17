@@ -1,5 +1,26 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+// Latest OS media-session snapshot, pushed by the main process. The Android-style bridge below is
+// synchronous (getNowPlaying() returns JSON), so it answers from this cache and asks for a
+// refresh in the background.
+let nowPlayingSnap = null;
+let nowPlayingSupported = ['win32', 'darwin', 'linux'].includes(process.platform);
+ipcRenderer.on('desktop:now-playing', (_e, snap) => { nowPlayingSnap = snap; });
+function refreshNowPlaying() {
+  ipcRenderer.invoke('desktop:now-playing').then((snap) => { nowPlayingSnap = snap; }).catch(() => {});
+}
+function currentNowPlaying() {
+  refreshNowPlaying();
+  if (!nowPlayingSnap) return { access: nowPlayingSupported, active: false };
+  // Extrapolate a playing track's position from when the snapshot was taken.
+  const snap = { ...nowPlayingSnap };
+  if (snap.isPlaying && Number.isFinite(snap.positionMs) && snap.capturedAt) {
+    snap.positionMs += Math.max(0, Date.now() - snap.capturedAt);
+    if (snap.durationMs > 0) snap.positionMs = Math.min(snap.positionMs, snap.durationMs);
+  }
+  return snap;
+}
+
 // Expose Desktop API
 const desktopAPI = {
   isDesktop: true,
@@ -17,6 +38,11 @@ const desktopAPI = {
   onStateChange: (callback) => {
     ipcRenderer.on('desktop:state-changed', (_e, data) => callback(data));
   },
+  /** Identify a Shazam signature from the main process. Resolves to Shazam's raw JSON. */
+  shazamRecognize: (signature) => ipcRenderer.invoke('desktop:shazam-recognize', {
+    uri: String(signature && signature.uri || ''),
+    samplems: Number(signature && signature.samplems) || 0
+  }),
   getAppVersionInfo: () => ({
     name: 'LyricWave Desktop',
     version: '1.1.0',
@@ -33,7 +59,16 @@ contextBridge.exposeInMainWorld('LyricWaveNative', {
   setKeepScreenOn: (on) => desktopAPI.setKeepScreenOn(on),
   haptic: () => {}, // Desktop doesn't have haptic motors
   setChromeColor: () => {},
-  getAppVersionInfo: () => JSON.stringify(desktopAPI.getAppVersionInfo())
+  getAppVersionInfo: () => JSON.stringify(desktopAPI.getAppVersionInfo()),
+  // Media sessions ("Now Playing" source): same contract as the Android shell.
+  hasMediaAccess: () => {
+    const snap = currentNowPlaying();
+    return Boolean(snap.access);
+  },
+  getNowPlaying: () => JSON.stringify(currentNowPlaying()),
+  openMediaAccessSettings: () => {},
+  mediaControl: (action, positionMs) => { ipcRenderer.invoke('desktop:media-control', action, positionMs).catch(() => {}); },
+  stopNowPlaying: () => ipcRenderer.send('desktop:now-playing-stop')
 });
 
 // Inject Desktop Enhancements on DOMContentLoaded

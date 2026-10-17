@@ -1,6 +1,8 @@
-const { app, BrowserWindow, ipcMain, shell, Tray, Menu, globalShortcut, powerSaveBlocker } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Tray, Menu, globalShortcut, powerSaveBlocker, net, session, desktopCapturer } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
+const { pathToFileURL } = require('node:url');
+const { NowPlayingWatcher } = require('./now-playing.cjs');
 
 // Ensure single instance
 const gotTheLock = app.requestSingleInstanceLock();
@@ -263,8 +265,71 @@ ipcMain.on('desktop:set-keep-screen-on', (_event, on) => {
   }
 });
 
+// --- Song recognition: query Shazam straight from the main process -----------
+// The renderer fingerprints the audio (shazam-core.js) and hands over only the signature. Asking
+// Shazam from here avoids CORS and the web server hop entirely; the URL is built here, never
+// taken from the renderer.
+let shazamCore = null;
+function loadShazamCore() {
+  if (!shazamCore) shazamCore = import(pathToFileURL(path.join(__dirname, '..', 'shazam-core.js')).href);
+  return shazamCore;
+}
+
+ipcMain.handle('desktop:shazam-recognize', async (_event, signature) => {
+  const core = await loadShazamCore();
+  if (!signature || !core.isValidSignatureUri(signature.uri)) throw new Error('Invalid signature.');
+  const samplems = Math.max(0, Math.min(15000, Number(signature.samplems) || 0)) || core.samplemsFromUri(signature.uri);
+  const { url, init } = core.buildShazamRequest({ uri: signature.uri, samplems }, {
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await net.fetch(url, { ...init, signal: controller.signal });
+    if (!res.ok) throw new Error(`Shazam answered HTTP ${res.status}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+});
+
+// --- "Now Playing" from the OS media sessions (Windows SMTC / macOS / Linux MPRIS) ---
+const nowPlaying = new NowPlayingWatcher({
+  onSnapshot: (snap) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('desktop:now-playing', snap);
+  }
+});
+
+ipcMain.handle('desktop:now-playing-supported', () => NowPlayingWatcher.isSupported());
+ipcMain.handle('desktop:now-playing', () => {
+  nowPlaying.touch();
+  return nowPlaying.snapshot();
+});
+ipcMain.on('desktop:now-playing-stop', () => nowPlaying.stop());
+ipcMain.handle('desktop:media-control', (_event, action, positionMs) => {
+  if (!['play', 'pause', 'seek', 'next', 'previous'].includes(action)) return false;
+  return nowPlaying.control(action, positionMs);
+});
+
+// --- System audio for the projectM visualizer ---------------------------------
+// getDisplayMedia() in the renderer is answered with the primary screen + system audio loopback
+// (Windows; macOS 13+ on recent Electron). The renderer drops the video track at once and only
+// feeds the audio to the visualizer. Nothing is recorded.
+function setupLoopbackCapture() {
+  try {
+    session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
+      desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
+        callback(sources[0] ? { video: sources[0], audio: 'loopback' } : {});
+      }).catch(() => callback({}));
+    });
+  } catch (err) {
+    console.warn('Loopback capture unavailable:', err);
+  }
+}
+
 // App Lifecycle
 app.whenReady().then(() => {
+  setupLoopbackCapture();
   createMainWindow();
   createTray();
 
@@ -292,6 +357,7 @@ app.whenReady().then(() => {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
+  nowPlaying.stop();
   if (powerSaveId !== null && powerSaveBlocker.isStarted(powerSaveId)) {
     powerSaveBlocker.stop(powerSaveId);
   }

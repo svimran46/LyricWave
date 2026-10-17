@@ -11,8 +11,9 @@ Designed with an **OLED Lyrics Reel** aesthetic featuring a centered, bordered l
 LyricWave features a source-agnostic architecture coordinating 4 input methods:
 
 1. **🎙️ Microphone Acoustic Recognition**:
-   - Tap "Listen" to capture a 10-second room audio snippet with a live level meter and countdown.
-   - Powered by a serverless Cloudflare Pages Function using **ACRCloud** acoustic fingerprinting.
+   - Tap "Listen": recognition is tried after 4, 8 and 12 seconds of room audio and stops at the first match.
+   - The **Shazam fingerprint is computed on the device** (`shazam-core.js`, byte-identical to SongRec/shazamio, pinned by `test-shazam.js`). Only the few-KB signature is sent; the desktop app asks Shazam directly from its main process, everything else goes through `/api/recognize`, which only proxies it.
+   - `/api/recognize` walks a provider chain: Shazam (no keys), then ACRCloud / AudD when their credentials are configured. A clean "no match" is a normal 200 answer.
    - Automatic delay & RTT compensation calculates the exact playback position in the song.
    - Optional 2-minute auto re-listen and Re-sync button to catch song changes.
    - Complete hardware privacy: in-memory analysis only, audio is never logged or stored, and microphone streams are immediately closed.
@@ -30,14 +31,18 @@ LyricWave features a source-agnostic architecture coordinating 4 input methods:
    - Direct Spotify Connect integration via browser-side OAuth 2.0 PKCE.
    - Sub-second drift detection and latency compensation.
 
-5. **📼 OLED Lyrics Reel Visualizer**:
+5. **🖥️ This PC (desktop app)**: follows whatever the OS media controls show (Windows SMTC, Spotify/Music on macOS, MPRIS via `playerctl` on Linux) with the exact position, like the Android "Phone" tab.
+
+6. **🌌 projectM fullscreen visualizer**: the real libprojectM 4 (MilkDrop engine) compiled to WebAssembly + WebGL 2 (`vendor/projectm/`, rebuilt by `scripts/projectm/build.sh`) with a curated "Cream of the Crop" preset pack. It follows the beat by default, or live audio (desktop system audio / microphone) when enabled. `N` skips to the next preset.
+
+7. **📼 OLED Lyrics Reel Visualizer**:
    - 60fps canvas sine waves following song position with amplitude pulse on line changes.
    - Bordered line box that scales and fades in on line change.
    - Progressive **Word-by-Word Reveal** mode.
    - Three visual themes: **Pixel OLED** (Monochrome), **Neon**, and **Minimal**.
    - Respects `prefers-reduced-motion` and supports full-screen presentation mode.
 
-6. **📱 Progressive Web App (PWA)**:
+8. **📱 Progressive Web App (PWA)**:
    - Installable on iOS, Android, macOS, and Windows.
    - Offline shell caching with service worker fallback and cache management.
 
