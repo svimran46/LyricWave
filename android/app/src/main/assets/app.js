@@ -31,6 +31,7 @@ import { AudioReactive } from './audio-reactive.js';
 import { translateLyrics, defaultTargetLang, TRANSLATE_LANGUAGES, TranslationQuotaError } from './translate.js';
 import { BeatVisuals } from './visuals.js';
 import { LyricCardMaker } from './card.js';
+import { ProjectMVisualizer, isProjectMSupported } from './projectm-visualizer.js';
 import { signUp, logIn, logOut, getCurrentUser, updateUserPreferences, deleteCurrentAccount } from './user-auth.js';
 
 // DOM Elements: Navigation Tabs
@@ -76,7 +77,6 @@ const btnCloseShortcuts = document.getElementById('btnCloseShortcuts');
 const btnDoneShortcuts = document.getElementById('btnDoneShortcuts');
 
 // DOM Elements: Mobile Bottom Sheet Drag Handle
-const settingsDragHandle = document.getElementById('settingsDragHandle');
 const settingsDialog = document.getElementById('settingsDialog');
 
 // DOM Elements: Toasts & Header
@@ -336,6 +336,9 @@ const IS_NATIVE_APP = typeof window !== 'undefined' && (
   window.location.hostname === 'appassets.androidplatform.net' ||
   /LyricWaveNativeApp/.test(navigator.userAgent || '')
 );
+
+/** True inside the Electron desktop app (desktop/preload.cjs exposes this bridge). */
+const IS_DESKTOP_APP = typeof window !== 'undefined' && Boolean(window.LyricWaveDesktop && window.LyricWaveDesktop.isDesktop);
 
 /**
  * Keep-screen-on while lyrics play. The Screen Wake Lock API is unavailable in Android
@@ -637,6 +640,27 @@ const beatVisuals = fsVisualsCanvas
   ? new BeatVisuals(fsVisualsCanvas, reelContainer, { minFrameIntervalMs: reel.minFrameIntervalMs })
   : null;
 
+// Fullscreen projectM (MilkDrop) visualizer: WASM + WebGL 2, loaded the first time fullscreen opens.
+const STORAGE_VISUALIZER_KEY = 'lyricwave_visualizer';
+const STORAGE_VISUALIZER_LIVE_KEY = 'lyricwave_visualizer_live';
+const projectmCanvas = document.getElementById('projectmCanvas');
+const btnProjectMNext = document.getElementById('btnProjectMNext');
+const projectmPresetName = document.getElementById('projectmPresetName');
+let visualizerMode = localStorage.getItem(STORAGE_VISUALIZER_KEY) || 'projectm';
+let visualizerLive = localStorage.getItem(STORAGE_VISUALIZER_LIVE_KEY) === 'true';
+let projectmSupported = null; // probed lazily (creates a throwaway WebGL 2 context)
+let projectmSession = 0;
+let presetNameTimer = null;
+const projectm = projectmCanvas ? new ProjectMVisualizer(projectmCanvas, {
+  onPresetChange: (name) => {
+    if (!projectmPresetName) return;
+    projectmPresetName.textContent = name;
+    btnProjectMNext?.classList.add('show-name');
+    clearTimeout(presetNameTimer);
+    presetNameTimer = setTimeout(() => btnProjectMNext?.classList.remove('show-name'), 3500);
+  }
+}) : null;
+
 // Stage / mini player state
 let stageOpen = false;          // the full-screen Now Playing stage is showing
 let hasTrack = false;           // the engine has a current track (mini player or stage visible)
@@ -727,13 +751,15 @@ function updateStageTick(tick) {
   }
   const reelState = reel.render(tick.effectiveMs, tick.isPlaying);
   applyReelState(reelState, tick.effectiveMs);
-  if (beatVisuals?.active) {
+  const projectmOn = Boolean(projectm?.active && projectm.ready);
+  if (beatVisuals?.active || projectmOn) {
     // 'pulse' already pulled this tick's beat frame; other styles don't read it, so pull it here.
     let frame = reelState;
     if (reelState.animationStyle !== 'pulse') {
       try { frame = audioReactive.getFrame(tick.effectiveMs); } catch { frame = null; }
     }
-    beatVisuals.render(frame, performance.now());
+    if (beatVisuals?.active) beatVisuals.render(frame, performance.now());
+    if (projectmOn) projectm.render(frame, tick.isPlaying);
   }
 }
 
@@ -2204,8 +2230,10 @@ if (savedLastFm) {
 }
 
 // =====================================================================
-// Input Source 5: Phone media sessions (Android app only)
-// Follows Spotify / YouTube Music / Apple Music etc. playing on this phone.
+// Input Source 5: Media sessions — Android app ("Phone") and desktop app ("This PC")
+// Follows Spotify / YouTube Music / Apple Music etc. playing on this device.
+// On desktop the OS media sessions are read by desktop/now-playing.cjs (Windows SMTC,
+// macOS Spotify/Music, Linux MPRIS) through the same bridge contract.
 // =====================================================================
 
 const tabPhone = document.getElementById('tabPhone');
@@ -2215,7 +2243,7 @@ const phoneStatusTitle = document.getElementById('phoneStatusTitle');
 const phoneStatusText = document.getElementById('phoneStatusText');
 const phoneStatusDot = document.getElementById('phoneStatusDot');
 const phoneRestrictedHint = document.getElementById('phoneRestrictedHint');
-const PHONE_AVAILABLE = IS_NATIVE_APP && PhoneMediaSource.isAvailable();
+const PHONE_AVAILABLE = (IS_NATIVE_APP || IS_DESKTOP_APP) && PhoneMediaSource.isAvailable();
 let phoneGrantRequested = false;
 
 const phoneSource = new PhoneMediaSource({
@@ -2232,7 +2260,9 @@ function updatePhoneStatus(st = {}) {
     phoneStatusDot?.classList.toggle('paused', !st.isPlaying);
   } else {
     phoneStatusTitle.textContent = 'Waiting for music…';
-    phoneStatusText.textContent = 'Play a song in any music app.';
+    phoneStatusText.textContent = IS_DESKTOP_APP
+      ? 'Play a song in Spotify, Apple Music, a browser or any media player.'
+      : 'Play a song in any music app.';
     phoneStatusDot?.classList.add('paused');
   }
 }
@@ -2252,8 +2282,33 @@ function refreshPhonePanel() {
   }
 }
 
+/** Desktop wording for the shared Phone panel: no Android permission involved. */
+function adaptPhonePanelForDesktop() {
+  const label = tabPhone?.querySelector('.tab-label');
+  if (label) label.textContent = 'This PC';
+  tabPhone?.querySelector('use')?.setAttribute('href', '#i-monitor');
+  document.getElementById('panelPhone')?.setAttribute('aria-label', 'Music playing on this computer');
+  const desc = phoneOnboarding?.querySelector('.lastfm-desc');
+  if (desc) {
+    desc.textContent = window.LyricWaveDesktop?.platform === 'linux'
+      ? 'LyricWave follows desktop players through MPRIS. Install "playerctl" (e.g. sudo apt install playerctl), then come back to this tab.'
+      : 'LyricWave could not read the media sessions of this computer.';
+  }
+  phoneOnboarding?.querySelector('.bullet-list')?.classList.add('hidden');
+  document.getElementById('btnPhoneGrant')?.classList.add('hidden');
+  const hint = phoneStatusView?.querySelector('.lastfm-desc');
+  if (hint) {
+    hint.textContent = 'Follows Spotify, Apple Music, YouTube or any player that shows up in your system media controls, with its exact position. Nothing is recorded.';
+  }
+}
+
 if (PHONE_AVAILABLE) {
   tabPhone?.classList.remove('hidden');
+  if (IS_DESKTOP_APP) {
+    adaptPhonePanelForDesktop();
+    // The first snapshot arrives asynchronously from the main process; re-check access then.
+    setTimeout(refreshPhonePanel, 1500);
+  }
 
   document.getElementById('btnPhoneGrant')?.addEventListener('click', () => {
     phoneGrantRequested = true;
@@ -3335,10 +3390,15 @@ function trapFocus(modalElement, event) {
 
 let settingsOpener = null;
 
+let settingsCloseTimer = null;
+
 function openSettings() {
   settingsOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-  settingsBackdrop.classList.remove('hidden');
+  clearTimeout(settingsCloseTimer);
+  settingsBackdrop.classList.remove('hidden', 'is-closing');
   settingsBackdrop.setAttribute('aria-hidden', 'false');
+  btnOpenSettings?.setAttribute('aria-expanded', 'true');
+  syncDrawerNav();
   // Focus the close button or first actionable element
   setTimeout(() => {
     btnCloseSettings?.focus();
@@ -3346,8 +3406,18 @@ function openSettings() {
 }
 
 function closeSettings() {
-  settingsBackdrop.classList.add('hidden');
+  if (settingsBackdrop.classList.contains('hidden')) return;
+  btnOpenSettings?.setAttribute('aria-expanded', 'false');
   settingsBackdrop.setAttribute('aria-hidden', 'true');
+  // Slide the sidebar out, then hide it (instant with reduced motion).
+  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  settingsBackdrop.classList.add('is-closing');
+  settingsDialog.style.transform = '';
+  clearTimeout(settingsCloseTimer);
+  settingsCloseTimer = setTimeout(() => {
+    settingsBackdrop.classList.add('hidden');
+    settingsBackdrop.classList.remove('is-closing');
+  }, reduce ? 0 : 200);
   // Return focus to whatever opened the dialog; the header gear when that is gone (or inert behind the stage).
   const opener = settingsOpener;
   settingsOpener = null;
@@ -3432,31 +3502,75 @@ if (shortcutsBackdrop) {
   });
 }
 
-// Mobile Bottom-Sheet Drag Handle Swipe-down Gesture to Dismiss
-if (settingsDragHandle && settingsDialog) {
-  let touchStartY = 0;
-  let touchCurrentY = 0;
+// Sidebar navigation: jump to a source tab or the account dialog.
+function syncDrawerNav() {
+  document.querySelectorAll('.drawer-nav-item[data-drawer-tab]').forEach((item) => {
+    const tab = document.querySelector(`.source-tab[data-tab="${item.dataset.drawerTab}"]`);
+    const visible = Boolean(tab && !tab.classList.contains('hidden'));
+    item.classList.toggle('hidden', !visible);
+    item.classList.toggle('active', item.dataset.drawerTab === activeTab);
+    item.setAttribute('aria-current', item.dataset.drawerTab === activeTab ? 'page' : 'false');
+    const label = tab?.querySelector('.tab-label')?.textContent;
+    const use = tab?.querySelector('use')?.getAttribute('href');
+    if (label) item.querySelector('.drawer-nav-label').textContent = label;
+    if (use) item.querySelector('use')?.setAttribute('href', use);
+  });
+}
 
-  settingsDragHandle.addEventListener('touchstart', (e) => {
-    touchStartY = e.touches[0].clientY;
+document.getElementById('drawerNav')?.addEventListener('click', (e) => {
+  const item = e.target.closest('.drawer-nav-item');
+  if (!item) return;
+  settingsOpener = null;
+  closeSettings();
+  if (item.dataset.drawerTab) {
+    if (stageOpen) closeStage({ restoreFocus: false, userInitiated: true });
+    document.querySelector(`.source-tab[data-tab="${item.dataset.drawerTab}"]`)?.click();
+  } else if (item.dataset.drawerAction === 'account') {
+    document.getElementById('btnOpenAuth')?.click();
+  }
+});
+
+// Swipe the sidebar back to the left to dismiss it (touch).
+if (settingsDialog) {
+  let startX = 0;
+  let startY = 0;
+  let dx = 0;
+  let tracking = false;
+
+  settingsDialog.addEventListener('touchstart', (e) => {
+    // Sliders, selects and horizontally scrolling rows own their horizontal drags.
+    tracking = !e.target.closest('input, select, textarea, [data-no-drawer-swipe]');
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    dx = 0;
+    if (tracking) settingsDialog.style.transition = 'none';
   }, { passive: true });
 
-  settingsDragHandle.addEventListener('touchmove', (e) => {
-    touchCurrentY = e.touches[0].clientY;
-    const deltaY = touchCurrentY - touchStartY;
-    if (deltaY > 0) {
-      settingsDialog.style.transform = `translateY(${deltaY}px)`;
+  settingsDialog.addEventListener('touchmove', (e) => {
+    if (!tracking) return;
+    const moveX = e.touches[0].clientX - startX;
+    const moveY = e.touches[0].clientY - startY;
+    // Vertical scrolling wins; only a mostly-horizontal leftward drag moves the drawer.
+    if (Math.abs(moveY) > Math.abs(moveX) && dx === 0) {
+      tracking = false;
+      settingsDialog.style.transition = '';
+      return;
     }
+    dx = Math.min(0, moveX);
+    settingsDialog.style.transform = dx ? `translateX(${dx}px)` : '';
   }, { passive: true });
 
-  settingsDragHandle.addEventListener('touchend', () => {
-    const deltaY = touchCurrentY - touchStartY;
-    settingsDialog.style.transform = '';
-    if (deltaY > 60) {
+  settingsDialog.addEventListener('touchend', () => {
+    settingsDialog.style.transition = '';
+    if (!tracking) return;
+    tracking = false;
+    const width = settingsDialog.offsetWidth || 320;
+    if (dx < -Math.min(90, width * 0.3)) {
       closeSettings();
+    } else {
+      settingsDialog.style.transform = '';
     }
-    touchStartY = 0;
-    touchCurrentY = 0;
+    dx = 0;
   });
 }
 
@@ -3532,6 +3646,13 @@ window.addEventListener('keydown', (e) => {
   if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey && !e.altKey) {
     e.preventDefault();
     toggleFullscreen();
+    return;
+  }
+
+  // 'N' or 'n': next projectM preset while it runs fullscreen
+  if ((e.key === 'n' || e.key === 'N') && !e.ctrlKey && !e.metaKey && !e.altKey && projectm?.active && projectm.ready) {
+    e.preventDefault();
+    projectm.nextPreset(true);
     return;
   }
 
@@ -3628,6 +3749,70 @@ document.addEventListener('fullscreenchange', () => {
   onReelFullscreenChange();
 });
 
+/**
+ * Start/stop projectM with fullscreen. Shows its canvas only once the WASM module is running, so
+ * the classic beat visuals stay up while it loads (or if this device can't run it).
+ */
+async function syncProjectM(isFs = isReelFullscreen()) {
+  if (!projectm) return;
+  const session = ++projectmSession;
+  const want = isFs && visualizerMode === 'projectm';
+  if (want && projectmSupported === null) projectmSupported = isProjectMSupported();
+  if (!want || !projectmSupported) {
+    projectm.setActive(false);
+    projectm.releaseLiveStream();
+    delete reelContainer.dataset.visualizer;
+    btnProjectMNext?.classList.add('hidden');
+    return;
+  }
+  const ok = await projectm.setActive(true);
+  if (session !== projectmSession) return;
+  if (!ok) {
+    delete reelContainer.dataset.visualizer;
+    return;
+  }
+  reelContainer.dataset.visualizer = 'projectm';
+  btnProjectMNext?.classList.remove('hidden');
+  if (visualizerLive && !projectm.hasLiveAudio) {
+    const stream = await openVisualizerAudio();
+    if (session !== projectmSession || !projectm.active) {
+      stream?.getTracks().forEach((t) => t.stop());
+      return;
+    }
+    if (stream) projectm.setLiveStream(stream);
+  }
+}
+
+/**
+ * Live audio for projectM: system audio in the desktop app (loopback, answered by the main
+ * process), the microphone elsewhere. Resolves null when unavailable or refused.
+ */
+async function openVisualizerAudio() {
+  try {
+    if (IS_DESKTOP_APP && navigator.mediaDevices?.getDisplayMedia) {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
+      stream.getVideoTracks().forEach((t) => { t.stop(); stream.removeTrack(t); });
+      if (stream.getAudioTracks().length) return stream;
+    }
+    if (navigator.mediaDevices?.getUserMedia) {
+      return await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+      });
+    }
+  } catch (err) {
+    console.warn('Visualizer audio unavailable:', err);
+    showAlert(IS_DESKTOP_APP
+      ? 'Could not capture system audio; projectM follows the beat instead.'
+      : 'Microphone unavailable; projectM follows the beat instead.', 'info');
+  }
+  return null;
+}
+
+btnProjectMNext?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  projectm?.nextPreset(true);
+});
+
 function onReelFullscreenChange() {
   const isFs = isReelFullscreen();
   document.body.classList.toggle('fullscreen-reel-mode', isFs);
@@ -3636,6 +3821,7 @@ function onReelFullscreenChange() {
   resetCursorIdleTimer();
   reel.resizeCanvas();
   beatVisuals?.setActive(isFs);
+  syncProjectM(isFs);
   syncAudioReactive();
 
   if (isFs || (engine && engine.isPlaying)) {
@@ -3690,6 +3876,37 @@ if (settingHaptics) {
     if (hapticsEnabled) haptic('confirm'); // let the user feel what they just turned on
   });
 }
+// Fullscreen visualizer: projectM (default) or the classic canvas beat visuals.
+const settingVisualizer = document.getElementById('settingVisualizer');
+const settingVisualizerLive = document.getElementById('settingVisualizerLive');
+const lblVisualizerLive = document.getElementById('lblVisualizerLive');
+function setVisualizerMode(mode) {
+  visualizerMode = mode === 'classic' ? 'classic' : 'projectm';
+  safeSet(STORAGE_VISUALIZER_KEY, visualizerMode);
+  if (settingVisualizer) settingVisualizer.value = visualizerMode;
+  document.getElementById('rowVisualizerLive')?.classList.toggle('hidden', visualizerMode !== 'projectm');
+  syncProjectM();
+}
+function setVisualizerLive(on) {
+  visualizerLive = Boolean(on);
+  safeSet(STORAGE_VISUALIZER_LIVE_KEY, visualizerLive ? 'true' : 'false');
+  if (settingVisualizerLive) settingVisualizerLive.checked = visualizerLive;
+  if (!visualizerLive) projectm?.releaseLiveStream();
+  syncProjectM();
+}
+if (lblVisualizerLive) {
+  lblVisualizerLive.textContent = IS_DESKTOP_APP ? 'projectM reacts to system audio' : 'projectM listens through the mic';
+}
+if (settingVisualizer) {
+  settingVisualizer.value = visualizerMode;
+  document.getElementById('rowVisualizerLive')?.classList.toggle('hidden', visualizerMode !== 'projectm');
+  settingVisualizer.addEventListener('change', (e) => setVisualizerMode(e.target.value));
+}
+if (settingVisualizerLive) {
+  settingVisualizerLive.checked = visualizerLive;
+  settingVisualizerLive.addEventListener('change', (e) => setVisualizerLive(e.target.checked));
+}
+
 if (settingOffsetSlider) {
   settingOffsetSlider.addEventListener('input', (e) => setOffset(parseInt(e.target.value, 10)));
 }
@@ -3795,6 +4012,8 @@ if (btnResetDefaults) {
     hapticsEnabled = true;
     safeSet(STORAGE_HAPTICS_KEY, 'true');
     if (settingHaptics) settingHaptics.checked = true;
+    setVisualizerLive(false);
+    setVisualizerMode('projectm');
 
     // 5. Turn off debug diagnostics
     if (settingDebugMode) {

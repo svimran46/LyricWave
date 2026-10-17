@@ -9774,7 +9774,8 @@ body.stage-open .toast-region {
   font-size: calc(1.45rem * var(--lyrics-font-scale));
 }
 
-/* ===================================================================
+/* ============================================================
+
    Lyrics card maker (card.js): preview + line picker + style / size
    =================================================================== */
 .modal-dialog.lyric-card-dialog {
@@ -9908,4 +9909,275 @@ body.stage-open .toast-region {
   .lyric-card-lines {
     max-height: 260px;
   }
+}
+=======
+/* =====================================================================
+   Hamburger sidebar: settings + navigation slide in from the left on every
+   screen size (replaces the full-screen sheet on phones and the right-hand
+   drawer on desktop). Specificity (2 ids) beats the older per-breakpoint rules.
+   ===================================================================== */
+.btn-hamburger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin-right: var(--space-1, 4px);
+  padding: 0;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--fill-1);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.btn-hamburger:hover {
+  background: var(--fill-2);
+  border-color: var(--border-highlight);
+}
+
+.btn-hamburger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.btn-hamburger[aria-expanded="true"] {
+  border-color: var(--accent);
+}
+
+#settingsBackdrop.modal-backdrop.settings-drawer {
+  background: var(--scrim);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  pointer-events: auto;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0;
+  animation: fadeOnly var(--dur-base, 200ms) linear;
+}
+
+#settingsBackdrop.settings-drawer #settingsDialog.modal-dialog {
+  pointer-events: auto;
+  width: min(86vw, 380px);
+  max-width: 380px;
+  height: 100%;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  border: 1px solid var(--border-highlight);
+  border-left: none;
+  box-shadow: 16px 0 48px rgba(0, 0, 0, 0.6);
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  animation: drawerSlideFromLeft 240ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 160ms ease-out;
+  will-change: transform;
+}
+
+#settingsBackdrop.settings-drawer #settingsDialog .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+#settingsBackdrop.settings-drawer .modal-drag-handle {
+  display: none;
+}
+
+#settingsBackdrop.settings-drawer.is-closing {
+  animation: drawerScrimOut 200ms linear forwards;
+}
+
+#settingsBackdrop.settings-drawer.is-closing #settingsDialog.modal-dialog {
+  animation: drawerSlideToLeft 200ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+@keyframes drawerSlideFromLeft {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes drawerSlideToLeft {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+@keyframes drawerScrimOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* The desktop app's frameless title bar sits above the drawer's header */
+.is-desktop #settingsBackdrop.settings-drawer #settingsDialog.modal-dialog {
+  padding-top: 8px;
+}
+
+.drawer-nav-group {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-1, 4px);
+}
+
+.drawer-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3, 12px);
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--space-3, 12px);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.drawer-nav-item .icon {
+  color: var(--text-muted);
+}
+
+.drawer-nav-item:hover {
+  background: var(--fill-1);
+}
+
+.drawer-nav-item.active {
+  background: var(--fill-2);
+  color: var(--accent);
+}
+
+.drawer-nav-item.active .icon {
+  color: var(--accent);
+}
+
+.drawer-nav-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #settingsBackdrop.settings-drawer #settingsDialog.modal-dialog,
+  #settingsBackdrop.settings-drawer.is-closing,
+  #settingsBackdrop.settings-drawer.is-closing #settingsDialog.modal-dialog {
+    animation: none !important;
+    transition: none;
+  }
+}
+
+/* =====================================================================
+   projectM (MilkDrop) fullscreen visualizer
+   ===================================================================== */
+.projectm-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  display: none;
+  background: #000;
+}
+
+.reel-container[data-visualizer="projectm"]:fullscreen .projectm-canvas,
+.reel-container[data-visualizer="projectm"].is-pseudo-fs .projectm-canvas {
+  display: block;
+}
+
+/* projectM replaces the bloom/particles layer; the laser border keeps pulsing. */
+.reel-container[data-visualizer="projectm"]:fullscreen .fs-visuals-canvas,
+.reel-container[data-visualizer="projectm"].is-pseudo-fs .fs-visuals-canvas {
+  display: none;
+}
+
+/* Keep the sine waves as a faint accent so the preset stays the star. */
+.reel-container[data-visualizer="projectm"]:fullscreen .reel-canvas,
+.reel-container[data-visualizer="projectm"].is-pseudo-fs .reel-canvas {
+  opacity: 0.35;
+}
+
+/* Lyrics stay readable on bright presets, whatever the theme: light text on a dark glass box. */
+.reel-container[data-visualizer="projectm"]:fullscreen,
+.reel-container[data-visualizer="projectm"].is-pseudo-fs {
+  --reel-text-color: #ffffff;
+  --reel-word-unrevealed: rgba(255, 255, 255, 0.55);
+  --reel-word-revealed: #ffffff;
+  --lyric-active: #ffffff;
+  --lyric-dim: rgba(255, 255, 255, 0.6);
+}
+
+.reel-container[data-visualizer="projectm"]:fullscreen .reel-line-box,
+.reel-container[data-visualizer="projectm"].is-pseudo-fs .reel-line-box {
+  background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.reel-container[data-visualizer="projectm"]:fullscreen .reel-line-box,
+.reel-container[data-visualizer="projectm"]:fullscreen .reel-ambient-line,
+.reel-container[data-visualizer="projectm"].is-pseudo-fs .reel-line-box,
+.reel-container[data-visualizer="projectm"].is-pseudo-fs .reel-ambient-line {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 12px rgba(0, 0, 0, 0.6);
+}
+
+.reel-fs-preset {
+  position: absolute;
+  top: calc(var(--space-3) + var(--safe-t, 0px));
+  right: calc(var(--space-3) + var(--safe-r, 0px) + var(--tap, 44px) + var(--space-2, 8px));
+  z-index: 20;
+  display: none;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  height: var(--tap, 44px);
+  min-width: var(--tap, 44px);
+  max-width: min(60vw, 420px);
+  padding: 0 var(--space-3, 12px);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-highlight);
+  border-radius: 999px;
+  color: var(--text);
+  box-shadow: var(--shadow-2);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--fs-xs);
+}
+
+.reel-container:fullscreen .reel-fs-preset:not(.hidden),
+.reel-container.is-pseudo-fs .reel-fs-preset:not(.hidden) {
+  display: inline-flex;
+}
+
+.reel-fs-preset-name {
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transition: max-width 300ms var(--ease-out, ease-out), opacity 200ms linear;
+}
+
+.reel-fs-preset.show-name .reel-fs-preset-name,
+.reel-fs-preset:hover .reel-fs-preset-name,
+.reel-fs-preset:focus-visible .reel-fs-preset-name {
+  max-width: 340px;
+  opacity: 0.85;
+}
+
+.reel-fs-preset:active {
+  transform: scale(0.95);
+}
+
+.reel-fs-preset:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
